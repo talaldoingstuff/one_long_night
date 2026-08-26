@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rainbowed — audio lab</title>
+<style>
+  :root{--bg:#0a0a14;--panel:#141a30;--line:#2a3358;--ink:#e8eaf4;--dim:#8a93b8;--hot:#ffd60a;--bad:#ff3b6b;--ok:#3ad35f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:24px 20px 80px}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:26px 0 6px;font-weight:600}
+  p.note{color:var(--dim);margin:0 0 14px;max-width:80ch}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+  .row{display:flex;align-items:center;gap:12px;margin:9px 0}
+  .row label{width:120px;color:var(--dim);flex:none}
+  input[type=range]{flex:1;accent-color:#b45cff}
+  .val{width:58px;text-align:right;color:var(--hot)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+  button{background:#1d2647;color:var(--ink);border:1px solid var(--line);border-radius:6px;
+         padding:10px 12px;font:inherit;cursor:pointer;text-align:left;width:100%}
+  button:hover{border-color:#4d5c9e;background:#243059}
+  button.on{background:#3a2a6b;border-color:#b45cff;color:#fff}
+  button b{display:block;font-size:13px;margin-bottom:2px}
+  button small{color:var(--dim);font-size:11px;display:block}
+  button.lock{border-color:var(--ok)} button.lock b:after{content:' ✓';color:var(--ok)}
+  pre{background:#080b16;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto;color:#9ad;margin:0}
+  .bar{height:5px;background:#080b16;border-radius:3px;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ad35f,#ffd60a,#ff3b6b)}
+  .now{color:var(--hot);font-size:12px;margin:10px 0 0;min-height:18px}
+  .locked{color:var(--ok)}
+  table{border-collapse:collapse;width:100%}
+  td{padding:7px 8px;border-bottom:1px solid #1e2542;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  td.n{width:96px;color:var(--ink)}
+  td.d{color:var(--dim);font-size:12px}
+  td.r{width:130px;color:var(--dim);font-size:12px;text-align:right}
+  td.s{width:60px}
+  input[type=checkbox]{width:17px;height:17px;accent-color:#b45cff;cursor:pointer}
+  .mini{padding:4px 8px;font-size:12px;width:auto;display:inline-block}
+  .big{font-size:15px;padding:14px}
+</style>
+</head>
+<body>
+
+<h1>Rainbowed — audio lab</h1>
+<p class="note">
+  Round 9. Music is settled: <b>bass, hat, melody</b>. No kick, no snare, no counter-line.
+  The melody cutting off was real — every note used one fixed envelope regardless of its written
+  length, so the two four-step notes ended 0.18s early. The second of those closes the bar, which is
+  why it read as a hole in the loop. Notes now last as long as they are written for; the old
+  behaviour is still selectable so you can confirm that was it.
+</p>
+
+<h2>Levels</h2>
+<div class="panel">
+  <div class="row"><label>master</label><input type="range" id="vM" min="0" max="1" step="0.01" value="0.75"><span class="val" id="vMv"></span></div>
+  <div class="row"><label>music bus</label><input type="range" id="vB" min="0" max="1" step="0.01" value="0.6"><span class="val" id="vBv"></span></div>
+  <div class="row"><label>sfx bus</label><input type="range" id="vS" min="0" max="1" step="0.01" value="0.95"><span class="val" id="vSv"></span></div>
+  <div class="bar"><i id="meter"></i></div>
+</div>
+
+<h2>Simulated game state</h2>
+<div class="panel">
+  <div class="row"><label>speed</label><input type="range" id="sp" min="1" max="3" step="0.05" value="1"><span class="val" id="spv"></span></div>
+  <div class="row"><label>unicorns</label><input type="range" id="un" min="0" max="80" step="1" value="0"><span class="val" id="unv"></span></div>
+</div>
+
+<h2>Prism — layer isolation</h2>
+<div class="panel">
+  <button id="play" class="big"><b id="playLabel">▶ Play Prism</b><small>toggle layers below while it runs</small></button>
+  <p class="now" id="now"></p>
+  <table id="layers"></table>
+  <div id="sel"></div>
+  <div style="margin-top:10px">
+    <button class="mini" id="all">all on</button>
+    <button class="mini" id="none">all off</button>
+    <button class="mini" id="tonal">bass + melody only</button>
+  </div>
+</div>
+<p class="note" style="margin-top:12px">
+  These are every sound the music makes — there is nothing else in there. Whichever one you land on,
+  tell me its name and whether you want it <b>gone</b>, <b>quieter</b>, or <b>less frequent</b>;
+  each is a different fix.
+</p>
+
+<h2>Settled — reference</h2>
+<div class="grid" id="sfxLock"></div>
+
+<script>
+let X, lastPeak = 0, lastName = '(none)';
+const R = 44100;
+
+const zzfxG = (q=1,k=.05,c=220,e=0,t=0,u=.1,r=0,F=1,v=0,z=0,w=0,A=0,l=0,B=0,x=0,G=0,d=0,y=1,m=0,C=0) => {
+  let b=2*Math.PI, H=v*=500*b/R**2, D=c*=(1+2*k*Math.random()-k)*b/R,
+      Z=[], h, g=0, E=0, a=0, n=1, J=0, K=0, f=0, p;
+  e=99+R*e; m*=R; t*=R; u*=R; d*=R; z*=500*b/R**3; x*=b/R; w*=b/R; A*=R; l=R*l|0;
+  for (h=e+m+t+u+d|0; a<h; Z[a++]=f)
+    ++K%(100*G|0) || (
+      f = r ? 1<r ? 2<r ? 3<r ? Math.sin((g%b)**3)
+            : Math.max(Math.min(Math.tan(g),1),-1)
+            : 1-(2*g/b%2+2)%2
+            : 1-4*Math.abs(Math.round(g/b)-g/b)
+          : Math.sin(g),
+      f = (l?1-C+C*Math.sin(2*Math.PI*a/l):1)*(0<f?1:-1)*Math.abs(f)**F*q*
+          (a<e?a/e:a<e+m?1-(a-e)/m*(1-y):a<e+m+t?y:a<h-d?(h-a-d)/u*y:0),
+      f = d ? f/2+(d>a?0:(a<h-d?1:(h-a)/d)*Z[a-d|0]/2) : f
+    ),
+    p=(c+=v+=z)*Math.cos(x*E++),
+    g+=p+p*B*Math.sin(a**5),
+    n&&++n>A&&(c+=w,D+=w,n=0),
+    !l||++J%l||(c=D,v=H,n=n||1);
+  return Z;
+};
+
+const P = (o) => [o.vol ?? 1, o.rnd ?? .02, o.f ?? 220, o.att ?? 0, o.sus ?? 0, o.rel ?? .1,
+  o.shape ?? 0, o.curve ?? 1, o.slide ?? 0, o.dslide ?? 0, o.pj ?? 0, o.pjt ?? 0, o.rep ?? 0,
+  o.noise ?? 0, o.mod ?? 0, o.crush ?? 0, o.delay ?? 0, o.susv ?? 1, o.dec ?? 0, o.trem ?? 0];
+
+const peakOf = (d) => { let p = 0; for (const s of d) { const a = s < 0 ? -s : s; if (a > p) p = a; } return p; };
+const hzOf = (d) => { let c = 0; for (let i = 1; i < d.length; i++) if ((d[i-1] < 0) !== (d[i] < 0)) c++; return c / 2 / (d.length / R); };
+
+const play = (params, bus) => {
+  X = X || new AudioContext();
+  const p = params.slice();
+  p[0] = (p[0] ?? 1) * (+vM.value) * bus;
+  const d = zzfxG(...p);
+  lastPeak = peakOf(d);
+  meter.style.width = Math.min(100, lastPeak * 100) + '%';
+  meter.style.background = lastPeak > 1 ? '#ff3b6b' : '';
+  const src = X.createBufferSource(), buf = X.createBuffer(1, d.length, R);
+  buf.getChannelData(0).set(d);
+  src.buffer = buf; src.connect(X.destination); src.start();
+};
+const S = (p) => play(p, +vS.value);
+const Sseq = (seq) => seq.forEach(([p, ms]) => setTimeout(() => S(p), ms));
+
+const F = (semi, base = 220) => base * 2 ** (semi / 12);
+const MAJ = [0,2,4,5,7,9,11], MIN = [0,2,3,5,7,8,10];
+const sdeg = (sc, d) => sc[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
+const key = () => Math.min(12, (+un.value / 7) | 0);
+const spd = () => +sp.value;
+const PR = [{r:0,m:1},{r:10,m:0},{r:8,m:0},{r:10,m:0},{r:0,m:1},{r:8,m:0},{r:3,m:0},{r:7,m:0}];
+const nOf = (ch, d) => ch.r + sdeg(ch.m ? MIN : MAJ, d) + key();
+const MOTIF = [[4,2],[3,1],[2,1],[4,4],[7,2],[4,2],[2,4]];
+
+// Every sound the music makes, one entry each. `on` is the mute state, `emit` is
+// exactly the call the game makes for that layer.
+const LAYERS = [
+  { id:'bass',   on:true, when:'every beat', hz:'see selector below',
+    desc:'bass note on the chord root. Timbre and level chosen by the selector under the table.',
+    step:(i,ch)=> i%4===0 && play(BASSES[bassPick].mk(F(nOf(ch,0),55)), +vB.value) },
+  { id:'hat',    on:true, when:'EVERY 16th', hz:'7500 Hz noise',
+    desc:'the fastest layer — fires on every single step, alternating loud/soft.',
+    step:(i,ch)=> play(P({vol:i%2?.07:.14,f:7500,sus:.004,rel:.03,shape:4,curve:1.8}), +vB.value) },
+  { id:'melody', on:true, when:'the motif', hz:'triangle, 440 Hz register',
+    desc:'the tune itself.',
+    step:(i,ch,m)=> m.tick((d,dur)=> {
+      const e = LENS[lenPick].fn(dur * stepSecs);
+      play(P({vol:.55,f:F(nOf(ch,d),440),att:e.att,sus:e.sus,rel:e.rel,shape:1,curve:1.5,delay:.13,trem:.06}), +vB.value);
+    }) },
+];
+
+// --- the two judgement calls, as A/B ---------------------------------------
+const BASSES = [
+  { n:'triangle, quiet (now in the game)', d:'shape 1, vol .45 - your pick',
+    mk:(f)=>P({vol:.45,f,att:.01,sus:.07,rel:.22,shape:1,curve:1.2}) },
+  { n:'sine sub, quiet',                   d:'shape 0, warmer still',
+    mk:(f)=>P({vol:.45,f,att:.01,sus:.07,rel:.22,curve:1.2}) },
+  { n:'sine, quieter still',               d:'vol .3, if it is still too present',
+    mk:(f)=>P({vol:.3,f,att:.015,sus:.08,rel:.26,curve:1.2}) },
+  { n:'sawtooth, quiet',                   d:'old timbre at the new level - is the saw itself the problem?',
+    mk:(f)=>P({vol:.45,f,att:.004,sus:.06,rel:.19,shape:2,curve:1.1}) },
+  { n:'sawtooth, old (was in the game)',   d:'the synthetic one, for reference',
+    mk:(f)=>P({vol:.75,f,att:.004,sus:.06,rel:.19,shape:2,curve:1.1}) },
+];
+let bassPick = 0;
+
+const VARIS = [
+  { n:'no inversion (now in the game)', d:'the motif transposes onto each chord, nothing else',
+    fn:(d)=>d },
+  { n:'inverted every 4th phrase',      d:'what you disliked, for reference',
+    fn:(d,p)=> p%4===3 ? -d : d },
+  { n:'tonal inversion around the 5th', d:'mirrors the shape but stays in register and in key',
+    fn:(d,p)=> p%4===3 ? 8-d : d },
+  { n:'4th phrase up a third',          d:'a sequence instead of an inversion',
+    fn:(d,p)=> p%4===3 ? d+2 : d },
+];
+let variPick = 0;
+
+// How long a note sounds for. The bug: one fixed envelope for every note, so a
+// four-step note died 0.18s before its slot ended.
+const LENS = [
+  { n:'staccato (now in the game)',       d:'clipped to 60% of the slot - your pick',
+    fn:(L)=>({att:.004, sus:L*.25, rel:L*.35}) },
+  { n:'written length',                   d:'sustain and release fill 95% of the slot',
+    fn:(L)=>({att:.005, sus:L*.45, rel:L*.5}) },
+  { n:'fixed 0.295s (the old bug)',       d:'what you heard cutting off',
+    fn:()=>({att:.005, sus:.05, rel:.24}) },
+  { n:'legato',                           d:'notes run slightly into each other',
+    fn:(L)=>({att:.005, sus:L*.55, rel:L*.7}) },
+];
+let lenPick = 0;
+
+let stepSecs = 0.119;
+
+const Mel = (motif) => ({ p:0, i:0, wait:0,
+  tick(emit) {
+    if (this.wait > 0) { this.wait--; return; }
+    let [d, dur] = motif[this.i];
+    d = VARIS[variPick].fn(d, this.p, this.i, motif.length);
+    if (this.p % 2 === 1 && this.i === motif.length - 1) d += 7;
+    emit(d, dur);
+    this.wait = dur - 1;
+    if (++this.i >= motif.length) { this.i = 0; this.p++; }
+  } });
+
+const $ = (id) => document.getElementById(id);
+const vM=$('vM'), vB=$('vB'), vS=$('vS'), sp=$('sp'), un=$('un'), meter=$('meter');
+const sync = () => {
+  vMv.textContent=(+vM.value).toFixed(2); vBv.textContent=(+vB.value).toFixed(2);
+  vSv.textContent=(+vS.value).toFixed(2); spv.textContent=(+sp.value).toFixed(2)+'x';
+  unv.textContent=un.value;
+};
+[vM,vB,vS,sp,un].forEach((el)=>el.addEventListener('input',sync)); sync();
+
+// layer table
+const tbl = $('layers');
+LAYERS.forEach((L) => {
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    `<td class="s"><input type="checkbox" id="cb_${L.id}" checked></td>` +
+    `<td class="n">${L.id}</td>` +
+    `<td class="d">${L.desc}</td>` +
+    `<td class="r">${L.when}<br>${L.hz}</td>` +
+    `<td class="s"><button class="mini" id="so_${L.id}">solo</button></td>`;
+  tbl.append(tr);
+});
+LAYERS.forEach((L) => {
+  $('cb_' + L.id).onchange = (e) => { L.on = e.target.checked; };
+  $('so_' + L.id).onclick = () => {
+    LAYERS.forEach((o) => { o.on = o === L; $('cb_' + o.id).checked = o.on; });
+    if (!timer) startMusic();
+  };
+});
+const setAll = (fn) => LAYERS.forEach((L) => { L.on = fn(L); $('cb_' + L.id).checked = L.on; });
+$('all').onclick   = () => setAll(() => true);
+$('none').onclick  = () => setAll(() => false);
+$('tonal').onclick = () => setAll((L) => ['bass','melody'].includes(L.id));
+
+const selector = (title, list, get, set) => {
+  const wrap = document.createElement('div');
+  wrap.style.marginTop = '14px';
+  wrap.innerHTML = `<div style="color:var(--dim);font-size:12px;margin-bottom:6px">${title}</div>`;
+  const g = document.createElement('div');
+  g.className = 'grid';
+  list.forEach((o, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<b>${o.n}</b><small>${o.d}</small>`;
+    if (i === get()) b.classList.add('on');
+    b.onclick = () => { set(i); [...g.children].forEach((c, j) => c.classList.toggle('on', j === i)); };
+    g.append(b);
+  });
+  wrap.append(g);
+  $('sel').append(wrap);
+};
+selector('bass timbre and level', BASSES, () => bassPick, (i) => (bassPick = i));
+selector('melody: what happens on the 4th phrase', VARIS, () => variPick, (i) => (variPick = i));
+selector('melody: how long each note sounds', LENS, () => lenPick, (i) => (lenPick = i));
+
+let timer = null, stepI = 0, startedAt = 0, mel = null;
+const stopMusic = () => {
+  clearInterval(timer); timer = null;
+  $('playLabel').textContent = '▶ Play Prism';
+  $('play').classList.remove('on');
+  $('now').textContent = '';
+};
+const startMusic = () => {
+  stopMusic();
+  stepI = 0; startedAt = Date.now(); mel = Mel(MOTIF);
+  $('playLabel').textContent = '■ Stop';
+  $('play').classList.add('on');
+  const tick = () => {
+    const i = stepI++, ch = PR[(i >> 4) % PR.length];
+    for (const L of LAYERS) if (L.on) L.step(i, ch, mel);
+    // keep the melody's clock running even when muted, so unticking it does not
+    // shift the tune when you tick it back on
+    if (!LAYERS.find((L) => L.id === 'melody').on) mel.tick(() => {});
+    const s = ((Date.now() - startedAt) / 1000) | 0;
+    $('now').textContent = `playing — ${s}s, step ${i} · on: ` +
+      (LAYERS.filter((L) => L.on).map((L) => L.id).join(', ') || 'nothing');
+    clearInterval(timer);
+    stepSecs = 60 / (126 * (0.7 + 0.3 * +sp.value)) / 4;
+    timer = setInterval(tick, stepSecs * 1000);
+  };
+  tick();
+};
+$('play').onclick = () => (timer ? stopMusic() : startMusic());
+addEventListener('keydown', (e) => { if (e.key === ' ') { e.preventDefault(); stopMusic(); } });
+
+// settled reference
+const N = (f, rel=.3, dly=.2) => P({vol:1,f,sus:.06,rel,curve:1.6,delay:dly});
+const LOCKED = [
+  ['light prism — soft ping', P({vol:1.1,f:1100,sus:.03,rel:.2,curve:2,pj:300,pjt:.03,delay:.15})],
+  ['dark prism — exact mirror', P({vol:1.1,f:300,sus:.03,rel:.2,curve:2,pj:-67,pjt:.03,delay:.15})],
+  ['tier change — airy', P({vol:.45,f:700,sus:.015,rel:.12,pj:260,pjt:.02,delay:.12})],
+  ['booster — arpeggio', P({vol:1.3,f:440,att:.01,sus:.1,rel:.3,curve:1.8,pj:220,pjt:.04,rep:.06,delay:.2})],
+  ['conversion — bright + shimmer', {seq:[[N(440,.2),0],[N(587,.2),80],
+     [P({vol:1,f:880,sus:.05,rel:.8,curve:2.2,delay:.4,trem:.25}),160]]}],
+  ['game over — three note fall', {seq:[[N(440),0],[N(349),160],[N(262,.9,.35),320]]}],
+];
+LOCKED.forEach(([name, spec]) => {
+  const seq = spec && spec.seq, first = seq ? seq[0][0] : spec;
+  const d = zzfxG(...first);
+  const b = document.createElement('button');
+  b.classList.add('lock');
+  b.innerHTML = `<b>${name}</b><small>${seq ? seq.length + ' notes · ' : ''}${(d.length/R).toFixed(2)}s · peak ${peakOf(d).toFixed(3)} · ${hzOf(d).toFixed(0)} Hz</small>`;
+  b.onclick = () => { lastName = name; seq ? Sseq(seq) : S(spec); };
+  $('sfxLock').append(b);
+});
+</script>
+</body>
+</html>
