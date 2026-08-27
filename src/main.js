@@ -31,10 +31,17 @@ export const C = {
   CAP: 3,             // 3x base, reached at 40 unicorns
 
   // --- Camera and track (DESIGN.md 5) --------------------------------------
-  TRACK: 4,           // track units visible from spawn edge to horizon
-  PZ: 0.62,           // player depth. 0 = spawn edge (near), 1 = horizon (far)
-  CULL: 0.66,         // objects die just past the player, keeping the player->herd gap clear
-  HERD_Z: 0.9,
+  // TRACK and PZ move together. PZ is the ribbon's DEPTH, so raising it pushes
+  // the ribbon further into the scene and UP the screen, closing the band
+  // between it and the herd. PZ * TRACK is the warning time in seconds at base
+  // speed, so lowering TRACK as PZ rises keeps reaction time identical.
+  //   PZ 0.62 / TRACK 4.0   ribbon 49% down, 23% of screen behind it
+  //   PZ 0.75 / TRACK 3.31  ribbon 39% down, 15% behind it   <- here
+  // Both warn 2.48s at base speed and 0.83s at the 3x cap.
+  TRACK: 3.31,        // track units visible from spawn edge to horizon
+  PZ: 0.75,           // player depth. 0 = spawn edge (near), 1 = horizon (far)
+  CULL: 0.79,         // objects die just past the player, keeping the player->herd gap clear
+  HERD_Z: 0.93,       // lifted with PZ so the gap stays a visible band, not a sliver
   HERD_CAP: 24,       // DESIGN.md 5 render cap 20-30; the counter carries the rest
   NEAR: 0.44,         // track half-width at the spawn edge, fraction of screen width
   FAR: 0.1,           // track half-width at the horizon
@@ -45,8 +52,93 @@ export const C = {
   OBJ: 0.2,           // object base size at the spawn edge, fraction of screen width
   EASE: 0.2,          // seconds to arc across one lane or one tier (DESIGN.md 6)
 
+  // --- Solid objects (DESIGN.md 5) -----------------------------------------
+  // The CAMERA stays fake-3D on purpose: 5 requires depth to read as vertical
+  // screen position rather than scale, or the six-lane grid and the massed herd
+  // stop being legible in portrait. The OBJECTS are real geometry projected
+  // through that camera - vertices in local space, shaded by face normal.
+  // These two are the camera pitch, roughly 40 degrees per 5.
+  PCY: 0.77,          // a unit of object height, as screen-y   (cos of the pitch)
+  PCZ: 0.64,          // a unit of object depth,  as screen-y   (sin of the pitch)
+  // Depth foreshortening WITHIN a solid. A true 40-degree pitch (0.64) spreads
+  // an animal's own length across as much screen-y as its height: the barrel is
+  // 0.58 long, which at 0.64 became 27px of vertical spread against 28px of
+  // actual height. The rump then sat above the head, the horn could not clear
+  // the body, and the front hooves - being nearer the camera - punched 9px
+  // through the lane. DESIGN.md 5 already compresses depth for the track and for
+  // exactly this reason; solids get the same treatment.
+  PCD: 0.32,
+  LEGL: 0.225,        // length of each leg segment
+  LEGY: -0.1,         // hip height relative to the barrel line
+  FHZ: 0.225,          // front hip, along the body
+  HHZ: -0.24,         // hind hip
+  // Which way the hind knee folds, relative to FOLD. -1 matches the front legs.
+  // +1 was the anatomical hock, and it threw the lower leg 74 degrees forward
+  // mid-stride against the front leg's 25 - which is what read as a spider.
+  HFOLD: -1,
+  HTILT: 0,           // extra backward lean on the hind legs, radians
+  PHH: 0.4,           // hind pair's phase offset from the front pair, in strides
+  PHS: 0.15,          // and the left/right split within each pair
+  // The mane is generated along the neck rather than placed by hand, so it
+  // follows the neck wherever the neck goes instead of being left behind.
+  MANEN: 5,           // how many tufts
+  MANE0: 0.3,        // where the first sits along the neck, 0 = shoulder, 1 = poll
+  MANE1: 1.2,        // and the last
+  MANEL: 0.1,       // how far each stands off the crest
+  MANER: 0.026,        // tuft thickness
+  MANEX: 0.01,           // sideways flop
+  MANEP: 0.1,        // tip thickness as a fraction of the root. Low is pointy.
+  SWING: 0.8,         // how far the hip swings fore and aft, radians
+  FOLD: 0.5,          // how hard the knee folds mid-swing
+  LEGR: [.1, .06, .04, .045, .05, .032],      // hip w,h - knee w,h - hoof w,h
+  OUTL: 0.009,        // face outline width, as a fraction of the animal's scale.
+                      // At this setting it is sub-pixel everywhere except the
+                      // spawn edge, so canvas antialiases it into a hairline
+                      // rather than a drawn border. 0 turns it off entirely.
+  OUTA: 0.45,         // and its opacity. Width and alpha are separate because a
+                      // thin opaque line still reads as heavy.
+  ASC: 0.9,         // animals only. Compressing PCD removed the fake vertical
+                      // spread that was padding their height. This is the scale
+                      // that looked right in the lab, not a derived number.
+  // The animal's heading, radians, about the vertical axis.
+  //   0     tail-on, running directly away from the camera
+  //   PI    head-on, running directly at it
+  //   PI+/-0.9   three-quarter front - the face and chest read, and the body
+  //              still has width. Anything near PI exactly is a narrow silhouette.
+  // DEGREES of turn away from head-on. The animal is 1.27 long and 0.36 wide,
+  // so its LENGTH projects length*sin(YAW) onto screen x while its WIDTH
+  // projects width*cos(YAW) - and it only reads as front-facing while width
+  // wins. That crossover is at 16 degrees. At 30 the length contributed 2.4x
+  // more screen width than the width did, which is why it kept reading side-on
+  // however far the depth cue was pushed.
+  YAW: 90,
+  STANCE: 0.175,       // half the distance between the left and right legs. Wider
+                      // also lifts the crossover above, so it earns twice.
+  LOD: 26,            // below this on-screen size legs lose their lower segment
+  PR: 0.165,          // prism radius, in object-size units
+  PSPIN: 2.2,         // prism turns per unit of track
+  // The sheet runs ALONG the track, not across it: longer than it is wide, with
+  // one rainbow stripe per lengthwise column, and the ripple travelling away
+  // from the camera so it reads as motion ahead rather than a sideways flap.
+  RW: 0.5,            // rainbow band width, in object-size units. Narrow: a
+                      // rainbow is a band, and at 1.1 it read as a flag.
+  RD: 1.8,            // rainbow sheet depth - much longer than the width
+  RZ: -0.5,           // shifts the sheet back toward the camera. Centred on the
+                      // anchor it pushed forward past the cull line, which made
+                      // the play field behind it read as far deeper than it is.
+  RH: 0.22,           // rainbow ripple amplitude
+  RY: 0.42,           // how far the sheet floats above its lane
+  RV: 5.2,            // travelling waves along the sheet's length. Bounded:
+                      // RH * RV * PCY must stay under RD * PCZ, or consecutive
+                      // segments move further than their screen spacing, the
+                      // sheet folds through itself and the painter order inverts.
+                      // At these values 0.88 against a 1.15 ceiling.
+  RU: 1.6,            // per-column phase skew, so the crest sweeps rather than
+                      // arriving flat. Free of the bound above: columns differ in
+                      // screen x, so they can never occlude one another.
+
   // --- Feel (DESIGN.md 5, 6) -----------------------------------------------
-  GALLOP: 2.4,        // stride cycles per unit of track, so the gait tracks speed
+  GALLOP: 1.5,        // stride cycles per unit of track, so the gait tracks speed
   ARC: 0.4,           // seconds for a converted unicorn to arc up into the herd
   LIFT: 0.16,         // peak of that arc, fraction of screen height
   PARTS: 90,          // particle cap
@@ -94,8 +186,12 @@ export const C = {
   BPM: 126,
 };
 
-const { min, max, round, sin, cos, abs, random, PI } = Math;
-const g = document.getElementById('c').getContext('2d');
+const { min, max, round, sin, cos, abs, hypot, random, PI } = Math;
+let g = document.getElementById('c').getContext('2d');
+// Test seam: tools/model-lab.html redirects drawing onto its own canvases so
+// it can show the real horse() at real sizes without a second copy of it.
+// App-build exports are dropped, so this costs the bundle nothing.
+export const setCtx = (c) => (g = c);
 const cv = g.canvas;
 let W, H, sky;
 
@@ -189,7 +285,7 @@ const zzfxG = (q = 1, k = .05, c = 220, e = 0, t = 0, u = .1, r = 0, F = 1, v = 
 
 // Exported for the frequency tests only. App-build exports are dropped, so this
 // costs nothing in the bundle - verified against npm run size.
-export { zzfxG };
+export { zzfxG, horse, PARTS, LEGS };
 
 // Buses. p[0] is the preset's own volume; the bus and master scale it.
 const snd = (p, bus) => {
@@ -297,7 +393,12 @@ const KD = (e) => {
 // ---------------------------------------------------------------------------
 // Particles. [x, y, vx, vy, life, span, colour]
 // ---------------------------------------------------------------------------
-const RB = ['#ff3b6b', '#ff9500', '#ffd60a', '#3ad35f', '#22c9ff', '#b45cff'];
+// One palette, held as numbers so faces can be shaded, and derived once into
+// strings for everything that just needs a flat colour.
+const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 201, 255], [180, 92, 255]];
+const CH = (v) => (v < 0 ? 0 : v > 255 ? 255 : v | 0);
+const shade = (c, k) => 'rgb(' + CH(c[0] * k) + ',' + CH(c[1] * k) + ',' + CH(c[2] * k) + ')';
+const RB = RBV.map((c) => shade(c, 1));
 
 const burst = (x, y, n, spread, col) => {
   for (let i = 0; i < n && parts.length < C.PARTS; i++)
@@ -424,117 +525,204 @@ const step = (dt) => {
 };
 
 // ---------------------------------------------------------------------------
-// Horse / unicorn mesh and gallop rig.
+// Solid renderer (DESIGN.md 5).
 //
-// One parametric side-profile sprite, reused for the wild horses, the conversion
-// arc and every unicorn in the herd - which is why this is the largest single
-// line in the byte budget and why it is worth it.
+// The camera projection already existed - PCY/PCZ map an object's local 3D
+// space onto the screen, and prism() culls its own back faces. What did not
+// exist is a face-level painter's algorithm: prism gets away with culling alone
+// because it is one convex solid, but an animal built from a dozen boxes has
+// parts that occlude each other, so faces have to be sorted.
 //
-// (cx, y) is the ground the hooves stand on, s is the body-length reference,
-// ph is the gallop phase in cycles, u selects horse (0) or unicorn (1).
+// Faces are gathered in world space, culled against the view direction, sorted
+// far-to-near and filled flat. Hard polygon edges, no curves, no gradients.
 // ---------------------------------------------------------------------------
+let CO = 1, SI = 0, SX = 0, SY = 0, SS = 1, FQ = [];
 
-// [hipX, phase, hockSign]. Transverse gallop, 4 beats: the two far legs first so
-// the near pair paints over them. Hind legs bend the opposite way to the front.
-const LEGS = [[0.26, 0.12, -1], [-0.3, 0.62, 1], [0.26, 0, -1], [-0.3, 0.5, 1]];
+const R3 = (x, y, z) => [x * CO - z * SI, y, x * SI + z * CO];   // yaw about vertical
+const DEP = (p) => p[2] * C.PCY - p[1] * C.PCD;                  // distance into the screen
+const PRJ = (p) => [SX + p[0] * SS, SY - (p[1] * C.PCY + p[2] * C.PCD) * SS];
 
-//        barrel      near leg   far leg    mane/tail
-const HIDE = [
-  ['#8a5a2e', '#6d4522', '#54341a', '#3d2712'],   // horse
-  ['#fbfaff', '#e3ddf4', '#bdb4d8', '#c9a6ff'],   // unicorn
-];
+// Light from above, front and left. Shading is quantised to exactly three
+// steps: a smooth ramp on a low-poly solid reads as a smudge, not as facets.
+const LD = [-0.5, 0.68, -0.54];
 
-const leg = (hx, hy, s, th, sign, col) => {
-  const a = sin(th) * 0.9;                  // hip swings fore and aft
-  const b = (1 - cos(th)) * 0.55 * sign;    // knee/hock folds hardest mid-swing
-  const L = s * 0.25;
-  const kx = hx + sin(a) * L, ky = hy + cos(a) * L;
-  g.strokeStyle = col;
-  g.lineWidth = s * 0.07;
-  g.beginPath();
-  g.moveTo(hx, hy);
-  g.lineTo(kx, ky);
-  g.lineTo(kx + sin(a + b) * L, ky + cos(a + b) * L);
-  g.stroke();
+const face = (n, pts, col) => {
+  if (n[2] * C.PCY - n[1] * C.PCD >= 0) return;         // pointing away from the camera
+  const d = n[0] * LD[0] + n[1] * LD[1] + n[2] * LD[2];
+  let z = 0;
+  for (const q of pts) z += DEP(q);
+  FQ.push([z, shade(col, d > 0.45 ? 1 : d > -0.12 ? 0.66 : 0.4), pts.map(PRJ)]);
 };
 
-const horse = (cx, y, s, ph, u) => {
-  const c = HIDE[u];
-  const th = ph * 2 * PI;
-  const by = y - s * 0.58 + sin(th * 2) * s * 0.045;   // barrel centre, bobbing
-  const hy = by + s * 0.08;
-  const hb = sin(th * 2 + 1) * s * 0.03;               // head nods a beat behind
+// One primitive covers everything: a box swept along an arbitrary axis in the
+// animal's sagittal plane, with independent half-width and half-height at each
+// end. Taper one end to nothing and it is a cone; taper neither and it is a box.
+const solid = (ax, ay, az, bx, by, bz, w0, h0, w1, h1, col) => {
+  const dx = bx - ax, dy = by - ay, dz = bz - az, L = hypot(dx, dy, dz) || 1;
+  const px = dx / L, py = dy / L, pz = dz / L;           // the part's own axis
+  // Orthonormal frame: u is the lateral axis with the part's direction projected
+  // out. Building the cross-section from dy and dz alone was fine while every
+  // part lay in the sagittal plane, but a part that leans sideways then came out
+  // sheared, with side-face normals that were wrong for both shading and
+  // culling. For an unleaned part this reduces to exactly (1,0,0).
+  let ux = 1 - px * px, uy = -px * py, uz = -px * pz;
+  const uL = hypot(ux, uy, uz) || 1;
+  ux /= uL; uy /= uL; uz /= uL;
+  const vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
+  const V = (x, y, z, su, sv, w, h) => R3(x + su * w * ux + sv * h * vx,
+                                          y + su * w * uy + sv * h * vy,
+                                          z + su * w * uz + sv * h * vz);
+  const A = (su, sv) => V(ax, ay, az, su, sv, w0, h0);
+  const B = (su, sv) => V(bx, by, bz, su, sv, w1, h1);
+  face(R3(ux, uy, uz), [A(1, 1), A(1, -1), B(1, -1), B(1, 1)], col);
+  face(R3(-ux, -uy, -uz), [A(-1, 1), B(-1, 1), B(-1, -1), A(-1, -1)], col);
+  face(R3(vx, vy, vz), [A(1, 1), B(1, 1), B(-1, 1), A(-1, 1)], col);
+  face(R3(-vx, -vy, -vz), [A(1, -1), A(-1, -1), B(-1, -1), B(1, -1)], col);
+  face(R3(-px, -py, -pz), [A(1, 1), A(-1, 1), A(-1, -1), A(1, -1)], col);
+  face(R3(px, py, pz), [B(1, 1), B(1, -1), B(-1, -1), B(-1, 1)], col);
+};
 
-  g.lineCap = 'round';
-  for (let i = 0; i < 2; i++) leg(cx + LEGS[i][0] * s, hy, s, th + LEGS[i][1] * 2 * PI, LEGS[i][2], c[2]);
-
-  // tail
-  g.strokeStyle = c[3];
-  g.lineWidth = s * 0.09;
-  g.beginPath();
-  g.moveTo(cx - s * 0.4, by - s * 0.12);
-  g.quadraticCurveTo(cx - s * 0.62, by - s * 0.02 + sin(th) * s * 0.07, cx - s * 0.68, by + s * 0.26);
-  g.stroke();
-
-  // barrel, haunch, chest - three fills that union into a body silhouette
-  g.fillStyle = c[0];
-  g.beginPath(); g.ellipse(cx - s * 0.04, by, s * 0.42, s * 0.2, 0, 0, 7); g.fill();
-  g.beginPath(); g.arc(cx - s * 0.26, by - s * 0.02, s * 0.21, 0, 7); g.fill();
-  g.beginPath(); g.arc(cx + s * 0.24, by - s * 0.01, s * 0.19, 0, 7); g.fill();
-
-  // neck and head
-  g.beginPath();
-  g.moveTo(cx + s * 0.12, by - s * 0.14);
-  g.lineTo(cx + s * 0.32, by - s * 0.5 + hb);
-  g.lineTo(cx + s * 0.5, by - s * 0.55 + hb);
-  g.lineTo(cx + s * 0.6, by - s * 0.4 + hb);
-  g.lineTo(cx + s * 0.5, by - s * 0.33 + hb);
-  g.lineTo(cx + s * 0.36, by - s * 0.34 + hb);
-  g.lineTo(cx + s * 0.3, by - s * 0.04);
-  g.fill();
-
-  // ear
-  g.beginPath();
-  g.moveTo(cx + s * 0.44, by - s * 0.53 + hb);
-  g.lineTo(cx + s * 0.47, by - s * 0.66 + hb);
-  g.lineTo(cx + s * 0.51, by - s * 0.55 + hb);
-  g.fill();
-
-  // mane along the crest. The unicorn's runs rainbow.
-  g.lineWidth = s * 0.05;
-  for (let i = 0; i < 4; i++) {
-    const t = i / 3;
-    g.strokeStyle = u ? RB[i + 1] : c[3];
+const flush = () => {
+  FQ.sort((a, b) => b[0] - a[0]);
+  // A dark edge on every face. It separates same-coloured parts - head from
+  // neck, neck from barrel - which shading alone cannot do, and it also draws
+  // each box's own three visible faces apart.
+  const lw = SS * C.OUTL;
+  g.lineWidth = lw;
+  g.strokeStyle = 'rgba(18,14,24,' + C.OUTA + ')';
+  g.lineJoin = 'round';
+  for (const [, c, p] of FQ) {
+    g.fillStyle = c;
     g.beginPath();
-    g.moveTo(cx + s * (0.18 + t * 0.24), by - s * (0.24 + t * 0.28) + hb * t);
-    g.lineTo(cx + s * (0.1 + t * 0.24), by - s * (0.34 + t * 0.3) + hb * t);
-    g.stroke();
-  }
-
-  // eye
-  g.fillStyle = '#1a1020';
-  g.beginPath(); g.arc(cx + s * 0.47, by - s * 0.47 + hb, s * 0.022, 0, 7); g.fill();
-
-  for (let i = 2; i < 4; i++) leg(cx + LEGS[i][0] * s, hy, s, th + LEGS[i][1] * 2 * PI, LEGS[i][2], c[1]);
-
-  if (u) {   // horn
-    g.fillStyle = '#ffd60a';
-    g.beginPath();
-    g.moveTo(cx + s * 0.47, by - s * 0.56 + hb);
-    g.lineTo(cx + s * 0.62, by - s * 0.88 + hb);
-    g.lineTo(cx + s * 0.53, by - s * 0.55 + hb);
+    g.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]);
+    g.closePath();
     g.fill();
+    if (lw > 0.06) g.stroke();
   }
+  FQ = [];
+};
+
+// ---------------------------------------------------------------------------
+// Horse / unicorn. Boxes and cones in the animal's own space: x across it, y up,
+// z forward. The wild horse is desaturated grey and carries colour only in its
+// mane, so conversion has somewhere to go - the unicorn gains a rainbow mane
+// and a gold horn long enough to break the body silhouette.
+// ---------------------------------------------------------------------------
+const BODY = [[176, 145, 110], [246, 245, 252]];   // horse light brown, unicorn white
+const MANE = [104, 84, 72];   // the wild horse's one piece of colour, muted so
+                              // the unicorn's rainbow mane is a clear step up
+const GOLD = [255, 214, 10], EYE = [22, 17, 28], EYEU = [58, 150, 255];   // horse dark, unicorn blue
+
+// [side, hind]. The gait pattern itself lives in C: PHH offsets the hind pair
+// from the front, PHS splits left from right. 0.5 / 0.12 is a transverse gallop;
+// PHH 0 bounds both pairs together, PHS 0.5 walks them alternately.
+const LEGS = [[-1, 0], [-1, 1], [1, 0], [1, 1]];
+
+// The model, as data rather than code, so tools/horse-editor.html can move a
+// joint and see it immediately instead of another round of guesswork.
+//   [ax,ay,az, bx,by,bz, w0,h0, w1,h1, mat, nodA,nodB, flags]
+// y is measured from the barrel line and follows its bob. nodA/nodB scale the
+// head nod at each end. mat: 0 body, 7 horn, otherwise RBV[mat-1] on a unicorn
+// and the muted mane colour on a horse. flags: 1 = full detail only, 2 = unicorn only.
+const PARTS = [
+  [0, .06, -.27, 0, .12, -.55, .04, .045, .014, .015, 6, 0, 0, 0],           // tail
+  [0, 0, -.3, 0, 0, .28, .15, .16, .16, .17, 0, 0, 0, 0],                    // barrel
+  [.025, .105, .2, .075, .2737, .365, .1, .11, .075, .085, 0, 0, 1, 0],      // neck
+  [.1, .345, .345, .1, .2546, .5834, .085, .099, .055, .061, 0, 1, 1, 0],    // head
+  [.1, .3927, .4239, .1, .6829, .5077, .03, .03, .002, .002, 7, 1, 1, 2],    // horn
+  [.148, .3319, .4239, .156, .3187, .4724, .02, .02, .013, .013, 8, 1, 1, 1],   // eye near
+  [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 8, 1, 1, 1],   // eye far
+];
+
+const horse = (cx, gy, s, ph, u) => {
+  const A = PI + C.YAW * PI / 180;
+  CO = cos(A); SI = sin(A); SX = cx; SY = gy; SS = s * C.ASC;
+  const th = ph * 2 * PI, bd = BODY[u], R = C.LEGR;
+  const by = 0.56 + sin(th * 2) * 0.04;             // barrel line, bobbing
+  const hb = sin(th * 2 + 1) * 0.03;                // head nods a beat behind
+  const fine = s > C.LOD;
+
+  for (const [side, hind] of LEGS) {                // four legs, two segments each
+    const L = C.LEGL;
+    const t = th + ((hind ? C.PHH : 0) + (side < 0 ? C.PHS : 0)) * 2 * PI;
+    const a = sin(t) * C.SWING + (hind ? C.HTILT : 0);
+    const b = (1 - cos(t)) * C.FOLD * (hind ? C.HFOLD : -1);
+    const lz = hind ? C.HHZ : C.FHZ;
+    const x = side * C.STANCE, hy = by + C.LEGY;
+    const kz = lz + sin(a) * L, ky = hy - cos(a) * L;
+    solid(x, hy, lz, x, ky, kz, R[0], R[1], R[2], R[3], bd);
+    if (fine) solid(x, ky, kz, x, ky - cos(a + b) * L, kz + sin(a + b) * L, R[2], R[3], R[4], R[5], bd);
+  }
+  // Mane, swept along the neck. Reading the neck out of PARTS means moving the
+  // neck carries the mane with it, which placing tufts by hand never did.
+  const nk = PARTS[2];
+  const ny = nk[4] - nk[1], nz = nk[5] - nk[2], nL = hypot(ny, nz) || 1;
+  const vy = nz / nL, vz = -ny / nL;                 // up the crest
+  // MANER is the tuft's maximum thickness, not its actual one: a tuft can never
+  // be wider than the gap it has, or the mane merges into one lump. On a short
+  // neck five tufts at .03 were 70% wider than their spacing.
+  const gap = C.MANEN > 1 ? (C.MANE1 - C.MANE0) / (C.MANEN - 1) * nL : 1;
+  const mr = min(C.MANER, gap * 0.48);
+  for (let i = 0; i < C.MANEN; i++) {
+    const t = C.MANEN < 2 ? 0.5 : LERP(C.MANE0, C.MANE1, i / (C.MANEN - 1));
+    // One lateral line for every tuft. Lerping the neck's own x made the mane
+    // fan sideways whenever the neck leaned, instead of running straight.
+    const ax = (nk[0] + nk[3]) / 2;
+    const ay = LERP(nk[1], nk[4], t), az = LERP(nk[2], nk[5], t);
+    const h = LERP(nk[7], nk[9], t), o = h * 0.6, e = h + C.MANEL;
+    solid(ax, by + ay + o * vy + hb * t, az + o * vz,
+          ax - C.MANEX, by + ay + e * vy + hb * t, az + e * vz,
+          mr, mr, mr * C.MANEP, mr * C.MANEP,
+          u ? RBV[1 + i % 5] : MANE);
+  }
+
+  // Order does not matter here: flush() sorts every face by depth.
+  for (const q of PARTS) {
+    if ((q[13] & 1 && !fine) || (q[13] & 2 && !u)) continue;
+    const m = q[10];
+    solid(q[0], by + q[1] + hb * q[11], q[2], q[3], by + q[4] + hb * q[12], q[5],
+          q[6], q[7], q[8], q[9], m ? (m === 7 ? GOLD : m === 8 ? (u ? EYEU : EYE) : u ? RBV[m - 1] : MANE) : bd);
+  }
+  flush();
 };
 
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
-const shadow = (cx, z, s) => {   // DESIGN.md 5: the single most important depth cue
+// DESIGN.md 5: the single most important depth cue. `r` is the caster's own
+// screen radius - a prism and a rainbow are nothing like the same size, and one
+// shadow width for both is what made them look unmoored.
+const shadow = (cx, z, r) => {
   g.globalAlpha = 0.35;
   g.fillStyle = '#000';
-  g.beginPath(); g.ellipse(cx, GY(z), s * 0.5, s * 0.18, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(cx, GY(z), r, r * 0.36, 0, 0, 7); g.fill();
   g.globalAlpha = 1;
+};
+
+// ---------------------------------------------------------------------------
+// Prisms are real solids: an octahedron, six vertices at +/-r on each axis and
+// eight triangular faces, one per sign combination (sx, sy, sz). Each face's
+// normal IS its sign vector, so shading is one dot product and needs no cross
+// products or vertex tables. The solid is convex and the projection is affine,
+// so back-face culling alone gives correct occlusion - nothing needs sorting.
+// ---------------------------------------------------------------------------
+const LGT = [-0.42, 0.76, -0.5];                  // light direction, unit-ish
+const PCOL = [[255, 255, 255], [150, 84, 226]];   // light prism, dark prism
+
+const prism = (cx, gy, s, a, dark) => {
+  const co = cos(a), si = sin(a), r = s * C.PR, c = PCOL[dark], cy = gy - r * C.PCY;
+  for (let i = 0; i < 8; i++) {
+    const sx = i & 1 ? 1 : -1, sy = i & 2 ? 1 : -1, sz = i & 4 ? 1 : -1;
+    const nx = sx * co - sz * si, nz = sx * si + sz * co;   // normal, turned about Y
+    if (nz * C.PCY >= sy * C.PCZ) continue;                 // faces away from the camera
+    g.fillStyle = shade(c, 0.34 + 0.66 * max(0, (nx * LGT[0] + sy * LGT[1] + nz * LGT[2]) / 1.733));
+    g.beginPath();
+    g.moveTo(cx + sx * r * co, cy - sx * r * si * C.PCZ);   // (sx, 0, 0)
+    g.lineTo(cx,               cy - sy * r * C.PCY);        // (0, sy, 0)
+    g.lineTo(cx - sz * r * si, cy - sz * r * co * C.PCZ);   // (0, 0, sz)
+    g.fill();
+  }
 };
 
 const track = () => {
@@ -567,7 +755,8 @@ const herd = () => {   // massed at the horizon, ignoring the lane grid
 
 const ent = (o) => {
   const z = o[0], s = OS(z), cx = LX(o[1], z), y = EY(z, o[2]);
-  if (o[2]) shadow(cx, z, s);
+  // only prisms and boosters are ever raised; horses are lower tier only
+  if (o[2]) shadow(cx, z, s * (o[3] === 3 ? 0.34 : C.PR * 1.15));
   if (o[3] === 3) {                                  // booster, marked with a ?
     const oy = y - s * 0.45;
     g.fillStyle = '#0d1b3a';
@@ -583,38 +772,50 @@ const ent = (o) => {
     g.textAlign = 'left';
     g.textBaseline = 'alphabetic';
   } else if (o[3]) {                                 // prism
-    const dark = isDark(o[3]);
-    const spin = sin(dist * 3 + o[4] * 7) * 0.3;
-    g.fillStyle = dark ? '#5b2a86' : '#ffe9a0';
-    g.beginPath();
-    g.moveTo(cx + spin * s * 0.2, y - s * 0.95);
-    g.lineTo(cx + s * 0.42, y);
-    g.lineTo(cx - s * 0.42, y);
-    g.fill();
-    g.fillStyle = dark ? '#8d4fd0' : '#fffdf2';      // lit facet
-    g.beginPath();
-    g.moveTo(cx + spin * s * 0.2, y - s * 0.95);
-    g.lineTo(cx + s * 0.42, y);
-    g.lineTo(cx + s * 0.1, y);
-    g.fill();
+    prism(cx, y, s, dist * C.PSPIN + o[4] * 7, isDark(o[3]) ? 1 : 0);
   } else {
     horse(cx, y, s, dist * C.GALLOP + o[4], 0);
   }
 };
 
+// The rainbow is a sheet, not a stack of bars: a grid of quads lying in the
+// x-z plane, lifted by a wave travelling away from the camera and projected
+// through the same camera as everything else. Six lengthwise stripes, one per
+// column, each quad shaded by the slope of the wave beneath it - so the ripple
+// reads as a surface catching light rather than as scrolling stripes.
+const NX = 6, NZ = 12;   // 6 colour stripes long-ways, 12 segments of ripple
+
 const player = () => {
-  const z = C.PZ, s = OS(z), cx = LX(px, z), y = EY(z, py);
-  if (py > 0.02) shadow(cx, z, s);
-  // The rainbow itself: six stripes sliced across, each slice displaced by a
-  // travelling sine so the ribbon ripples as it drifts. Fades as energy drops.
-  g.globalAlpha = 0.5 + 0.5 * min(1, energy / C.BAR * 2.5);
-  const w = s * 1.5, n = 10, sw = w / n;
-  for (let b = 0; b < 6; b++) {
-    g.fillStyle = RB[b];
-    for (let i = 0; i < n; i++) {
-      const d = sin(i / n * 5 + dist * C.RIPPLE) * s * 0.1;
-      g.fillRect(cx - w / 2 + i * sw, y - s * 0.6 + b * s * 0.1 + d, sw + 1, s * 0.12);
+  const z = C.PZ, s = OS(z), cx = LX(px, z), gy = EY(z, py);
+  if (py > 0.02) shadow(cx, z, s * C.RW * 0.55);
+  const w = s * C.RW, d = s * C.RD, ph = dist * C.RIPPLE, top = gy - s * C.RY;
+  const amp = C.RH * s;
+  // local (u, v) in [-.5, .5] -> screen y. Height and depth both fold into
+  // screen-y through the camera pitch.
+  // The phase advances with v, so crests travel away from the camera. The u term
+  // only skews it per column, which is what stops the crest arriving dead flat.
+  const SY = (u, v) =>
+    top - amp * sin(v * C.RV + ph + u * C.RU) * C.PCY - (v + C.RZ) * d * C.PCZ;
+
+  g.globalAlpha = 0.55 + 0.45 * min(1, energy / C.BAR * 2.5);
+  // One continuous polygon per colour, down one edge and back up the other.
+  // The previous version was a grid of quads, each stroked in its own shade to
+  // hide the seams - and those strokes are what read as checkering. A stripe
+  // drawn whole has no internal edges to show. The ripple still reads, through
+  // the wave in each stripe's own outline.
+  for (let i = 0; i < NX; i++) {
+    const u0 = i / NX - 0.5, u1 = u0 + 1.04 / NX;   // 4% overlap kills the seams
+    g.fillStyle = shade(RBV[i], 0.66 + 0.34 * cos(ph + u0 * C.RU * 3));
+    g.beginPath();
+    for (let j = 0; j <= NZ; j++) {
+      const v = 0.5 - j / NZ, y = SY(u0, v);
+      j ? g.lineTo(cx + u0 * w, y) : g.moveTo(cx + u0 * w, y);
     }
+    for (let j = NZ; j >= 0; j--) {
+      const v = 0.5 - j / NZ;
+      g.lineTo(cx + u1 * w, SY(u1, v));
+    }
+    g.fill();
   }
   g.globalAlpha = 1;
 };

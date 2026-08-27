@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rainbowed — horse editor</title>
+<style>
+  :root{--bg:#0a0a14;--panel:#141a30;--line:#2a3358;--ink:#e8eaf4;--dim:#8a93b8;--hot:#ffd60a;--sel:#b45cff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:18px 18px 60px}
+  h1{font-size:18px;margin:0 0 4px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:20px 0 8px;font-weight:600}
+  p.note{color:var(--dim);margin:0 0 12px;max-width:90ch}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+  /* the previews stay put while the controls scroll, so you can always see what
+     a slider is doing */
+  .left{position:sticky;top:10px;align-self:start;max-height:calc(100vh - 20px);overflow:auto}
+  details{margin-bottom:8px}
+  details>summary{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);
+    font-weight:600;cursor:pointer;padding:6px 2px;list-style:none;user-select:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary:before{content:'▸ ';color:var(--sel)}
+  details[open]>summary:before{content:'▾ '}
+  details>summary:hover{color:var(--ink)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .row{display:flex;align-items:center;gap:10px;margin:5px 0}
+  .row label{width:104px;color:var(--dim);flex:none;font-size:12px}
+  input[type=range]{flex:1;accent-color:var(--sel);min-width:0}
+  .val{width:60px;text-align:right;color:var(--hot);font-size:12px}
+  button{background:#1d2647;color:var(--ink);border:1px solid var(--line);border-radius:6px;
+         padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+  button:hover{border-color:#4d5c9e}
+  button.on{background:#3a2a6b;border-color:var(--sel)}
+  .strip{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap}
+  .cell{text-align:center}
+  .cell canvas{display:block;background:#161d38;border:1px solid var(--line);image-rendering:pixelated}
+  .cap{color:var(--dim);font-size:11px;margin-top:5px}
+  .cap b{color:var(--hot);font-weight:400}
+  .parts{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+  .parts button{padding:4px 8px}
+  pre{background:#080b16;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;
+      color:#9ad;margin:0;max-height:280px;font-size:11px;white-space:pre}
+  .bar{border-top:1px solid var(--line);margin:12px 0;padding-top:10px}
+  .tag{color:var(--sel)}
+</style>
+</head>
+<body>
+
+<h1>Rainbowed — horse editor</h1>
+<p class="note">
+  Drives the game's own <code>horse()</code> over the game's own <code>PARTS</code> table, imported
+  live from <code>/src/main.js</code> — so what you see is what the game draws. Move anything, then
+  hit <b>Export</b> and paste the block back to me. The top row is 1:1 at the sizes the game actually
+  uses; the large view is 6× for placing joints.
+</p>
+
+<div class="wrap">
+  <div class="left">
+    <h2>Actual in-game size</h2>
+    <div class="panel"><div class="strip" id="real"></div></div>
+
+    <h2>6× — selected part marked <span class="tag">◆</span></h2>
+    <div class="panel"><div class="strip" id="zoom"></div></div>
+
+    <h2>Export</h2>
+    <div class="panel">
+      <button id="exp">Export model</button>
+      <button id="reset">Reset to file</button>
+      <pre id="out" style="margin-top:10px">—</pre>
+    </div>
+  </div>
+
+  <div>
+    <details open><summary>Whole animal</summary>
+      <div class="panel" id="glob"></div>
+    </details>
+
+    <details><summary>Legs</summary>
+      <div class="panel" id="legs"></div>
+    </details>
+
+    <details><summary>Mane</summary>
+      <div class="panel" id="mane"></div>
+    </details>
+
+    <details open><summary>Move a group</summary>
+      <div class="panel">
+        <p class="note" style="margin:0 0 8px">
+          Moves every part of the group together, relative to the current pose.
+          Touching a single-part slider below re-bases these back to zero.
+        </p>
+        <div id="groups"></div>
+      </div>
+    </details>
+
+    <details><summary>Part</summary>
+      <div class="panel">
+        <div class="parts" id="plist"></div>
+        <div id="pctl"></div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script type="module">
+const raf = window.requestAnimationFrame.bind(window);
+const ael = window.addEventListener.bind(window);
+window.requestAnimationFrame = () => 0;
+window.addEventListener = () => {};
+const hidden = document.createElement('canvas');
+hidden.id = 'c'; hidden.style.display = 'none';
+document.body.append(hidden);
+const M = await import('/src/main.js');
+window.requestAnimationFrame = raf;
+window.addEventListener = ael;
+
+const C = M.C, PARTS = M.PARTS;
+const $ = (id) => document.getElementById(id);
+// The mane is no longer in PARTS - it is swept along the neck from the C values
+// in the Mane panel, so it follows the neck automatically.
+const NAMES = ['tail', 'barrel', 'neck', 'head', 'horn', 'eye near', 'eye far'];
+const ORIG = JSON.parse(JSON.stringify(PARTS));
+const ORIGC = { YAW: C.YAW, STANCE: C.STANCE, ASC: C.ASC, LEGL: C.LEGL, LEGY: C.LEGY,
+                SWING: C.SWING, FOLD: C.FOLD, OUTL: C.OUTL, OUTA: C.OUTA,
+                GALLOP: C.GALLOP, FHZ: C.FHZ, HHZ: C.HHZ, HFOLD: C.HFOLD, HTILT: C.HTILT,
+                PHH: C.PHH, PHS: C.PHS, MANEN: C.MANEN, MANE0: C.MANE0,
+                MANE1: C.MANE1, MANEL: C.MANEL, MANER: C.MANER, MANEX: C.MANEX,
+                MANEP: C.MANEP,
+                LEGR: [...C.LEGR] };
+
+let sel = 1, ph = 0, paused = false, last = 0, showU = 1;
+
+// --- previews ---------------------------------------------------------------
+const W = 420;
+const OS = (z) => (1 + (C.FAR / C.NEAR - 1) * z) * C.OBJ * W;
+const SIZES = [['herd', OS(C.HERD_Z)], ['at the ribbon', OS(C.PZ)], ['spawn edge', OS(0)]];
+
+const mkCell = (host, s, u, zoom, name) => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  const cv = document.createElement('canvas');
+  const w = Math.ceil(Math.max(60, s * 2.4) * zoom), h = Math.ceil(Math.max(50, s * 1.9) * zoom);
+  cv.width = w; cv.height = h; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cell.append(cv, cap);
+  host.append(cell);
+  return { ctx: cv.getContext('2d'), s, u, zoom, cap, w, h, name };
+};
+const realCells = SIZES.flatMap(([n, s]) => [0, 1].map((u) => mkCell($('real'), s, u, 1, n)));
+const zoomCells = [0, 1].map((u) => mkCell($('zoom'), OS(C.PZ), u, 6, 'at the ribbon'));
+
+// the same projection the renderer uses, for the selection marker only
+const mark = (c, part) => {
+  const A = Math.PI + C.YAW * Math.PI / 180, co = Math.cos(A), si = Math.sin(A);
+  const by = 0.56 + Math.sin(ph * 2 * Math.PI * 2) * 0.04;
+  const S = c.s * c.zoom * C.ASC, ox = c.w / 2, oy = c.h - 10 * c.zoom;
+  const P = (x, y, z) => [ox + (x * co - z * si) * S,
+                          oy - (y * C.PCY + (x * si + z * co) * C.PCD) * S];
+  c.ctx.strokeStyle = '#b45cff';
+  c.ctx.lineWidth = 1.5;
+  for (const [x, y, z] of [[part[0], by + part[1], part[2]], [part[3], by + part[4], part[5]]]) {
+    const [px, py] = P(x, y, z);
+    c.ctx.beginPath();
+    c.ctx.moveTo(px - 5, py); c.ctx.lineTo(px + 5, py);
+    c.ctx.moveTo(px, py - 5); c.ctx.lineTo(px, py + 5);
+    c.ctx.stroke();
+  }
+};
+
+const drawCell = (c, marker) => {
+  const { ctx, w, h, zoom } = c;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#161d38';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#3a4a80';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h - 10 * zoom + .5); ctx.lineTo(w, h - 10 * zoom + .5);
+  ctx.stroke();
+  M.setCtx(ctx);
+  M.horse(w / 2, h - 10 * zoom, c.s * zoom, ph, c.u);
+  if (marker) mark(c, PARTS[sel]);
+};
+
+// --- controls ---------------------------------------------------------------
+const slider = (host, label, get, set, min, max, step, fmt) => {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<label>${label}</label>`;
+  const inp = document.createElement('input');
+  inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = get();
+  const val = document.createElement('span');
+  val.className = 'val';
+  const sync = () => { val.textContent = (fmt || ((v) => v.toFixed(3)))(get()); };
+  inp.oninput = () => { set(+inp.value); sync(); };
+  row.append(inp, val);
+  host.append(row);
+  sync();
+  return { inp, sync: () => { inp.value = get(); sync(); } };
+};
+
+const globCtl = [];
+const G = $('glob');
+globCtl.push(slider(G, 'scale', () => C.ASC, (v) => (C.ASC = v), 0.2, 2.5, 0.005));
+globCtl.push(slider(G, 'yaw °', () => C.YAW, (v) => (C.YAW = v), 0, 90, 1, (v) => v + '°'));
+globCtl.push(slider(G, 'stance', () => C.STANCE, (v) => (C.STANCE = v), 0.04, 0.4, 0.005));
+globCtl.push(slider(G, 'detail cutoff', () => C.LOD, (v) => (C.LOD = v), 0, 60, 1, (v) => v + 'px'));
+globCtl.push(slider(G, 'outline width', () => C.OUTL, (v) => (C.OUTL = v), 0, 0.04, 0.0005,
+  (v) => (v === 0 ? 'off' : v.toFixed(4))));
+globCtl.push(slider(G, 'outline alpha', () => C.OUTA, (v) => (C.OUTA = v), 0, 1, 0.02));
+// Gait pace. The game drives the phase from DISTANCE, not from time, so GALLOP
+// is strides per unit of track - at base speed 1 unit takes 1 second, making it
+// strides per second there, and it speeds up on its own as the run does.
+globCtl.push(slider(G, 'gallop rate', () => C.GALLOP, (v) => (C.GALLOP = v), 0, 8, 0.05,
+  (v) => v.toFixed(2) + '/u'));
+let gameSpd = 1;
+globCtl.push(slider(G, 'game speed', () => gameSpd, (v) => (gameSpd = v), 1, 3, 0.05,
+  (v) => v.toFixed(2) + 'x'));
+{
+  const row = document.createElement('div');
+  row.className = 'row bar';
+  const bp = document.createElement('button'); bp.textContent = 'pause';
+  bp.onclick = () => { paused = !paused; bp.textContent = paused ? 'play' : 'pause'; };
+  const bs = document.createElement('button'); bs.textContent = 'step';
+  bs.onclick = () => { ph += 0.04; };
+  row.append(bp, bs);
+  const sp = document.createElement('span'); sp.className = 'val'; sp.id = 'phv';
+  row.append(sp);
+  G.append(row);
+}
+
+const legCtl = [];
+const L = $('legs');
+legCtl.push(slider(L, 'segment len', () => C.LEGL, (v) => (C.LEGL = v), 0.08, 0.4, 0.005));
+legCtl.push(slider(L, 'hip height', () => C.LEGY, (v) => (C.LEGY = v), -0.4, 0.1, 0.005));
+legCtl.push(slider(L, 'swing', () => C.SWING, (v) => (C.SWING = v), 0, 1.6, 0.02));
+legCtl.push(slider(L, 'knee fold', () => C.FOLD, (v) => (C.FOLD = v), 0, 1.5, 0.02));
+legCtl.push(slider(L, 'front hip z', () => C.FHZ, (v) => (C.FHZ = v), -0.5, 0.6, 0.005));
+legCtl.push(slider(L, 'hind hip z', () => C.HHZ, (v) => (C.HHZ = v), -0.6, 0.5, 0.005));
+// -1 folds the hind knee with the front legs, +1 is the anatomical hock that
+// read as a spider joint, 0 leaves the hind leg straight.
+legCtl.push(slider(L, 'hind fold', () => C.HFOLD, (v) => (C.HFOLD = v), -1.5, 1.5, 0.05));
+legCtl.push(slider(L, 'hind lean', () => C.HTILT, (v) => (C.HTILT = v), -0.8, 0.8, 0.02));
+// Gait pattern. These decide WHEN each leg moves rather than how far.
+legCtl.push(slider(L, 'hind phase', () => C.PHH, (v) => (C.PHH = v), 0, 1, 0.01,
+  (v) => v.toFixed(2) + (v < 0.06 || v > 0.94 ? ' bound' : Math.abs(v - 0.5) < 0.06 ? ' gallop' : '')));
+legCtl.push(slider(L, 'left/right split', () => C.PHS, (v) => (C.PHS = v), 0, 0.5, 0.01,
+  (v) => v.toFixed(2) + (v < 0.04 ? ' paired' : Math.abs(v - 0.5) < 0.04 ? ' alternating' : '')));
+// Move all four legs at once - the hips live in C, not in PARTS, so the group
+// panel below cannot reach them.
+{
+  const h = document.createElement('div');
+  h.className = 'row';
+  h.innerHTML = '<label style="color:var(--sel);width:100%">both hips together</label>';
+  L.append(h);
+  let hipZ = 0;
+  const baseF = { v: C.FHZ }, baseH = { v: C.HHZ };
+  legCtl.push(slider(L, 'move z', () => hipZ, (v) => {
+    hipZ = v; C.FHZ = baseF.v + v; C.HHZ = baseH.v + v;
+    legCtl.forEach((c) => c.sync());
+  }, -0.4, 0.4, 0.005));
+}
+['hip w', 'hip h', 'knee w', 'knee h', 'hoof w', 'hoof h'].forEach((n, i) =>
+  legCtl.push(slider(L, n, () => C.LEGR[i], (v) => (C.LEGR[i] = v), 0.004, 0.2, 0.002)));
+
+const plist = $('plist');
+NAMES.forEach((n, i) => {
+  const b = document.createElement('button');
+  b.textContent = n;
+  b.onclick = () => { sel = i; refreshParts(); };
+  plist.append(b);
+});
+
+// --- mane -------------------------------------------------------------------
+const maneCtl = [];
+{
+  const Ma = $('mane');
+  maneCtl.push(slider(Ma, 'tufts', () => C.MANEN, (v) => (C.MANEN = Math.round(v)), 0, 8, 1,
+    (v) => String(Math.round(v))));
+  
+  maneCtl.push(slider(Ma, 'first at', () => C.MANE0, (v) => (C.MANE0 = v), 0, 1, 0.01,
+    (v) => v.toFixed(2) + (v < 0.05 ? ' shoulder' : '')));
+  
+  maneCtl.push(slider(Ma, 'last at', () => C.MANE1, (v) => (C.MANE1 = v), 0, 1.2, 0.01,
+    (v) => v.toFixed(2) + (v > 0.95 ? ' poll' : '')));
+  
+  maneCtl.push(slider(Ma, 'stand off', () => C.MANEL, (v) => (C.MANEL = v), 0, 0.25, 0.005));
+  // MANER is a maximum: the game clamps each tuft to the room it has, so the
+  // readout shows what is actually drawn and says when the cap is biting.
+  const maneGap = () => {
+    const nk = PARTS[2];
+    const nL = Math.hypot(nk[4] - nk[1], nk[5] - nk[2]);
+    return C.MANEN > 1 ? ((C.MANE1 - C.MANE0) / (C.MANEN - 1)) * nL : 1;
+  };
+  maneCtl.push(slider(Ma, 'thickness', () => C.MANER, (v) => (C.MANER = v), 0.004, 0.09, 0.002,
+    (v) => {
+      const cap = maneGap() * 0.48;
+      return v > cap ? cap.toFixed(3) + ' capped' : v.toFixed(3);
+    }));
+  maneCtl.push(slider(Ma, 'sideways flop', () => C.MANEX, (v) => (C.MANEX = v), -0.15, 0.15, 0.005));
+  maneCtl.push(slider(Ma, 'tip point', () => C.MANEP, (v) => (C.MANEP = v), 0.01, 1, 0.01,
+    (v) => v.toFixed(2) + (v < 0.15 ? ' sharp' : v > 0.8 ? ' blunt' : '')));
+}
+
+// --- group moves -----------------------------------------------------------
+// Parts are stored as absolute endpoints, so moving the neck on its own leaves
+// the head and mane behind. These shift a whole assembly together, and pitch
+// swings it about the joint where it meets the body.
+const GROUPS = [
+  // pitch here swings the whole neck at the shoulder...
+  { name: 'neck + head', idx: [2, 3, 4, 5, 6], pivot: 2 },
+  // ...and here it angles the head alone, hinging at the neck joint.
+  { name: 'head only', idx: [3, 4, 5, 6], pivot: 3 },
+  { name: 'tail', idx: [0], pivot: 0 },
+  { name: 'barrel', idx: [1], pivot: 1 },
+];
+let gBase = [], gState = [], gCtl = [];
+
+const snapshot = () => {
+  gBase = PARTS.map((q) => q.slice());
+  gState = GROUPS.map(() => ({ x: 0, y: 0, z: 0, p: 0 }));
+};
+
+const applyGroup = (gi) => {
+  const G = GROUPS[gi], st = gState[gi], pv = gBase[G.pivot];
+  const py = pv[1], pz = pv[2], co = Math.cos(st.p), si = Math.sin(st.p);
+  for (const i of G.idx) {
+    for (const o of [0, 3]) {
+      const dy = gBase[i][o + 1] - py, dz = gBase[i][o + 2] - pz;
+      PARTS[i][o] = gBase[i][o] + st.x;
+      PARTS[i][o + 1] = py + dy * co - dz * si + st.y;
+      PARTS[i][o + 2] = pz + dy * si + dz * co + st.z;
+    }
+  }
+};
+
+const buildGroups = () => {
+  const host = $('groups');
+  host.innerHTML = '';
+  gCtl = [];
+  GROUPS.forEach((G, gi) => {
+    const h = document.createElement('div');
+    h.className = 'row';
+    h.innerHTML = `<label style="color:var(--sel);width:100%">${G.name}</label>`;
+    host.append(h);
+    [['move x', 'x', -0.5, 0.5], ['move y', 'y', -0.6, 0.6], ['move z', 'z', -0.6, 0.6],
+     ['pitch', 'p', -1.2, 1.2]].forEach(([label, key, lo, hi]) => {
+      gCtl.push(slider(host, label, () => gState[gi][key],
+        (v) => { gState[gi][key] = v; applyGroup(gi); }, lo, hi, 0.005));
+    });
+  });
+};
+
+let partCtl = [];
+const FIELDS = [
+  ['A x', 0, -0.6, 0.6, 0.005], ['A y', 1, -0.6, 1.2, 0.005], ['A z', 2, -1, 1, 0.005],
+  ['B x', 3, -0.6, 0.6, 0.005], ['B y', 4, -0.6, 1.2, 0.005], ['B z', 5, -1, 1, 0.005],
+  ['A width', 6, 0.001, 0.35, 0.002], ['A height', 7, 0.001, 0.35, 0.002],
+  ['B width', 8, 0.001, 0.35, 0.002], ['B height', 9, 0.001, 0.35, 0.002],
+];
+// Whole-part size. Thickness scales all four radii together and length slides B
+// along the A->B axis, which is what "make the neck bigger" actually means -
+// four separate radius sliders never say it.
+let tScale = 1, lScale = 1;
+
+const rebase = () => {
+  snapshot();
+  tScale = lScale = 1;
+  gCtl.forEach((c) => c.sync());
+  partCtl.forEach((c) => c.sync());
+};
+
+const refreshParts = () => {
+  [...plist.children].forEach((b, i) => b.classList.toggle('on', i === sel));
+  const host = $('pctl');
+  host.innerHTML = '';
+  snapshot();
+  tScale = lScale = 1;
+  partCtl = [
+    slider(host, 'thickness', () => tScale, (v) => {
+      tScale = v;
+      for (const i of [6, 7, 8, 9]) PARTS[sel][i] = gBase[sel][i] * v;
+    }, 0.2, 3, 0.01, (v) => v.toFixed(2) + 'x'),
+    slider(host, 'length', () => lScale, (v) => {
+      lScale = v;
+      for (let k = 0; k < 3; k++)
+        PARTS[sel][3 + k] = gBase[sel][k] + (gBase[sel][3 + k] - gBase[sel][k]) * v;
+    }, 0.2, 3, 0.01, (v) => v.toFixed(2) + 'x'),
+    ...FIELDS.map(([n, idx, lo, hi, st]) =>
+      slider(host, n, () => PARTS[sel][idx],
+        // Editing one endpoint re-bases the group and size sliders, so both are
+        // always measured from the pose you can see rather than a stale copy.
+        (v) => { PARTS[sel][idx] = v; rebase(); },
+        lo, hi, st)),
+  ];
+};
+snapshot();
+buildGroups();
+refreshParts();
+
+// --- loop -------------------------------------------------------------------
+let maneSync = 0;
+const tick = (t) => {
+  raf(tick);
+  const dt = Math.min(0.05, (t - last) / 1000) || 0;
+  last = t;
+  if (!paused) ph += dt * gameSpd * C.GALLOP;   // exactly what the game does
+  $('phv').textContent = (gameSpd * C.GALLOP).toFixed(1) + ' strides/s';
+  if (maneSync++ % 6 === 0) maneCtl.forEach((c) => c.sync());   // keeps 'capped' honest
+  for (const c of realCells) {
+    drawCell(c, false);
+    c.cap.innerHTML = `${c.name} · ${c.u ? 'unicorn' : 'horse'}<br><b>s=${c.s.toFixed(0)}px</b>`;
+  }
+  for (const c of zoomCells) { drawCell(c, true); c.cap.textContent = c.u ? 'unicorn · 6×' : 'horse · 6×'; }
+};
+raf(tick);
+
+// --- export -----------------------------------------------------------------
+const f = (v) => {
+  let t = (+v).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  return t.startsWith('0.') ? t.slice(1) : t.startsWith('-0.') ? '-' + t.slice(2) : t;
+};
+$('exp').onclick = () => {
+  const rows = PARTS.map((q, i) =>
+    `  [${q.map(f).join(', ')}],`.padEnd(64) + `// ${NAMES[i]}`).join('\n');
+  $('out').textContent =
+    `const PARTS = [\n${rows}\n];\n\n` +
+    `// in C:\n` +
+    `  YAW: ${f(C.YAW)},  STANCE: ${f(C.STANCE)},  ASC: ${f(C.ASC)},  LOD: ${f(C.LOD)},\n` +
+    `  LEGL: ${f(C.LEGL)},  LEGY: ${f(C.LEGY)},  SWING: ${f(C.SWING)},  FOLD: ${f(C.FOLD)},\n` +
+    `  OUTL: ${f(C.OUTL)},  OUTA: ${f(C.OUTA)},  GALLOP: ${f(C.GALLOP)},\n` +
+    `  FHZ: ${f(C.FHZ)},  HHZ: ${f(C.HHZ)},  HFOLD: ${f(C.HFOLD)},  HTILT: ${f(C.HTILT)},
+` +
+    `  PHH: ${f(C.PHH)},  PHS: ${f(C.PHS)},
+` +
+    `  MANEN: ${C.MANEN},  MANE0: ${f(C.MANE0)},  MANE1: ${f(C.MANE1)},
+` +
+    `  MANEL: ${f(C.MANEL)},  MANER: ${f(C.MANER)},  MANEX: ${f(C.MANEX)},  MANEP: ${f(C.MANEP)},\n` +
+    `  LEGR: [${C.LEGR.map(f).join(', ')}],`;
+};
+$('reset').onclick = () => {
+  ORIG.forEach((q, i) => q.forEach((v, j) => (PARTS[i][j] = v)));
+  Object.assign(C, ORIGC, { LEGR: [...ORIGC.LEGR] });
+  snapshot();
+  globCtl.concat(legCtl, maneCtl, partCtl, gCtl).forEach((s) => s.sync());
+};
+</script>
+</body>
+</html>
