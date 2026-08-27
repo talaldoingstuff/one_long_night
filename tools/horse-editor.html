@@ -124,6 +124,8 @@ const ORIGC = { YAW: C.YAW, STANCE: C.STANCE, ASC: C.ASC, LEGL: C.LEGL, LEGY: C.
                 GALLOP: C.GALLOP, FHZ: C.FHZ, HHZ: C.HHZ, HFOLD: C.HFOLD, HTILT: C.HTILT,
                 PHH: C.PHH, PHS: C.PHS, FLYF: C.FLYF, FLYB: C.FLYB, FLYK: C.FLYK,
                 BOB: C.BOB, BOBR: C.BOBR, NOD: C.NOD, NODR: C.NODR,
+                FLYR: C.FLYR, FLYW: C.FLYW, FBOB: C.FBOB, FBOBR: C.FBOBR,
+                FNOD: C.FNOD, FNODR: C.FNODR,
                 MANEN: C.MANEN, MANE0: C.MANE0,
                 MANE1: C.MANE1, MANEL: C.MANEL, MANER: C.MANER, MANEX: C.MANEX,
                 MANEP: C.MANEP,
@@ -223,6 +225,14 @@ globCtl.push(slider(G, 'head nod', () => C.NOD, (v) => (C.NOD = v), 0, 0.06, 0.0
   (v) => (v === 0 ? 'still' : v.toFixed(3))));
 globCtl.push(slider(G, 'nod rate', () => C.NODR, (v) => (C.NODR = v), 0, 4, 0.5,
   (v) => v.toFixed(1) + '/stride'));
+globCtl.push(slider(G, 'fly: body bob', () => C.FBOB, (v) => (C.FBOB = v), 0, 0.08, 0.002,
+  (v) => (v === 0 ? 'still' : v.toFixed(3))));
+globCtl.push(slider(G, 'fly: bob rate', () => C.FBOBR, (v) => (C.FBOBR = v), 0, 6, 0.5,
+  (v) => v.toFixed(1) + '/stride'));
+globCtl.push(slider(G, 'fly: head nod', () => C.FNOD, (v) => (C.FNOD = v), 0, 0.08, 0.002,
+  (v) => (v === 0 ? 'still' : v.toFixed(3))));
+globCtl.push(slider(G, 'fly: nod rate', () => C.FNODR, (v) => (C.FNODR = v), 0, 6, 0.5,
+  (v) => v.toFixed(1) + '/stride'));
 globCtl.push(slider(G, 'gallop rate', () => C.GALLOP, (v) => (C.GALLOP = v), 0, 8, 0.05,
   (v) => v.toFixed(2) + '/u'));
 let gameSpd = 1;
@@ -260,6 +270,10 @@ legCtl.push(slider(L, 'fly: front reach', () => C.FLYF, (v) => (C.FLYF = v), 0, 
 legCtl.push(slider(L, 'fly: hind reach', () => C.FLYB, (v) => (C.FLYB = v), -2, 0, 0.02));
 legCtl.push(slider(L, 'fly: knee bend', () => C.FLYK, (v) => (C.FLYK = v), 0, 1, 0.02,
   (v) => (v < 0.05 ? 'straight' : v.toFixed(2))));
+legCtl.push(slider(L, 'fly: beat', () => C.FLYR, (v) => (C.FLYR = v), 0, 8, 0.1,
+  (v) => v.toFixed(1) + '/stride'));
+legCtl.push(slider(L, 'fly: leg flutter', () => C.FLYW, (v) => (C.FLYW = v), 0, 0.6, 0.01,
+  (v) => (v === 0 ? 'rigid' : v.toFixed(2))));
 legCtl.push(slider(L, 'left/right split', () => C.PHS, (v) => (C.PHS = v), 0, 0.5, 0.01,
   (v) => v.toFixed(2) + (v < 0.04 ? ' paired' : Math.abs(v - 0.5) < 0.04 ? ' alternating' : '')));
 // Move all four legs at once - the hips live in C, not in PARTS, so the group
@@ -450,6 +464,10 @@ $('exp').onclick = () => {
     `  PHH: ${f(C.PHH)},  PHS: ${f(C.PHS)},  FLYF: ${f(C.FLYF)},  FLYB: ${f(C.FLYB)},  FLYK: ${f(C.FLYK)},
 ` +
     `  BOB: ${f(C.BOB)},  BOBR: ${f(C.BOBR)},  NOD: ${f(C.NOD)},  NODR: ${f(C.NODR)},
+` +
+    `  FLYR: ${f(C.FLYR)},  FLYW: ${f(C.FLYW)},  FBOB: ${f(C.FBOB)},  FBOBR: ${f(C.FBOBR)},
+` +
+    `  FNOD: ${f(C.FNOD)},  FNODR: ${f(C.FNODR)},
 ` +
     `  MANEN: ${C.MANEN},  MANE0: ${f(C.MANE0)},  MANE1: ${f(C.MANE1)},
 ` +

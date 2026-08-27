@@ -33,9 +33,17 @@ export const C = {
   PX0: 0.16,          // where the unicorn starts, fraction of width
   PSPD: 0.75,         // player speed, fractions of screen height per second
   PAD: 0.07,          // keep-out margin at every edge, fraction of height
-  OBJ: 0.11,          // object size, fraction of screen HEIGHT (landscape)
-  PSZ: 0.13,          // the unicorn's own size
-  HITR: 0.45,         // collision radius as a fraction of object size
+  OBJ: 0.22,          // object size, fraction of screen HEIGHT (landscape)
+  PSZ: 0.195,         // the unicorn's own size
+  // Collision is an ELLIPSE around each thing's REAL drawn extent. Using the
+  // object slot (OS) as the radius made a prism's hitbox 2.7x the prism, so
+  // pickups fired 31px from anything visible.
+  SEP: 0.16,          // nothing spawns within this of another, fraction of height.
+                      // Three spawners fire off independent distance markers, so
+                      // without it two can land on the same frame at the same y.
+  HITR: 0.82,         // forgiveness: fraction of the summed visual radii
+  PW: 0.5,            // the unicorn's half-width, as a fraction of its size
+  PH: 0.42,           // and half-height
 
   // --- Solid objects (DESIGN.md 5) -----------------------------------------
   // Play is flat, but each OBJECT is real geometry: vertices in its own local
@@ -67,6 +75,15 @@ export const C = {
   FLYF: 1.15,         // front legs reach forward, radians from vertical
   FLYB: -1.05,        // hind legs stream back
   FLYK: 0.12,         // how much knee fold survives. 0 is dead straight.
+  // Flight was completely still - legs pinned, bob and nod switched off. It now
+  // moves exactly as it does on the ground, 50% faster. Bigger amplitudes and a
+  // 3x beat read as thrashing, not flying.
+  FLYR: 2.25,            // flight beats per stride
+  FLYW: 0.03,         // how far the legs flutter around the flying pose, radians
+  FBOB: 0.01,        // body rise and fall in flight
+  FBOBR: 2.25,           // ...per stride
+  FNOD: 0.012,         // head nod in flight
+  FNODR: 2.25,           // ...per stride
   // Bounce. The barrel bob lifts the whole animal and the head nods on top of
   // it, so the head carries both and reads as twice the motion the body has.
   // Rates are cycles per stride: the body beats twice, the head nods once.
@@ -110,7 +127,11 @@ export const C = {
   STANCE: 0.175,       // half the distance between the left and right legs. Wider
                       // also lifts the crossover above, so it earns twice.
   LOD: 26,            // below this on-screen size legs lose their lower segment
-  PR: 0.165,          // prism radius, in object-size units
+  PR: 0.0825,         // prism radius across, in object-size units
+  PRY: 2.6,           // and its vertical stretch. A regular octahedron reads as
+                      // wide, because height foreshortens by PCY and width does
+                      // not; stretching y is what makes it a standing crystal.
+  ORB: 0.172,          // mystery sphere radius - just over the prism's width
   PSPIN: 2.2,         // prism turns per unit of track
 
   // --- Feel and the beam ---------------------------------------------------
@@ -121,8 +142,10 @@ export const C = {
   // holding it costs the same at 1x as at the speed cap. Firing through a dark
   // prism has to cost less than eating one, or there is no decision in it.
   BEAM: 0.55,         // energy per unit of track while firing
-  BEAMH: 0.03,        // beam half-height, fraction of screen height
-  BEAMY: -0.02,       // where it leaves the horn, relative to the unicorn centre
+  BEAMH: 0.026,        // beam half-height, fraction of screen height
+  BEAMY: 0.014,        // where it leaves, relative to the unicorn centre
+  BEAMX: 0,       // and how far BEHIND it starts, in unicorn-size units, so
+                      // the beam emerges from behind the body rather than at it
 
   // --- Boosters (DESIGN.md 8) ----------------------------------------------
   // Auto-activate on contact, no held slot. Pickups arrive as mystery spheres
@@ -302,9 +325,9 @@ const nf = (ch, d, base) => {
   return base * 2 ** ((ch[0] + s + min(12, dist / 30 | 0)) / 12);
 };
 
-const music = (dt, spd) => {
+const music = (dt) => {
   if ((mT -= dt) > 0) return;
-  const st = 60 / (C.BPM * (0.7 + 0.3 * spd)) / 4;   // seconds per 16th, tempo tracks speed
+  const st = 60 / C.BPM / 4;                         // seconds per 16th, fixed tempo
   mT = st;
   const i = mS++, ch = PROG[(i >> 4) % 8];
   // No kick, no snare. Triangle rather than the sawtooth, at a little over half
@@ -342,10 +365,11 @@ let mx = 0, my = 0, mouse = 0;
 const KD = (e, down) => {
   AC();
   const k = e.key.toLowerCase();
+  // Swallow BEFORE the restart check. Behind it, space on the game-over screen
+  // both restarted the run and scrolled the page.
+  if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
   if (down && over) return reset();
   KEYS[k] = down;
-  // Space and the arrows would otherwise scroll the page under the game.
-  if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
 };
 
 const PT = (e) => {
@@ -417,7 +441,7 @@ const step = (dt) => {
   bLuck = max(0, bLuck - dd);
   bSlow = max(0, bSlow - dt);
   flash = max(0, flash - dt * 3);
-  music(dt, spd);
+  music(dt);
 
   // Movement. Keys give a direction; the mouse steers toward the pointer. Both
   // land in the same vx/vy, so nothing downstream knows which was used.
@@ -431,32 +455,38 @@ const step = (dt) => {
   py = min(H - PAD(), max(PAD(), py + ay * sp * dt));
 
   const dx = dd * PPU();               // pixels the world slides left this frame
-  const r = OS() * C.HITR, pr = C.PSZ * H * C.HITR;
+  const os = OS(), ps = C.PSZ * H;
+  const prx = ps * C.PW, pry = ps * C.PH;
   const beamY = py + C.BEAMY * H, beamH = C.BEAMH * H;
+  // Each type's own drawn extents, so a hit means the shapes actually met.
+  const RX = (t) => (t === 3 ? C.ORB : C.PR) * os;
+  const RY = (t) => (t === 3 ? C.ORB : C.PR * C.PRY * C.PCY) * os;
 
   for (let i = ents.length; i--;) {
     const o = ents[i];
     o[0] -= dx;
     // The beam clears anything ahead of the horn that crosses its band. It
     // destroys rather than collects, so burning a light prism is a real loss.
-    if (fire && o[0] > px && abs(o[1] - beamY) < beamH + r) {
-      burst(o[0], o[1], 8, OS() * 4, isDark(o[2]) ? '#7b3ab6' : '#ffe9a0');
+    if (fire && o[0] > px && abs(o[1] - beamY) < beamH + RY(o[2])) {
+      burst(o[0], o[1], 8, os * 4, isDark(o[2]) ? '#7b3ab6' : '#ffe9a0');
       ents.splice(i, 1);
       continue;
     }
-    if (hypot(o[0] - px, o[1] - py) < r + pr) {
+    const ex = (o[0] - px) / ((RX(o[2]) + prx) * C.HITR);
+    const ey = (o[1] - py) / ((RY(o[2]) + pry) * C.HITR);
+    if (ex * ex + ey * ey < 1) {
       if (o[2] === 3) applyBoost(o[4], o[0], o[1]);
       else {
         const dark = isDark(o[2]);
         energy = min(C.BAR, energy + (dark ? C.DARK : C.LIGHT));
-        burst(o[0], o[1], 10, OS() * 4, dark ? '#7b3ab6' : '#ffe9a0');
+        burst(o[0], o[1], 10, os * 4, dark ? '#7b3ab6' : '#ffe9a0');
         sfx(dark ? S_DARK : S_LIGHT);
         if (dark) flash = 1;
       }
       ents.splice(i, 1);
       continue;
     }
-    if (o[0] < -OS()) ents.splice(i, 1);
+    if (o[0] < -os) ents.splice(i, 1);
   }
 
   for (let i = parts.length; i--;) {
@@ -468,11 +498,21 @@ const step = (dt) => {
   }
 
   // Spawners are distance-driven, same as the economy.
-  const h = HARD(), sx = W + OS(), lo = PAD() + OS(), hi = H - PAD() - OS();
-  const ry = () => lo + random() * (hi - lo);
-  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); ents.push([sx, ry(), 1, random()]); }
-  while (dist >= nD) { nD += LERP(C.SP_DARK, C.SP_DARK_HI, h);   ents.push([sx, ry(), 2, random()]); }
-  while (dist >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); ents.push([sx, ry(), 3, random(), pickBoost()]); }
+  const h = HARD(), sx = W + os, lo = PAD() + os, hi = H - PAD() - os, sep = C.SEP * H;
+  // Find a slot nothing is already sitting in. If the mouth of the field is
+  // crowded, skip the spawn rather than stack two objects on one another - the
+  // distance marker has already advanced, so it simply does not appear.
+  const ry = () => {
+    for (let k = 0; k < 8; k++) {
+      const y = lo + random() * (hi - lo);
+      if (!ents.some((o) => abs(o[0] - sx) < sep && abs(o[1] - y) < sep)) return y;
+    }
+    return -1;
+  };
+  const put = (t, b) => { const y = ry(); if (y > 0) ents.push([sx, y, t, random(), b]); };
+  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1); }
+  while (dist >= nD) { nD += LERP(C.SP_DARK, C.SP_DARK_HI, h);   put(2); }
+  while (dist >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); put(3, pickBoost()); }
 
   if (energy <= 0) {
     energy = 0; over = 1;
@@ -597,10 +637,10 @@ const horse = (cx, gy, s, ph, u, fly = 0) => {
   const A = PI + C.YAW * PI / 180;
   CO = cos(A); SI = sin(A); SX = cx; SY = gy; SS = s * C.ASC;
   const th = ph * 2 * PI, bd = BODY[u], R = C.LEGR;
-  // Both fade out with fly: nothing airborne should still be bouncing off a
-  // ground it is not touching. The nod kept running in flight before.
-  const by = 0.56 + sin(th * C.BOBR) * C.BOB * (1 - fly);
-  const hb = sin(th * C.NODR + 1) * C.NOD * (1 - fly);   // a beat behind the body
+  // Ground and flight each have their own amplitude and rate; fly blends between
+  // them. Zeroing both in flight left the animal completely static.
+  const by = 0.56 + sin(th * LERP(C.BOBR, C.FBOBR, fly)) * LERP(C.BOB, C.FBOB, fly);
+  const hb = sin(th * LERP(C.NODR, C.FNODR, fly) + 1) * LERP(C.NOD, C.FNOD, fly);
   const fine = s > C.LOD;
 
   for (const [side, hind] of LEGS) {                // four legs, two segments each
@@ -610,7 +650,10 @@ const horse = (cx, gy, s, ph, u, fly = 0) => {
     // reach and straighten the knee. At fly = 0 this is exactly the old gallop.
     const ga = sin(t) * C.SWING + (hind ? C.HTILT : 0);
     const gb = (1 - cos(t)) * C.FOLD * (hind ? C.HFOLD : -1);
-    const a = LERP(ga, hind ? C.FLYB : C.FLYF, fly);
+    // The flying pose flutters rather than holding rigid, with the two sides
+    // offset so the pair is not in lockstep.
+    const fa = (hind ? C.FLYB : C.FLYF) + sin(th * C.FLYR + (side < 0 ? 1.6 : 0)) * C.FLYW;
+    const a = LERP(ga, fa, fly);
     const b = LERP(gb, gb * C.FLYK, fly);
     const lz = hind ? C.HHZ : C.FHZ;
     const x = side * C.STANCE, hy = by + C.LEGY;
@@ -661,15 +704,18 @@ const LGT = [-0.42, 0.76, -0.5];                  // light direction, unit-ish
 const PCOL = [[255, 255, 255], [150, 84, 226]];   // light prism, dark prism
 
 const prism = (cx, cy, s, a, dark) => {
-  const co = cos(a), si = sin(a), r = s * C.PR, c = PCOL[dark];
+  const co = cos(a), si = sin(a), r = s * C.PR, q = C.PRY, c = PCOL[dark];
+  const nl = (2 * q * q + 1) ** 0.5;
   for (let i = 0; i < 8; i++) {
     const sx = i & 1 ? 1 : -1, sy = i & 2 ? 1 : -1, sz = i & 4 ? 1 : -1;
-    const nx = sx * co - sz * si, nz = sx * si + sz * co;   // normal, turned about Y
+    // Stretching y makes the face normal (sx*q, sy, sz*q). The sign-vector
+    // shortcut is only exact for a REGULAR octahedron, and this is a crystal.
+    const nx = sx * q * co - sz * q * si, nz = sx * q * si + sz * q * co;
     if (nz * C.PCY >= sy * C.PCZ) continue;                 // faces away from the camera
-    g.fillStyle = shade(c, 0.34 + 0.66 * max(0, (nx * LGT[0] + sy * LGT[1] + nz * LGT[2]) / 1.733));
+    g.fillStyle = shade(c, 0.34 + 0.66 * max(0, (nx * LGT[0] + sy * LGT[1] + nz * LGT[2]) / nl));
     g.beginPath();
     g.moveTo(cx + sx * r * co, cy - sx * r * si * C.PCZ);   // (sx, 0, 0)
-    g.lineTo(cx,               cy - sy * r * C.PCY);        // (0, sy, 0)
+    g.lineTo(cx,               cy - sy * r * q * C.PCY);    // (0, sy, 0) - stretched
     g.lineTo(cx - sz * r * si, cy - sz * r * co * C.PCZ);   // (0, 0, sz)
     g.fill();
   }
@@ -678,12 +724,12 @@ const prism = (cx, cy, s, a, dark) => {
 // A mystery sphere: a rainbow-rimmed orb with a question mark, per DESIGN.md 8.
 const orb = (cx, cy, s) => {
   g.fillStyle = '#0d1b3a';
-  g.beginPath(); g.arc(cx, cy, s * 0.4, 0, 7); g.fill();
-  g.lineWidth = s * 0.09;
+  g.beginPath(); g.arc(cx, cy, s * C.ORB, 0, 7); g.fill();
+  g.lineWidth = s * 0.05;
   g.strokeStyle = RB[(dist * 4 | 0) % 6];
   g.stroke();
   g.fillStyle = '#fff';
-  g.font = 'bold ' + s * 0.46 + 'px monospace';
+  g.font = 'bold ' + s * 0.26 + 'px monospace';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText('?', cx, cy);
@@ -694,15 +740,23 @@ const orb = (cx, cy, s) => {
 // The rainbow beam. Six stacked bands leaving the horn, rippling along their
 // length so it reads as light being poured rather than a drawn rectangle.
 const beam = () => {
-  const y0 = py + C.BEAMY * H, hh = C.BEAMH * H, x0 = px + C.PSZ * H * 0.45;
-  const n = 6, step2 = (W - x0) / 14;
+  const y0 = py + C.BEAMY * H, hh = C.BEAMH * H, x0 = px + C.PSZ * H * C.BEAMX;
+  // One continuous polygon per band, down one edge and back along the other.
+  // Drawing it as a row of rects meant every segment sat at its own wave offset,
+  // so each boundary showed as a vertical step - the beam looked shredded.
+  const n = 6, seg = 20, dx = (W - x0) / seg;
+  const wav = (x) => sin(x / W * 9 - dist * 14) * hh * 0.18;
   for (let b = 0; b < n; b++) {
+    const yA = -hh + (b * 2 * hh) / n, yB = yA + (2 * hh) / n * 1.08;   // 8% overlap
     g.fillStyle = shade(RBV[b], 0.7 + 0.3 * cos(dist * 12 + b));
     g.globalAlpha = 0.55 + 0.45 * (1 - b / n);
-    for (let x = x0; x < W; x += step2) {
-      const w = sin(x / W * 9 - dist * 14) * hh * 0.18;
-      g.fillRect(x, y0 - hh + (b * 2 * hh) / n + w, step2 + 1, (2 * hh) / n + 1);
+    g.beginPath();
+    for (let i = 0; i <= seg; i++) {
+      const x = x0 + i * dx, y = y0 + yA + wav(x);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
     }
+    for (let i = seg; i >= 0; i--) { const x = x0 + i * dx; g.lineTo(x, y0 + yB + wav(x)); }
+    g.fill();
   }
   g.globalAlpha = 1;
 };
