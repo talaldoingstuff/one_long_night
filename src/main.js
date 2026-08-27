@@ -5,25 +5,33 @@
 // TUNING. Every constant from DESIGN.md 7 lives here. Flip and reload.
 // ---------------------------------------------------------------------------
 export const C = {
-  // --- Economy (DESIGN.md 7) -----------------------------------------------
-  // ENERGY IS DENOMINATED IN TRACK UNITS, NOT SECONDS. If it drained per second
-  // while spawns were spaced per distance, the game would get *easier* as it sped
-  // up. Distance makes the economy speed-invariant; speed only compresses
-  // reaction time. At base speed 1 unit ~ 1 second, so time intuitions still map.
+  // --- Economy -------------------------------------------------------------
+  // The bar is the RAINBOW's charge, not a survival clock. It only falls while
+  // the ray is channelling, and only a rainbow sphere puts it back. Runs end by
+  // collision, not by the bar emptying - an empty bar means you cannot open the
+  // next gate, and it is the gate that kills you.
+  //
+  // Still denominated in track units, so channelling costs the same at 1x as at
+  // the speed cap. DESIGN.md 7's argument outlives the genre again.
   BAR: 10,            // bar capacity, units
-  DRAIN: 1,           // energy lost per unit travelled
-  LIGHT: 3,           // light prism
-  DARK: -2,           // dark prism
+  DRAIN: 0,           // no passive drain. Raise to put a clock back.
+  BEAMC: 0.8,         // charge spent per unit while channelling
+  RGEN: 0.12,         // and trickled back per unit, always. A full bar from empty
+                      // takes ~83 units, so it recovers but never rescues.
+  RBFILL: 6,          // a rainbow sphere is worth this much charge
 
-  // --- Spawn spacing, in track units (DESIGN.md 7) --------------------------
-  SP_LIGHT: 2.5,
-  SP_DARK: 4,
-  SP_BOOST: 15,
+  // --- Spawn spacing, in track units ----------------------------------------
+  SP_LIGHT: 3.5,      // reflector prisms
+  SP_RB: 6,           // rainbow spheres
+  SP_BOOST: 22,       // mystery spheres
+  SP_OBST: 2.6,       // obstacles
+  SP_GATE: 26,        // gates
+  SPIKE: 0.3,         // fraction of obstacles that are spiked
 
-  // --- Speed (DESIGN.md 7) --------------------------------------------------
+  // --- Speed ----------------------------------------------------------------
   SPEED: 1,           // base units per second
   STEP: 0.0333,       // LINEAR, per unit travelled. Never compound.
-  CAP: 3,             // 3x base, reached at 40 unicorns
+  CAP: 3,             // 3x base
 
   // --- The world (landscape, 2D play) --------------------------------------
   // Play is flat: the unicorn moves freely in screen x and y while the level
@@ -127,6 +135,23 @@ export const C = {
   STANCE: 0.175,       // half the distance between the left and right legs. Wider
                       // also lifts the crossover above, so it earns twice.
   LOD: 26,            // below this on-screen size legs lose their lower segment
+  // --- Obstacles, gates and the ray -----------------------------------------
+  OBW: 0.16,          // obstacle width range, fractions of screen height
+  OBW2: 0.34,
+  OBH: 0.12,          // and height range
+  OBH2: 0.42,
+  GATEW: 0.07,        // gate column width
+  GATESQ: 0.11,       // the rainbow panel in it - the only way through
+  GFADE: 0.6,         // seconds a struck gate takes to clear
+  BOUNCE: 4,          // how many times the ray may turn
+  HP: [2, 3],         // hits to break an obstacle: plain, spiked
+  // Damage is per SECOND, as specified - which does make the ray relatively
+  // weaker at the speed cap, since you cover 3x the ground while burning through
+  // the same slab. Everything else in the economy is per unit; if that asymmetry
+  // bites, this is the constant that fixes it.
+  DPS: 2,             // hits per second while the ray rests on something
+  RBS: 0.17,          // rainbow sphere radius, in object-size units
+
   PR: 0.0825,         // prism radius across, in object-size units
   PRY: 2.6,           // and its vertical stretch. A regular octahedron reads as
                       // wide, because height foreshortens by PCY and width does
@@ -141,7 +166,6 @@ export const C = {
   // The beam is denominated in DISTANCE like everything else in the economy, so
   // holding it costs the same at 1x as at the speed cap. Firing through a dark
   // prism has to cost less than eating one, or there is no decision in it.
-  BEAM: 0.55,         // energy per unit of track while firing
   BEAMH: 0.026,        // beam half-height, fraction of screen height
   BEAMY: 0.014,        // where it leaves, relative to the unicorn centre
   BEAMX: 0,       // and how far BEHIND it starts, in unicorn-size units, so
@@ -157,12 +181,10 @@ export const C = {
   // remove. So the saver and the bad-luck window are measured in UNITS here.
   // Time slow stays in seconds - 8 notes it buys pure reaction time and grants
   // no energy, so it cannot unbalance the economy either way.
-  BW: [3, 1, 3, 2],   // spawn weights: saver, refill, slow, bad luck. Refill rarest.
-  SAVE_U: 5,          // energy saver: units of track with no drain
+  BW: [2, 3, 2, 1],   // refill, slow, clear, spikes. Bad luck rarest.
   SLOW_S: 5,          // time slow: seconds
   SLOW_F: 0.55,       // speed multiplier while slowed
-  LUCK_U: 6,          // bad luck: units of track where every light prism reads as dark
-  REFILL: 0.75,       // refill to 75%, not full - rescue a bad position, do not erase it
+  LUCK_U: 8,          // spiked-everything window, units of track
 
   // --- Difficulty past the speed cap (DESIGN.md 7) -------------------------
   // Speed stops at 3x. After that, escalate through dark-prism ratio and spawn
@@ -174,7 +196,6 @@ export const C = {
   // than by skill. At 2.9 the surplus drops from +0.5 to +0.1 a lap: still
   // sustainable, with no margin left for a single mistake.
   SP_LIGHT_HI: 2.9,
-  SP_DARK_HI: 2.5,    // dark prisms crowd in
   SP_BOOST_HI: 22,    // mystery spheres thin out as the run goes on
 
   // --- Audio (DESIGN.md 9) -------------------------------------------------
@@ -225,7 +246,7 @@ const PAD = () => C.PAD * H;
 // The array stays sorted far-to-near for free: spawns push at z=0, the near end.
 // ---------------------------------------------------------------------------
 let ents, parts, dist, energy, over, px, py, vx, vy, fire, flash,
-    bSave, bSlow, bLuck, nL, nD, nB, last, fly;
+    bSlow, bLuck, nL, nR, nB, nO, nG, last, fly;
 
 // Personal best, in namespaced localStorage (DESIGN.md 4). Never
 // localStorage.clear() - js13k entries share an origin. Private mode throws on
@@ -237,9 +258,10 @@ try { best = +localStorage[BEST] || 0; } catch (e) {}
 const reset = () => {
   ents = []; parts = [];
   dist = 0; energy = C.BAR; over = 0; flash = 0; fire = 0; fly = 1;
-  bSave = bSlow = bLuck = 0;
+  bSlow = bLuck = 0;
   px = C.PX0 * W; py = H / 2; vx = vy = 0;
-  nL = C.SP_LIGHT; nD = C.SP_DARK; nB = C.SP_BOOST;
+  SEG = [];
+  nL = C.SP_LIGHT; nR = C.SP_RB; nB = C.SP_BOOST; nO = C.SP_OBST; nG = C.SP_GATE;
 };
 
 // ---------------------------------------------------------------------------
@@ -281,7 +303,11 @@ const zzfxG = (q = 1, k = .05, c = 220, e = 0, t = 0, u = .1, r = 0, F = 1, v = 
 
 // Exported for the frequency tests only. App-build exports are dropped, so this
 // costs nothing in the bundle - verified against npm run size.
+// ents and SEG are exported for the mechanics tests: reflection and gate-opening
+// cannot be observed from the outside, and "it did not crash" is not a check.
 export { zzfxG, horse, PARTS, LEGS };
+export const dbg = () => ({ ents, SEG, energy, over, px, py });
+export const place = (e) => { ents.length = 0; ents.push(...e); };
 
 // Buses. p[0] is the preset's own volume; the bus and master scale it.
 const snd = (p, bus) => {
@@ -303,7 +329,6 @@ const seq = (list) => list.forEach(([p, ms]) => setTimeout(() => sfx(p), ms));
 const N = (f, rel = .3, dly = .2) => [1, .02, f, , .06, rel, , 1.6, , , , , , , , , dly];
 
 const S_LIGHT = [1.1, .02, 1100, , .03, .2, , 2, , , 300, .03, , , , , .15];   // rises a third
-const S_DARK  = [1.1, .02, 300, , .03, .2, , 2, , , -67, .03, , , , , .15];    // the same, falling a third
 const S_BOOST = [1.3, .02, 440, .01, .1, .3, , 1.8, , , 220, .04, .06, , , , .2];
 const S_OVER  = [[N(440), 0], [N(349), 160], [N(262, .9, .35), 320]];          // three notes falling
 
@@ -410,7 +435,6 @@ const burst = (x, y, n, spread, col) => {
 // type 1 = light prism, 2 = dark prism, 3 = mystery sphere.
 // ---------------------------------------------------------------------------
 const HARD = () => min(1, max(0, (dist - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
-const isDark = (t) => t === 2 || (t === 1 && bLuck > 0);
 
 const BSUM = C.BW.reduce((a, b) => a + b, 0);
 const pickBoost = () => {
@@ -420,31 +444,92 @@ const pickBoost = () => {
 };
 
 const applyBoost = (b, x, y) => {
-  if (b === 0) bSave = C.SAVE_U;
-  else if (b === 1) energy = max(energy, C.BAR * C.REFILL);
-  else if (b === 2) bSlow = C.SLOW_S;
-  else bLuck = C.LUCK_U;
+  if (b === 0) energy = C.BAR;                            // refill the rainbow
+  else if (b === 1) bSlow = C.SLOW_S;                     // slow time
+  else if (b === 2) {                                     // clear the field
+    for (const o of ents) if (o[2] === 4) o[2] = 0;
+  } else {                                                // bad luck: spike everything
+    bLuck = C.LUCK_U;
+    for (const o of ents) if (o[2] === 4) o[4] = 1;
+  }
   burst(x, y, 16, OS() * 5);
   sfx(S_BOOST);
 };
 
+// ---------------------------------------------------------------------------
+// The ray. It leaves the horn travelling right and turns 90 degrees at every
+// reflector prism it crosses - which is the whole point of the prisms, and the
+// answer to what the beam was ever for. A gate only opens when a ray segment
+// reaches the rainbow panel set into it, so a panel out of the straight line has
+// to be reached around a corner.
+// ---------------------------------------------------------------------------
+let SEG = [];
+
+const segDist = (sx, sy, ex, ey, qx, qy) => {
+  const vx = ex - sx, vy = ey - sy, L2 = vx * vx + vy * vy || 1;
+  const t = max(0, min(1, ((qx - sx) * vx + (qy - sy) * vy) / L2));
+  return hypot(qx - sx - t * vx, qy - sy - t * vy);
+};
+
+// The ray is always axis-aligned - it starts flat and only ever turns 90 degrees
+// - so a slab test collapses to two comparisons instead of a full ray-box
+// intersection.
+let BURN = 0;                          // whatever the ray is currently resting on
+
+const trace = () => {
+  SEG = [];
+  BURN = 0;
+  if (!fire) return;
+  const hh = C.BEAMH * H, pr = C.PR * OS();
+  let x = px + C.PSZ * H * C.BEAMX, y = py + C.BEAMY * H, ux = 1, uy = 0;
+  for (let n = 0; n < C.BOUNCE; n++) {
+    let hit = 0, bd = 1e9, solid = 0;
+    for (const o of ents) {
+      const t = o[2];
+      if (t === 1) {                                        // reflector
+        const rx = o[0] - x, ry = o[1] - y;
+        const a2 = rx * ux + ry * uy, p2 = abs(ry * ux - rx * uy);
+        if (a2 > pr && p2 < hh + pr && a2 < bd) { bd = a2; hit = o; solid = 0; }
+      } else if ((t === 4 || t === 5) && !o[7]) {            // obstacle or gate
+        const cy = t === 5 ? H / 2 : o[1];
+        const a2 = (o[0] - x) * ux + (cy - y) * uy;
+        const p2 = abs((cy - y) * ux - (o[0] - x) * uy);
+        const hA = (o[5] / 2) * abs(ux) + (o[6] / 2) * abs(uy);
+        const hP = (o[6] / 2) * abs(ux) + (o[5] / 2) * abs(uy);
+        if (p2 < hP + hh && a2 - hA > 0 && a2 - hA < bd) { bd = a2 - hA; hit = o; solid = 1; }
+      }
+    }
+    const far = hit ? bd : W + H;
+    SEG.push([x, y, x + ux * far, y + uy * far]);
+    if (!hit) break;
+    if (solid) { BURN = hit; break; }                       // stopped, and burning
+    x += ux * bd; y += uy * bd;
+    const t2 = ux;                                          // turn the prism's way
+    ux = -uy * hit[4]; uy = t2 * hit[4];
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Simulation. Entities are [x, y, type, phase, extra, w, h, fade].
+//   1 light prism  - reflector. extra is +1 or -1, the way it turns the ray.
+//                    No collision at all; it passes behind the unicorn.
+//   2 rainbow sphere - recharges the bar
+//   3 mystery sphere - extra is the booster id
+//   4 obstacle     - extra is the spiked flag, w/h its size. Solid.
+//   5 gate         - a full column. extra is the panel's y, fade counts it out.
+// ---------------------------------------------------------------------------
 const step = (dt) => {
   const spd = C.SPEED * min(C.CAP, 1 + C.STEP * dist) * (bSlow > 0 ? C.SLOW_F : 1);
-  const dd = spd * dt;                 // track units travelled this frame
+  const dd = spd * dt;
   dist += dd;
 
-  // Fire from the keyboard or the left mouse button - one flag either way.
   fire = (KEYS[' '] || mouse) && energy > 0 ? 1 : 0;
-  if (bSave <= 0) energy -= dd * C.DRAIN;
-  if (fire) energy -= dd * C.BEAM;
-  bSave = max(0, bSave - dd);
+  energy = min(C.BAR, max(0, energy + dd * (C.RGEN - C.DRAIN - (fire ? C.BEAMC : 0))));
   bLuck = max(0, bLuck - dd);
   bSlow = max(0, bSlow - dt);
   flash = max(0, flash - dt * 3);
   music(dt);
 
-  // Movement. Keys give a direction; the mouse steers toward the pointer. Both
-  // land in the same vx/vy, so nothing downstream knows which was used.
   let ax = AXIS('arrowleft', 'arrowright') + AXIS('a', 'd');
   let ay = AXIS('arrowup', 'arrowdown') + AXIS('w', 's');
   if (!ax && !ay && mouse) { ax = (mx - px) / (W * 0.25); ay = (my - py) / (H * 0.25); }
@@ -454,54 +539,81 @@ const step = (dt) => {
   px = min(W - PAD(), max(PAD(), px + ax * sp * dt));
   py = min(H - PAD(), max(PAD(), py + ay * sp * dt));
 
-  const dx = dd * PPU();               // pixels the world slides left this frame
-  const os = OS(), ps = C.PSZ * H;
+  const dx = dd * PPU(), os = OS(), os2 = os, ps = C.PSZ * H;
   const prx = ps * C.PW, pry = ps * C.PH;
-  const beamY = py + C.BEAMY * H, beamH = C.BEAMH * H;
-  // Each type's own drawn extents, so a hit means the shapes actually met.
-  const RX = (t) => (t === 3 ? C.ORB : C.PR) * os;
-  const RY = (t) => (t === 3 ? C.ORB : C.PR * C.PRY * C.PCY) * os;
+  for (const o of ents) o[0] -= dx;
+
+  trace();
+
+  // The ray burns through whatever it is resting on. Plain slabs take 2 hits,
+  // spiked ones 3, at DPS a second - so cover has to be cleared, not dodged.
+  if (BURN && BURN[2] === 4) {
+    BURN[8] -= C.DPS * dt;
+    if (BURN[8] <= 0) {
+      burst(BURN[0], BURN[1], 20, os2 * 5, '#ffe9a0');
+      sfx(S_BOOST);
+      BURN[2] = 0;
+    }
+  }
+
+  // Gates open where a ray segment reaches the panel.
+  const pr2 = C.GATESQ * H * 0.5 + C.BEAMH * H;
+  for (const o of ents) {
+    if (o[2] !== 5 || o[7]) continue;
+    if (SEG.some((g) => segDist(g[0], g[1], g[2], g[3], o[0], o[4]) < pr2)) {
+      o[7] = C.GFADE;
+      burst(o[0], o[4], 18, os * 5);
+      sfx(S_LIGHT);
+    }
+  }
 
   for (let i = ents.length; i--;) {
-    const o = ents[i];
-    o[0] -= dx;
-    // The beam clears anything ahead of the horn that crosses its band. It
-    // destroys rather than collects, so burning a light prism is a real loss.
-    if (fire && o[0] > px && abs(o[1] - beamY) < beamH + RY(o[2])) {
-      burst(o[0], o[1], 8, os * 4, isDark(o[2]) ? '#7b3ab6' : '#ffe9a0');
-      ents.splice(i, 1);
-      continue;
-    }
-    const ex = (o[0] - px) / ((RX(o[2]) + prx) * C.HITR);
-    const ey = (o[1] - py) / ((RY(o[2]) + pry) * C.HITR);
-    if (ex * ex + ey * ey < 1) {
-      if (o[2] === 3) applyBoost(o[4], o[0], o[1]);
-      else {
-        const dark = isDark(o[2]);
-        energy = min(C.BAR, energy + (dark ? C.DARK : C.LIGHT));
-        burst(o[0], o[1], 10, os * 4, dark ? '#7b3ab6' : '#ffe9a0');
-        sfx(dark ? S_DARK : S_LIGHT);
-        if (dark) flash = 1;
+    const o = ents[i], t = o[2];
+    if (o[7]) { o[7] -= dt; if (o[7] <= 0) { ents.splice(i, 1); continue; } }
+    if (o[0] < -W * 0.2) { ents.splice(i, 1); continue; }
+    if (t === 1 || t === 0) continue;              // prisms never collide
+
+    if (t === 4 || (t === 5 && !o[7])) {           // solid: block, do not absorb
+      const hw = o[5] / 2 + prx, hy = o[6] / 2 + pry;
+      const ex = px - o[0], ey = py - (t === 5 ? H / 2 : o[1]);
+      if (abs(ex) < hw && abs(ey) < hy) {
+        // A gate you failed to open is fatal, as is anything spiked.
+        if (t === 5 || (o[4] || bLuck > 0)) { over = 1; flash = 1; }
+        else {
+          const ox = hw - abs(ex), oy = hy - abs(ey);
+          if (ox < oy) px += ex > 0 ? ox : -ox; else py += ey > 0 ? oy : -oy;
+        }
       }
-      ents.splice(i, 1);
       continue;
     }
-    if (o[0] < -os) ents.splice(i, 1);
+    // spheres are collected on contact
+    const r = (t === 2 ? C.RBS : C.ORB) * os;
+    const cx2 = (o[0] - px) / ((r + prx) * C.HITR), cy2 = (o[1] - py) / ((r + pry) * C.HITR);
+    if (cx2 * cx2 + cy2 * cy2 < 1) {
+      if (t === 3) applyBoost(o[4], o[0], o[1]);
+      else { energy = min(C.BAR, energy + C.RBFILL); burst(o[0], o[1], 12, os * 4, '#ffe9a0'); sfx(S_LIGHT); }
+      ents.splice(i, 1);
+    }
+  }
+
+  // Shoved off the left edge is a loss: there is nowhere left to be pushed.
+  if (px <= PAD() + 1 && !over) {
+    for (const o of ents) {
+      if ((o[2] !== 4 && o[2] !== 5) || o[7]) continue;
+      const hw = o[5] / 2 + prx, hy = o[6] / 2 + pry;
+      if (abs(px - o[0]) < hw && abs(py - (o[2] === 5 ? H / 2 : o[1])) < hy) { over = 1; flash = 1; }
+    }
   }
 
   for (let i = parts.length; i--;) {
     const p = parts[i];
-    p[0] += p[2] * dt - dx;            // particles ride the scroll
+    p[0] += p[2] * dt - dx;
     p[1] += p[3] * dt;
     p[3] += C.GRAV * dt;
     if ((p[4] += dt) > p[5]) parts.splice(i, 1);
   }
 
-  // Spawners are distance-driven, same as the economy.
   const h = HARD(), sx = W + os, lo = PAD() + os, hi = H - PAD() - os, sep = C.SEP * H;
-  // Find a slot nothing is already sitting in. If the mouth of the field is
-  // crowded, skip the spawn rather than stack two objects on one another - the
-  // distance marker has already advanced, so it simply does not appear.
   const ry = () => {
     for (let k = 0; k < 8; k++) {
       const y = lo + random() * (hi - lo);
@@ -509,13 +621,25 @@ const step = (dt) => {
     }
     return -1;
   };
-  const put = (t, b) => { const y = ry(); if (y > 0) ents.push([sx, y, t, random(), b]); };
-  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1); }
-  while (dist >= nD) { nD += LERP(C.SP_DARK, C.SP_DARK_HI, h);   put(2); }
+  const put = (t, b, w, hgt) => {
+    const y = ry();
+    if (y > 0) ents.push([sx, y, t, random(), b, w, hgt, 0, C.HP[b ? 1 : 0]]);
+  };
+  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1, random() < 0.5 ? 1 : -1); }
+  while (dist >= nR) { nR += C.SP_RB; put(2); }
   while (dist >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); put(3, pickBoost()); }
+  while (dist >= nO) {
+    nO += LERP(C.SP_OBST, C.SP_OBST * 0.6, h);
+    put(4, random() < LERP(C.SPIKE, C.SPIKE * 1.8, h) ? 1 : 0,
+        LERP(C.OBW, C.OBW2, random()) * H, LERP(C.OBH, C.OBH2, random()) * H);
+  }
+  while (dist >= nG) {
+    nG += C.SP_GATE;
+    const gy = lo + random() * (hi - lo);
+    ents.push([sx, H / 2, 5, 0, gy, C.GATEW * H, H * 2, 0, 0]);
+  }
 
-  if (energy <= 0) {
-    energy = 0; over = 1;
+  if (over) {
     seq(S_OVER);
     const sc = dist | 0;
     if (sc > best) { best = sc; try { localStorage[BEST] = best; } catch (e) {} }
@@ -737,26 +861,71 @@ const orb = (cx, cy, s) => {
   g.textBaseline = 'alphabetic';
 };
 
-// The rainbow beam. Six stacked bands leaving the horn, rippling along their
-// length so it reads as light being poured rather than a drawn rectangle.
+// The ray, drawn a band at a time along every traced segment. One continuous
+// polygon per band per segment: a row of rects put each piece at its own wave
+// offset, and every boundary showed as a step.
 const beam = () => {
-  const y0 = py + C.BEAMY * H, hh = C.BEAMH * H, x0 = px + C.PSZ * H * C.BEAMX;
-  // One continuous polygon per band, down one edge and back along the other.
-  // Drawing it as a row of rects meant every segment sat at its own wave offset,
-  // so each boundary showed as a vertical step - the beam looked shredded.
-  const n = 6, seg = 20, dx = (W - x0) / seg;
-  const wav = (x) => sin(x / W * 9 - dist * 14) * hh * 0.18;
-  for (let b = 0; b < n; b++) {
-    const yA = -hh + (b * 2 * hh) / n, yB = yA + (2 * hh) / n * 1.08;   // 8% overlap
-    g.fillStyle = shade(RBV[b], 0.7 + 0.3 * cos(dist * 12 + b));
-    g.globalAlpha = 0.55 + 0.45 * (1 - b / n);
-    g.beginPath();
-    for (let i = 0; i <= seg; i++) {
-      const x = x0 + i * dx, y = y0 + yA + wav(x);
-      i ? g.lineTo(x, y) : g.moveTo(x, y);
+  const hh = C.BEAMH * H, n = 6;
+  for (const [sx, sy, ex, ey] of SEG) {
+    const L = hypot(ex - sx, ey - sy) || 1;
+    const ux = (ex - sx) / L, uy = (ey - sy) / L;      // along
+    const nx = -uy, ny = ux;                           // across
+    const seg = 20, dl = L / seg;
+    for (let b = 0; b < n; b++) {
+      const oA = -hh + (b * 2 * hh) / n, oB = oA + (2 * hh) / n * 1.08;
+      g.fillStyle = shade(RBV[b], 0.7 + 0.3 * cos(dist * 12 + b));
+      g.globalAlpha = 0.55 + 0.45 * (1 - b / n);
+      g.beginPath();
+      for (let i = 0; i <= seg; i++) {
+        const d = i * dl, w = sin(d / H * 9 - dist * 14) * hh * 0.18;
+        const X = sx + ux * d + nx * (oA + w), Y = sy + uy * d + ny * (oA + w);
+        i ? g.lineTo(X, Y) : g.moveTo(X, Y);
+      }
+      for (let i = seg; i >= 0; i--) {
+        const d = i * dl, w = sin(d / H * 9 - dist * 14) * hh * 0.18;
+        g.lineTo(sx + ux * d + nx * (oB + w), sy + uy * d + ny * (oB + w));
+      }
+      g.fill();
     }
-    for (let i = seg; i >= 0; i--) { const x = x0 + i * dx; g.lineTo(x, y0 + yB + wav(x)); }
-    g.fill();
+  }
+  g.globalAlpha = 1;
+};
+
+// An obstacle: a slab with a lit top and a shaded right face, so it reads as
+// solid rather than as a flat rectangle. Spiked ones grow teeth.
+const OBC = [[92, 100, 128], [150, 60, 74]];
+const slab = (o) => {
+  const w = o[5], h = o[6], x = o[0] - w / 2, y = o[1] - h / 2;
+  const c = OBC[o[4] || bLuck > 0 ? 1 : 0], e = h * 0.16;
+  // Brighten as it burns, so a slab about to break says so.
+  const k = 1 + 0.7 * (1 - o[8] / C.HP[o[4] ? 1 : 0]);
+  g.fillStyle = shade(c, 0.62 * k); g.fillRect(x, y, w, h);
+  g.fillStyle = shade(c, 1 * k);    g.fillRect(x, y, w, e);
+  g.fillStyle = shade(c, 0.42); g.fillRect(x + w - e, y + e, e, h - e);
+  if (o[4] || bLuck > 0) {
+    g.fillStyle = shade(c, 1.25);
+    const n = max(2, w / (h * 0.18) | 0), s2 = w / n;
+    for (let i = 0; i < n; i++) {
+      g.beginPath();
+      g.moveTo(x + i * s2, y); g.lineTo(x + i * s2 + s2 / 2, y - h * 0.16); g.lineTo(x + (i + 1) * s2, y);
+      g.fill();
+    }
+  }
+};
+
+// A gate is a full column with one rainbow panel. The panel is the only way
+// through: hit it with the ray and the column clears.
+const gate = (o) => {
+  const w = o[5], f = o[7] ? o[7] / C.GFADE : 1;
+  g.globalAlpha = f;
+  g.fillStyle = shade([70, 78, 110], 0.6);
+  g.fillRect(o[0] - w / 2, 0, w, H);
+  g.fillStyle = shade([70, 78, 110], 0.95);
+  g.fillRect(o[0] - w / 2, 0, w * 0.22, H);
+  const q = C.GATESQ * H;
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = shade(RBV[i], o[7] ? 1.3 : 0.85);
+    g.fillRect(o[0] - q / 2, o[4] - q / 2 + (i * q) / 6, q, q / 6 + 1);
   }
   g.globalAlpha = 1;
 };
@@ -784,6 +953,7 @@ const hud = () => {
   g.fillStyle = '#fff';
   g.font = '16px monospace';
   g.fillText('DISTANCE ' + (dist | 0), 12, 48);
+  g.fillText('CHARGE ' + energy.toFixed(1), 12, 88);
   if (best) { g.fillStyle = '#8a93b8'; g.fillText('BEST ' + best, 12, 68); }
 
   let bx = W - 12;
@@ -793,7 +963,6 @@ const hud = () => {
     g.fillStyle = '#0006'; g.fillRect(bx, 38, 34, 6);
     g.fillStyle = col;     g.fillRect(bx, 38, 34 * min(1, t / span), 6);
   };
-  chip(bSave, C.SAVE_U, '#4d8');
   chip(bSlow, C.SLOW_S, '#4af');
   chip(bLuck, C.LUCK_U, '#a4f');
 
@@ -820,11 +989,16 @@ const hud = () => {
 const render = () => {
   g.fillStyle = sky;
   g.fillRect(0, 0, W, H);
-  if (fire) beam();
   const s = OS();
   for (const o of ents) {
-    if (o[2] === 3) orb(o[0], o[1], s);
-    else prism(o[0], o[1], s, dist * C.PSPIN + o[3] * 7, isDark(o[2]) ? 1 : 0);
+    if (o[2] === 4) slab(o);
+    else if (o[2] === 5) gate(o);
+  }
+  if (fire) beam();
+  for (const o of ents) {
+    if (o[2] === 1) prism(o[0], o[1], s, dist * C.PSPIN + o[3] * 7, 0);
+    else if (o[2] === 2) { g.fillStyle = RB[(dist * 6 | 0) % 6]; orb(o[0], o[1], s * C.RBS / C.ORB); }
+    else if (o[2] === 3) orb(o[0], o[1], s);
   }
   // The player: a unicorn in the flying pose, facing the way it travels.
   horse(px, py + C.PSZ * H * 0.45, C.PSZ * H, dist * C.GALLOP, 1, fly);
