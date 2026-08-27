@@ -1,6 +1,6 @@
 # Rainbowed — js13kGames 2026
 
-Rainbow ribbon converts wild horses into unicorns while fighting an energy clock.
+You are a flying unicorn. Fire a rainbow beam, gather prisms, outrun an energy clock.
 
 ---
 
@@ -16,7 +16,7 @@ These are competition rules. Violating any of them disqualifies the entry or dro
 | Browsers | Latest Chrome **and** Firefox, **zero console errors** |
 | Repo | Must contain full buildable source, not just unzipped output |
 | localStorage | All keys namespaced. Never call `localStorage.clear()` — games share an origin |
-| Category | One only (Desktop **or** Mobile). Targeting Mobile, portrait |
+| Category | One only (Desktop **or** Mobile). Targeting **Desktop, landscape** |
 
 ### Deadlines
 
@@ -42,13 +42,12 @@ These are competition rules. Violating any of them disqualifies the entry or dro
 | System | Bytes |
 |---|---|
 | Canvas setup, resize, main loop | 300 |
-| Pointer input (lane + tier) | 150 |
-| Fake-3D projection + primitive generators | 700 |
-| Rainbow ribbon (player) | 250 |
-| Horse/unicorn mesh + gallop rig | 1,300 |
-| Lane grid, rails, shadows | 300 |
-| Spawner + conversion | 250 |
-| Herd (massed, capped render) | 150 |
+| Keyboard + mouse input | 150 |
+| Solid primitives: box/cone generator | 700 |
+| Rainbow beam | 250 |
+| Unicorn model, gallop + flight rig | 1,300 |
+| Solid renderer: cull, depth sort, quantised shading | 400 |
+| Scrolling field + spawner | 150 |
 | Prisms (light + dark) | 300 |
 | Boosters | 400 |
 | Energy system + HUD | 300 |
@@ -128,62 +127,62 @@ Test locally with `wavedash dev`, which provides a sandbox SDK offline.
 
 ### Premise
 
-You are a rainbow. You drift forward, rippling, losing strength as you go. Prisms restore you. Dark prisms drain you faster. Your purpose is to touch wild galloping horses and turn them into unicorns. The more unicorns, the higher the score. Run out of energy and the run ends.
+You are a unicorn flying across a scrolling world, held toward the left of the
+screen while the level comes at you from the right. Prisms restore your energy,
+dark prisms drain it. You can fire a rainbow beam from your horn, which destroys
+whatever it touches - but firing costs energy, so every shot is paid for out of
+the same bar keeping you alive. Run out and the run ends.
+
+Why the unicorn fires the beam is still open. What matters mechanically is that
+it costs, and that it *destroys* rather than collects - so burning a light prism
+out of the air is a real loss, not a shortcut.
 
 ### Camera
 
-Elevated reverse-chase, angled down roughly 40°. The ribbon travels *toward* the camera. Depth reads as **vertical screen position**, not scale — this is what keeps the six-lane grid and the herd legible in portrait.
+None. Play is flat: screen x and screen y, nothing else. There is no depth ramp,
+no lane grid, no horizon, no vanishing point.
 
-### Screen depth ordering (far → near)
+The 3D lives **inside each object**. Prisms are octahedra; the unicorn is built
+from boxes and cones. Both go through a face-level painter's algorithm - faces
+gathered in world space, back-face culled, sorted far-to-near, and shaded by
+`dot(normal, light)` quantised to exactly three hard steps. Solid objects on a
+flat field.
 
-1. **Herd band** — captured unicorns, massed at the horizon
-2. **Gap** — must stay clear
-3. **Player ribbon** — fixed depth, deep in scene, centre of the six-lane grid
-4. **Play field** — horses, prisms, boosters travelling away from camera
-5. **Spawn edge** — bottom of screen, objects at maximum size
+### Screen layout
 
-Objects spawn near-camera at maximum size and **shrink as they approach the player**. This builds a natural difficulty gradient into the perspective itself: maximum warning time at maximum size, commitment as the target gets smaller.
+- **Left** - the unicorn, free to move anywhere, starting 16% across
+- **Right** - where prisms, dark prisms and mystery spheres enter
+- The world slides right to left at the run speed; the unicorn's own movement is
+  independent of it
 
-### Track: six lanes, two tiers
+### Object foreshortening
 
-- **Lower tier**: 3 lanes. Horses spawn here **only**. Dark prisms skew here.
-- **Upper tier**: 3 lanes. No horses ever. Light prisms skew here.
-
-This single spawn rule creates the game's core rhythm: **descend to score, ascend to survive.**
-
-### Rendering the tiers
-
-- Ground plane: filled trapezoid, 3 lane centre lines
-- Upper tier: **3 rail lines only**, not a filled plane. At this camera angle a second plane sits almost exactly on the ground plane and reads as one surface
-- **Every raised object drops a shadow ellipse onto its ground lane.** ~30 bytes, and it is the single most important depth cue in the game
-- Tier gap must be visibly wider than a lane width or the rail sets blur together mid-field
-
-### The herd
-
-A single massed group at the far end, spanning the full track width, **ignoring the lane grid**.
-
-- Not path-following. No indexing into the ribbon's position history. Just a count, rendered as N sprites scattered in a fixed zone with deterministic jitter from index
-- **Render cap: 20–30.** Past that it's a smear. Let the counter carry the rest, or thicken rows rather than widening
-- On conversion, the new unicorn **arcs from the interception point up into the herd over ~0.4s**. This is the score-feedback moment — it lands where the player is looking, at the moment they earned it
-
----
+A solid's own length maps to screen-y at `PCD`, not at a true camera pitch. At a
+real 40 degrees an animal's body spread as much vertical screen space as its
+height, which put the rump above the head and drove the front hooves through the
+floor. Objects are compressed for the same reason the old track was.
 
 ## 6. Controls
 
-Single continuous pointer. Touch (or click) anywhere and hold:
+Desktop first, because that is the category.
 
-- **X position** → lane (three zones)
-- **Y position** → tier (above or below a screen midline)
+- **Arrows or WASD** - fly. Both write the same velocity, so there is one
+  movement path downstream
+- **Space** - fire the beam
+- **Mouse** - steering follows the pointer while a button is held; **left click**
+  fires. Same velocity, same fire flag, no second code path
+- Arrows and Space are swallowed, so the page cannot scroll under the game
+- Any key or click restarts after a run ends
 
-Release holds the last slot. Mouse and touch are one code path — no branching, ~150 bytes.
+Diagonal input is normalised, so two axes are not faster than one.
 
-Tier changes **arc over ~0.2s with a few particles**, never snap. At this depth a vertical jump is small on screen and will read as a teleport otherwise.
+### Mobile is possible, but is not the entry
 
-Optional keyboard arrows as an alternative, ~60 bytes.
-
-**Test on a real phone early.** Thumb occlusion at the spawn edge is the risk; it should be tolerable because the critical read is mid-screen, but devtools emulation will not tell you.
-
----
+Category is a submission choice, not a capability claim - the game may still run
+on a phone. Landscape touch would need pointer-follow movement (which the mouse
+path already is) plus a second simultaneous pointer to fire: roughly 150 bytes.
+What it actually costs is device testing. Orientation cannot be locked outside
+fullscreen, only detected and prompted for.
 
 ## 7. Economy and tuning
 
@@ -201,19 +200,25 @@ At base speed, 1 unit ≈ 1 second, so all time-based intuitions still translate
 | Drain | 1 per unit travelled |
 | Light prism | +3 |
 | Dark prism | −2 |
-| Horse conversion | 0 energy |
 | Light prism spacing | every 2.5 units |
 | Dark prism spacing | every 4 units |
-| Horse spacing | every 5 units |
-| Booster spacing | every 15 units |
-| Speed scaling | linear, +5% per unicorn |
-| Speed cap | 3× base (~40 unicorns) |
+| Beam | −0.55 per unit while firing |
+| Mystery sphere spacing | every 15 units |
+| Speed scaling | linear, per unit travelled |
+| Speed cap | 3× base (~60 units) |
 
 ### Why these numbers
 
 Catching every light prism yields +3 per 2.5 units against a drain of 2.5 — a slow surplus for perfect play. Sustainable but never comfortable.
 
-Chasing a horse pulls you off the prism line and costs roughly one prism. **Every horse costs about three seconds of life.** From a full bar, about three greedy chases before a recovery lap is mandatory. This is the sentence the whole game runs on.
+Firing costs 0.55 a unit on top of the 1 you are already paying, so holding the
+beam is 55% more expensive than simply flying. Burning a dark prism out of the
+air is cheaper than eating one (−2) as long as you do not hold the trigger for
+more than about 3.6 units. Burning a *light* prism costs you the shot **and** the
++3 you would have collected.
+
+**The beam is never free and never neutral.** That is the sentence the whole game
+runs on now.
 
 ### Speed scaling must be linear, not compounding
 
@@ -223,9 +228,14 @@ Compounding at 1.05^n reaches 2× at 14 unicorns, 4.3× at 30, 11.5× at 50 — 
 
 ### First tuning question to playtest
 
-Conversion currently grants **0 energy**, keeping score and survival as fully separate currencies — you always trade life for points, never get both. If runs feel too punishing, `+1` halves the cost of a horse and makes aggression viable.
+Why the unicorn fires at all is unresolved. Right now the beam only destroys, so
+it is purely defensive — a way to clear a dark prism you cannot dodge. If that
+proves too passive, the options are: make some objects *only* destructible by
+beam, or have destroyed objects drop something. Either changes what the energy
+buys.
 
-**Build this as a flippable constant.**
+**`BEAM` is a flippable constant.** So is `CONVERT`'s replacement, whatever the
+beam ends up rewarding.
 
 ---
 
@@ -248,7 +258,7 @@ Auto-activate on touch. No held-item slot — the control scheme has no spare ge
 
 ### Do not add
 
-Shields (removes the clock), magnets (removes the lane decision), extra lives (removes the stakes).
+Shields (removes the clock), magnets (removes the dodging), extra lives (removes the stakes).
 
 ---
 
@@ -261,15 +271,27 @@ Shields (removes the clock), magnets (removes the lane decision), extra lives (r
 
 ## 10. Build order
 
-19 days from August 25. Milestones, not a rigid schedule.
+Sessions, not calendar days — the schedule below is order, not dates.
 
-1. **Days 1–4** — scaffold, pack pipeline, `npm run size`. Core loop running: ribbon moves, lanes work, horses spawn and convert, energy drains. Ugly is fine.
-2. **Day 4** — first full pack + measure. Also: build a throwaway with every Wavedash call site, pack with and without, measure the real SDK reserve. Replace the 800-byte estimate with the measured number.
-3. **Days 5–10** — feel pass. Juice, tier-change arc, conversion arc, particles, audio, the spectrum look.
-4. **Day 10** — Wavedash deploy dry-run with whatever exists. Find CLI and publishing friction now, not after the freeze.
-5. **Days 11–16** — boosters, difficulty curve, real-phone touch testing, herd cap tuning.
-6. **Days 17–19** — Firefox pass, console-error hunt, repo cleanup with a real README and working build, submit.
-7. **Sept 13–20** — publish to Wavedash on the frozen build. Store page and metadata only.
+1. **Done** — scaffold, pack pipeline, `npm run size`, measured Wavedash reserve
+   (147 bytes, not the 800 estimated)
+2. **Done** — audio: ZzFX, six SFX, generative music on a developed motif,
+   separate master/music/sfx buses
+3. **Done** — solid renderer, unicorn model with gallop and flight rigs,
+   octahedral prisms, and the editors that drive them
+4. **Done** — the genre change: 2D landscape play, keyboard and mouse, scrolling
+   field, rainbow beam
+5. **Next** — obstacles and gated sections; decide what the beam is *for*
+6. Then — environment pass, difficulty curve against the new economy
+7. Then — Firefox pass, console-error hunt, README, submit
+8. Finally — publish to Wavedash on the frozen build
+
+### Still outstanding
+
+- Real-device check. Landscape on a phone is not the entry, but §1's
+  zero-console-errors rule spans every browser the game loads in
+- §11's two Wavedash questions, which gate turning the measured 147 bytes into
+  real code
 
 ### Store page
 

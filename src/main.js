@@ -14,50 +14,33 @@ export const C = {
   DRAIN: 1,           // energy lost per unit travelled
   LIGHT: 3,           // light prism
   DARK: -2,           // dark prism
-  CONVERT: 0,         // horse conversion. DESIGN.md 7 first tuning question:
-                      // flip to 1 to halve the cost of a horse and make aggression viable.
 
   // --- Spawn spacing, in track units (DESIGN.md 7) --------------------------
   SP_LIGHT: 2.5,
   SP_DARK: 4,
-  SP_HORSE: 5,
   SP_BOOST: 15,
-  UP_LIGHT: 0.75,     // P(light prism spawns on the upper tier) - light skews up
-  UP_DARK: 0.25,      // P(dark prism spawns on the upper tier)  - dark skews down
 
   // --- Speed (DESIGN.md 7) --------------------------------------------------
   SPEED: 1,           // base units per second
-  STEP: 0.05,         // LINEAR +5% per unicorn. Never compound: 1.05^n destroys itself by 30.
+  STEP: 0.0333,       // LINEAR, per unit travelled. Never compound.
   CAP: 3,             // 3x base, reached at 40 unicorns
 
-  // --- Camera and track (DESIGN.md 5) --------------------------------------
-  // TRACK and PZ move together. PZ is the ribbon's DEPTH, so raising it pushes
-  // the ribbon further into the scene and UP the screen, closing the band
-  // between it and the herd. PZ * TRACK is the warning time in seconds at base
-  // speed, so lowering TRACK as PZ rises keeps reaction time identical.
-  //   PZ 0.62 / TRACK 4.0   ribbon 49% down, 23% of screen behind it
-  //   PZ 0.75 / TRACK 3.31  ribbon 39% down, 15% behind it   <- here
-  // Both warn 2.48s at base speed and 0.83s at the 3x cap.
-  TRACK: 3.31,        // track units visible from spawn edge to horizon
-  PZ: 0.75,           // player depth. 0 = spawn edge (near), 1 = horizon (far)
-  CULL: 0.79,         // objects die just past the player, keeping the player->herd gap clear
-  HERD_Z: 0.93,       // lifted with PZ so the gap stays a visible band, not a sliver
-  HERD_CAP: 24,       // DESIGN.md 5 render cap 20-30; the counter carries the rest
-  NEAR: 0.44,         // track half-width at the spawn edge, fraction of screen width
-  FAR: 0.1,           // track half-width at the horizon
-  BOT: 1,             // spawn edge, fraction of screen height
-  TOP: 0.18,          // horizon
-  TIER: 0.75,         // tier gap as a multiple of the track half-width at that depth.
-                      // Must exceed one lane width (2/3 of the half-width) or the rails blur.
-  OBJ: 0.2,           // object base size at the spawn edge, fraction of screen width
-  EASE: 0.2,          // seconds to arc across one lane or one tier (DESIGN.md 6)
+  // --- The world (landscape, 2D play) --------------------------------------
+  // Play is flat: the unicorn moves freely in screen x and y while the level
+  // scrolls right to left. Objects are still solids, but nothing is at a
+  // "depth" any more - there is no lane grid, no tier and no horizon.
+  VIEW: 5,            // how many track units span the screen width
+  PX0: 0.16,          // where the unicorn starts, fraction of width
+  PSPD: 0.75,         // player speed, fractions of screen height per second
+  PAD: 0.07,          // keep-out margin at every edge, fraction of height
+  OBJ: 0.11,          // object size, fraction of screen HEIGHT (landscape)
+  PSZ: 0.13,          // the unicorn's own size
+  HITR: 0.45,         // collision radius as a fraction of object size
 
   // --- Solid objects (DESIGN.md 5) -----------------------------------------
-  // The CAMERA stays fake-3D on purpose: 5 requires depth to read as vertical
-  // screen position rather than scale, or the six-lane grid and the massed herd
-  // stop being legible in portrait. The OBJECTS are real geometry projected
-  // through that camera - vertices in local space, shaded by face normal.
-  // These two are the camera pitch, roughly 40 degrees per 5.
+  // Play is flat, but each OBJECT is real geometry: vertices in its own local
+  // space, projected and shaded by face normal. These two are the pitch that
+  // projection uses, roughly 40 degrees.
   PCY: 0.77,          // a unit of object height, as screen-y   (cos of the pitch)
   PCZ: 0.64,          // a unit of object depth,  as screen-y   (sin of the pitch)
   // Depth foreshortening WITHIN a solid. A true 40-degree pitch (0.64) spreads
@@ -79,6 +62,18 @@ export const C = {
   HTILT: 0,           // extra backward lean on the hind legs, radians
   PHH: 0.4,           // hind pair's phase offset from the front pair, in strides
   PHS: 0.15,          // and the left/right split within each pair
+  // Flying pose. horse() takes a 0..1 blend, so an animal can leave the ground
+  // and return to the gallop without a visible switch.
+  FLYF: 1.15,         // front legs reach forward, radians from vertical
+  FLYB: -1.05,        // hind legs stream back
+  FLYK: 0.12,         // how much knee fold survives. 0 is dead straight.
+  // Bounce. The barrel bob lifts the whole animal and the head nods on top of
+  // it, so the head carries both and reads as twice the motion the body has.
+  // Rates are cycles per stride: the body beats twice, the head nods once.
+  BOB: 0.02,         // barrel rise and fall, body-lengths
+  BOBR: 1.5,            // ...per stride
+  NOD: 0.024,         // head nod on top of that
+  NODR: 1.5,            // ...per stride
   // The mane is generated along the neck rather than placed by hand, so it
   // follows the neck wherever the neck goes instead of being left behind.
   MANEN: 5,           // how many tufts
@@ -117,37 +112,21 @@ export const C = {
   LOD: 26,            // below this on-screen size legs lose their lower segment
   PR: 0.165,          // prism radius, in object-size units
   PSPIN: 2.2,         // prism turns per unit of track
-  // The sheet runs ALONG the track, not across it: longer than it is wide, with
-  // one rainbow stripe per lengthwise column, and the ripple travelling away
-  // from the camera so it reads as motion ahead rather than a sideways flap.
-  RW: 0.5,            // rainbow band width, in object-size units. Narrow: a
-                      // rainbow is a band, and at 1.1 it read as a flag.
-  RD: 1.8,            // rainbow sheet depth - much longer than the width
-  RZ: -0.5,           // shifts the sheet back toward the camera. Centred on the
-                      // anchor it pushed forward past the cull line, which made
-                      // the play field behind it read as far deeper than it is.
-  RH: 0.22,           // rainbow ripple amplitude
-  RY: 0.42,           // how far the sheet floats above its lane
-  RV: 5.2,            // travelling waves along the sheet's length. Bounded:
-                      // RH * RV * PCY must stay under RD * PCZ, or consecutive
-                      // segments move further than their screen spacing, the
-                      // sheet folds through itself and the painter order inverts.
-                      // At these values 0.88 against a 1.15 ceiling.
-  RU: 1.6,            // per-column phase skew, so the crest sweeps rather than
-                      // arriving flat. Free of the bound above: columns differ in
-                      // screen x, so they can never occlude one another.
 
-  // --- Feel (DESIGN.md 5, 6) -----------------------------------------------
+  // --- Feel and the beam ---------------------------------------------------
   GALLOP: 1.5,        // stride cycles per unit of track, so the gait tracks speed
-  ARC: 0.4,           // seconds for a converted unicorn to arc up into the herd
-  LIFT: 0.16,         // peak of that arc, fraction of screen height
   PARTS: 90,          // particle cap
-  RIPPLE: 9,          // ribbon ripple cycles per unit of track
   GRAV: 900,          // particle gravity, px/s^2
+  // The beam is denominated in DISTANCE like everything else in the economy, so
+  // holding it costs the same at 1x as at the speed cap. Firing through a dark
+  // prism has to cost less than eating one, or there is no decision in it.
+  BEAM: 0.55,         // energy per unit of track while firing
+  BEAMH: 0.03,        // beam half-height, fraction of screen height
+  BEAMY: -0.02,       // where it leaves the horn, relative to the unicorn centre
 
   // --- Boosters (DESIGN.md 8) ----------------------------------------------
-  // Auto-activate on touch, no held slot - the control scheme has no spare
-  // gesture. Pickups spawn marked with a question mark.
+  // Auto-activate on contact, no held slot. Pickups arrive as mystery spheres
+  // marked with a question mark.
   //
   // On denomination: DESIGN.md 8 writes the energy saver as "5s". Under 7's
   // distance model that is worth three times as much at the speed cap as at
@@ -165,17 +144,15 @@ export const C = {
   // --- Difficulty past the speed cap (DESIGN.md 7) -------------------------
   // Speed stops at 3x. After that, escalate through dark-prism ratio and spawn
   // density instead, so difficulty shifts from reflex to decision-making.
-  HARD_AT: 40,        // unicorns where speed caps and escalation begins
-  HARD_TO: 80,        // unicorns where escalation is complete
+  HARD_AT: 60,        // units travelled where the speed cap lands and escalation starts
+  HARD_TO: 200,       // units where escalation is complete
   // Light prisms thin out, but must stay under LIGHT/DRAIN = 3.0 or perfect play
   // goes energy-negative and the run becomes unsurvivable by arithmetic rather
   // than by skill. At 2.9 the surplus drops from +0.5 to +0.1 a lap: still
   // sustainable, with no margin left for a single mistake.
   SP_LIGHT_HI: 2.9,
   SP_DARK_HI: 2.5,    // dark prisms crowd in
-  SP_HORSE_HI: 3.5,   // more horses, so more temptation
-  UP_DARK_HI: 0.5,    // dark prisms start taking the upper tier too, so the
-                      // "ascend to survive" lane stops being safe
+  SP_BOOST_HI: 22,    // mystery spheres thin out as the run goes on
 
   // --- Audio (DESIGN.md 9) -------------------------------------------------
   // Separate buses. One shared gain made SFX and music impossible to balance,
@@ -201,26 +178,22 @@ const resize = () => {
   cv.width = W * d | 0; cv.height = H * d | 0;
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   g.setTransform(d, 0, 0, d, 0, 0);
-  // Glow band sitting on the horizon, built once per resize rather than per frame.
+  // Landscape sky, built once per resize rather than per frame.
   sky = g.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#07091a');
-  sky.addColorStop(C.TOP * 0.9, '#1b2450');
-  // clamped: TOP is a tuning constant, and addColorStop throws outside 0..1
-  sky.addColorStop(min(1, C.TOP * 1.25), '#0c1130');
-  sky.addColorStop(1, '#07080f');
+  sky.addColorStop(0, '#070a1c');
+  sky.addColorStop(0.55, '#131a3c');
+  sky.addColorStop(1, '#0a0d1e');
 };
 
 // ---------------------------------------------------------------------------
-// Fake-3D projection (DESIGN.md 5). Painter's algorithm, no WebGL.
-// Depth reads as vertical screen position; scale is the secondary cue.
+// Screen mapping. Play is 2D now, so there is no depth ramp, no lane grid and
+// no horizon - just pixels. The 3D that remains lives INSIDE each object, in
+// the solid renderer below.
 // ---------------------------------------------------------------------------
 const LERP = (a, b, t) => a + (b - a) * t;
-const HW = (z) => LERP(C.NEAR, C.FAR, z) * W;          // track half-width, px
-const GY = (z) => LERP(C.BOT, C.TOP, z) * H;           // ground line, px
-const SC = (z) => LERP(1, C.FAR / C.NEAR, z);          // object scale
-const LX = (lane, z) => W / 2 + (lane - 1) * HW(z) * (2 / 3);
-const EY = (z, tier) => GY(z) - tier * C.TIER * HW(z); // tier lift is scale-correct
-const OS = (z) => SC(z) * C.OBJ * W;                   // object size at depth z
+const PPU = () => W / C.VIEW;          // pixels per track unit
+const OS = () => C.OBJ * H;            // object size
+const PAD = () => C.PAD * H;
 
 // ---------------------------------------------------------------------------
 // State. Entities are arrays, not objects (DESIGN.md 3):
@@ -228,8 +201,8 @@ const OS = (z) => SC(z) * C.OBJ * W;                   // object size at depth z
 //   type 0 = horse, 1 = light prism, 2 = dark prism, 3 = booster.
 // The array stays sorted far-to-near for free: spawns push at z=0, the near end.
 // ---------------------------------------------------------------------------
-let ents, arcs, parts, dist, energy, uni, over, px, py, tx, ty, lastTy, flash,
-    bSave, bSlow, bLuck, nL, nD, nH, nB, last;
+let ents, parts, dist, energy, over, px, py, vx, vy, fire, flash,
+    bSave, bSlow, bLuck, nL, nD, nB, last, fly;
 
 // Personal best, in namespaced localStorage (DESIGN.md 4). Never
 // localStorage.clear() - js13k entries share an origin. Private mode throws on
@@ -239,11 +212,11 @@ let best = 0;
 try { best = +localStorage[BEST] || 0; } catch (e) {}
 
 const reset = () => {
-  ents = []; arcs = []; parts = [];
-  dist = 0; energy = C.BAR; uni = 0; over = 0; flash = 0;
+  ents = []; parts = [];
+  dist = 0; energy = C.BAR; over = 0; flash = 0; fire = 0; fly = 1;
   bSave = bSlow = bLuck = 0;
-  px = tx = 1; py = ty = lastTy = 0;
-  nL = C.SP_LIGHT; nD = C.SP_DARK; nH = C.SP_HORSE; nB = C.SP_BOOST;
+  px = C.PX0 * W; py = H / 2; vx = vy = 0;
+  nL = C.SP_LIGHT; nD = C.SP_DARK; nB = C.SP_BOOST;
 };
 
 // ---------------------------------------------------------------------------
@@ -308,11 +281,8 @@ const N = (f, rel = .3, dly = .2) => [1, .02, f, , .06, rel, , 1.6, , , , , , , 
 
 const S_LIGHT = [1.1, .02, 1100, , .03, .2, , 2, , , 300, .03, , , , , .15];   // rises a third
 const S_DARK  = [1.1, .02, 300, , .03, .2, , 2, , , -67, .03, , , , , .15];    // the same, falling a third
-const S_TIER  = [.45, .02, 700, , .015, .12, , 1, , , 260, .02, , , , , .12];
 const S_BOOST = [1.3, .02, 440, .01, .1, .3, , 1.8, , , 220, .04, .06, , , , .2];
 const S_OVER  = [[N(440), 0], [N(349), 160], [N(262, .9, .35), 320]];          // three notes falling
-const S_CONV  = [[N(440, .2), 0], [N(587, .2), 80],                          // rising, with a
-                 [[1, .02, 880, , .05, .8, , 2.2, , , , , , , , , .4, , , .25], 160]];   // shimmer on top
 
 // ---------------------------------------------------------------------------
 // Music (DESIGN.md 9). Three layers: triangle bass, hat, staccato melody.
@@ -328,7 +298,8 @@ let mT = 0, mS = 0, mI = 0, mW = 0, mP = 0;
 const nf = (ch, d, base) => {
   const sc = ch[1] ? MIN : MAJ;
   const s = sc[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
-  return base * 2 ** ((ch[0] + s + min(12, uni / 7 | 0)) / 12);
+  // The key used to climb with the unicorn count; distance is the run length now.
+  return base * 2 ** ((ch[0] + s + min(12, dist / 30 | 0)) / 12);
 };
 
 const music = (dt, spd) => {
@@ -358,36 +329,33 @@ const music = (dt, spd) => {
   }
 };
 
-const RL = () => random() * 3 | 0;
-const AP = (a, b, r) => a + max(-r, min(r, b - a));      // constant-rate approach
-const JIT = (i) => (sin(i * 97.31) * 4096 % 1 + 1) % 1;  // deterministic herd jitter
 
 // ---------------------------------------------------------------------------
-// Input (DESIGN.md 6).
-// Pointer: one code path for mouse and touch. Touch only reports moves while
-// held, mouse reports buttons=0 when not held, so the same two lines mean
-// "hold and drag" on both.
-// Keyboard: arrows and WASD as the desktop alternative. Both routes write the
-// same tx/ty targets, so there is still only one movement path downstream.
+// Input. Arrows or WASD to fly, Space to fire; mouse steers and the left button
+// fires. Both routes write the same vx/vy/fire, so there is one movement path
+// downstream however you are playing.
 // ---------------------------------------------------------------------------
-const PT = (e) => {
-  if (!e.buttons) return;
+const KEYS = {};
+const AXIS = (neg, pos) => (KEYS[pos] ? 1 : 0) - (KEYS[neg] ? 1 : 0);
+let mx = 0, my = 0, mouse = 0;
+
+const KD = (e, down) => {
   AC();
-  if (over) return reset();
-  tx = min(2, e.clientX / W * 3 | 0);   // X -> lane
-  ty = e.clientY < H / 2 ? 1 : 0;       // Y -> tier, split on the screen midline
+  const k = e.key.toLowerCase();
+  if (down && over) return reset();
+  KEYS[k] = down;
+  // Space and the arrows would otherwise scroll the page under the game.
+  if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
 };
 
-const KEY = 'arrowleft,a,arrowright,d,arrowup,w,arrowdown,s'.split(',');
-
-const KD = (e) => {
+const PT = (e) => {
   AC();
-  if (over) return reset();
-  const k = KEY.indexOf(e.key.toLowerCase());
-  if (k < 0) return;
-  e.preventDefault();
-  if (k < 4) tx = max(0, min(2, tx + (k & 2 ? 1 : -1)));  // 0,1 left   2,3 right
-  else ty = k < 6 ? 1 : 0;                                // 4,5 up     6,7 down
+  mx = e.clientX; my = e.clientY;
+  if (e.type === 'pointerdown') {
+    if (over) return reset();
+    mouse = 1;
+  }
+  if (e.type === 'pointerup') mouse = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -411,22 +379,13 @@ const burst = (x, y, n, spread, col) => {
     ]);
 };
 
-// Where unicorn i stands in the massed herd. Shared by the herd renderer and the
-// conversion arc so a landing unicorn arrives exactly on its slot.
-const herdSlot = (i) => {
-  const z = C.HERD_Z + JIT(i + 3) * 0.06;
-  return [W / 2 + (JIT(i) * 2 - 1) * HW(z) * 0.95, GY(z), OS(z)];
-};
-
 // ---------------------------------------------------------------------------
-// Simulation. The economy advances on distance, nothing on wall time.
-// Animation timers (arcs, particles) are in seconds - that is presentation, not
-// economy, so the distance rule does not apply to them.
+// Simulation. The economy still advances on DISTANCE, not wall time, so every
+// cost is the same at 1x as at the speed cap - DESIGN.md 7's argument survives
+// the change of genre intact. Entities are [x, y, type, phase, boost].
+// type 1 = light prism, 2 = dark prism, 3 = mystery sphere.
 // ---------------------------------------------------------------------------
-// Escalation past the speed cap, 0 -> 1 (DESIGN.md 7).
-const HARD = () => min(1, max(0, (uni - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
-
-// A light prism reads and behaves as dark while the bad-luck window is open.
+const HARD = () => min(1, max(0, (dist - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
 const isDark = (t) => t === 2 || (t === 1 && bLuck > 0);
 
 const BSUM = C.BW.reduce((a, b) => a + b, 0);
@@ -437,90 +396,89 @@ const pickBoost = () => {
 };
 
 const applyBoost = (b, x, y) => {
-  if (b === 0) bSave = C.SAVE_U;                          // energy saver
-  else if (b === 1) energy = max(energy, C.BAR * C.REFILL); // refill, never a downgrade
-  else if (b === 2) bSlow = C.SLOW_S;                     // time slow
-  else bLuck = C.LUCK_U;                                  // bad luck
-  burst(x, y, 16, OS(C.PZ) * 5);
+  if (b === 0) bSave = C.SAVE_U;
+  else if (b === 1) energy = max(energy, C.BAR * C.REFILL);
+  else if (b === 2) bSlow = C.SLOW_S;
+  else bLuck = C.LUCK_U;
+  burst(x, y, 16, OS() * 5);
   sfx(S_BOOST);
 };
 
 const step = (dt) => {
-  const spd = C.SPEED * min(C.CAP, 1 + C.STEP * uni) * (bSlow > 0 ? C.SLOW_F : 1);
+  const spd = C.SPEED * min(C.CAP, 1 + C.STEP * dist) * (bSlow > 0 ? C.SLOW_F : 1);
   const dd = spd * dt;                 // track units travelled this frame
   dist += dd;
+
+  // Fire from the keyboard or the left mouse button - one flag either way.
+  fire = (KEYS[' '] || mouse) && energy > 0 ? 1 : 0;
   if (bSave <= 0) energy -= dd * C.DRAIN;
-  bSave = max(0, bSave - dd);          // saver and bad luck are distance-denominated,
-  bLuck = max(0, bLuck - dd);          // time slow is not - see the note in C
+  if (fire) energy -= dd * C.BEAM;
+  bSave = max(0, bSave - dd);
+  bLuck = max(0, bLuck - dd);
   bSlow = max(0, bSlow - dt);
   flash = max(0, flash - dt * 3);
   music(dt, spd);
 
-  const r = dt / C.EASE;
-  px = AP(px, tx, r); py = AP(py, ty, r);
-  const pl = round(px), pt = round(py);
+  // Movement. Keys give a direction; the mouse steers toward the pointer. Both
+  // land in the same vx/vy, so nothing downstream knows which was used.
+  let ax = AXIS('arrowleft', 'arrowright') + AXIS('a', 'd');
+  let ay = AXIS('arrowup', 'arrowdown') + AXIS('w', 's');
+  if (!ax && !ay && mouse) { ax = (mx - px) / (W * 0.25); ay = (my - py) / (H * 0.25); }
+  const al = hypot(ax, ay);
+  if (al > 1) { ax /= al; ay /= al; }
+  const sp = C.PSPD * H;
+  px = min(W - PAD(), max(PAD(), px + ax * sp * dt));
+  py = min(H - PAD(), max(PAD(), py + ay * sp * dt));
 
-  // A tier change throws a few sparks so the move never reads as a teleport.
-  if (ty !== lastTy) {
-    burst(LX(px, C.PZ), EY(C.PZ, py), 6, OS(C.PZ) * 3);
-    sfx(S_TIER);
-    lastTy = ty;
-  }
+  const dx = dd * PPU();               // pixels the world slides left this frame
+  const r = OS() * C.HITR, pr = C.PSZ * H * C.HITR;
+  const beamY = py + C.BEAMY * H, beamH = C.BEAMH * H;
 
-  const dz = dd / C.TRACK;
   for (let i = ents.length; i--;) {
-    const o = ents[i], nz = o[0] + dz;
-    // Contact is the frame the object crosses the player's fixed depth.
-    if (o[0] < C.PZ && nz >= C.PZ && o[1] === pl && o[2] === pt) {
-      const hx = LX(pl, C.PZ), hy = EY(C.PZ, pt), hs = OS(C.PZ);
-      if (o[3] === 3) {
-        applyBoost(o[5], hx, hy);
-      } else if (o[3]) {
-        const dark = isDark(o[3]);
+    const o = ents[i];
+    o[0] -= dx;
+    // The beam clears anything ahead of the horn that crosses its band. It
+    // destroys rather than collects, so burning a light prism is a real loss.
+    if (fire && o[0] > px && abs(o[1] - beamY) < beamH + r) {
+      burst(o[0], o[1], 8, OS() * 4, isDark(o[2]) ? '#7b3ab6' : '#ffe9a0');
+      ents.splice(i, 1);
+      continue;
+    }
+    if (hypot(o[0] - px, o[1] - py) < r + pr) {
+      if (o[2] === 3) applyBoost(o[4], o[0], o[1]);
+      else {
+        const dark = isDark(o[2]);
         energy = min(C.BAR, energy + (dark ? C.DARK : C.LIGHT));
-        burst(hx, hy, 10, hs * 4, dark ? '#7b3ab6' : '#ffe9a0');
+        burst(o[0], o[1], 10, OS() * 4, dark ? '#7b3ab6' : '#ffe9a0');
         sfx(dark ? S_DARK : S_LIGHT);
         if (dark) flash = 1;
-      } else {
-        // Conversion: the unicorn arcs from the interception point up into the
-        // herd. DESIGN.md 5 - this is the score-feedback moment, and it lands
-        // where the player is already looking.
-        const [tx2, ty2, ts] = herdSlot(min(uni, C.HERD_CAP - 1));
-        arcs.push([hx, hy, tx2, ty2, hs, ts, 0, o[4]]);
-        uni++;
-        energy = min(C.BAR, energy + C.CONVERT);
-        burst(hx, hy, 14, hs * 5);
-        seq(S_CONV);
       }
       ents.splice(i, 1);
       continue;
     }
-    o[0] = nz;
-    if (nz > C.CULL) ents.splice(i, 1);
+    if (o[0] < -OS()) ents.splice(i, 1);
   }
-
-  for (let i = arcs.length; i--;) if ((arcs[i][6] += dt / C.ARC) >= 1) arcs.splice(i, 1);
 
   for (let i = parts.length; i--;) {
     const p = parts[i];
-    p[0] += p[2] * dt;
+    p[0] += p[2] * dt - dx;            // particles ride the scroll
     p[1] += p[3] * dt;
     p[3] += C.GRAV * dt;
     if ((p[4] += dt) > p[5]) parts.splice(i, 1);
   }
 
-  // Spawners are distance-driven, same as the economy. Past the speed cap the
-  // spacings and the dark-prism tier skew ramp instead of the speed.
-  const h = HARD();
-  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); ents.push([0, RL(), random() < C.UP_LIGHT ? 1 : 0, 1, random()]); }
-  while (dist >= nD) { nD += LERP(C.SP_DARK, C.SP_DARK_HI, h);   ents.push([0, RL(), random() < LERP(C.UP_DARK, C.UP_DARK_HI, h) ? 1 : 0, 2, random()]); }
-  while (dist >= nH) { nH += LERP(C.SP_HORSE, C.SP_HORSE_HI, h); ents.push([0, RL(), 0, 0, random()]); }  // horses: lower tier only
-  while (dist >= nB) { nB += C.SP_BOOST; ents.push([0, RL(), random() < 0.5 ? 1 : 0, 3, random(), pickBoost()]); }
+  // Spawners are distance-driven, same as the economy.
+  const h = HARD(), sx = W + OS(), lo = PAD() + OS(), hi = H - PAD() - OS();
+  const ry = () => lo + random() * (hi - lo);
+  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); ents.push([sx, ry(), 1, random()]); }
+  while (dist >= nD) { nD += LERP(C.SP_DARK, C.SP_DARK_HI, h);   ents.push([sx, ry(), 2, random()]); }
+  while (dist >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); ents.push([sx, ry(), 3, random(), pickBoost()]); }
 
   if (energy <= 0) {
     energy = 0; over = 1;
     seq(S_OVER);
-    if (uni > best) { best = uni; try { localStorage[BEST] = best; } catch (e) {} }
+    const sc = dist | 0;
+    if (sc > best) { best = sc; try { localStorage[BEST] = best; } catch (e) {} }
   }
 };
 
@@ -635,19 +593,25 @@ const PARTS = [
   [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 8, 1, 1, 1],   // eye far
 ];
 
-const horse = (cx, gy, s, ph, u) => {
+const horse = (cx, gy, s, ph, u, fly = 0) => {
   const A = PI + C.YAW * PI / 180;
   CO = cos(A); SI = sin(A); SX = cx; SY = gy; SS = s * C.ASC;
   const th = ph * 2 * PI, bd = BODY[u], R = C.LEGR;
-  const by = 0.56 + sin(th * 2) * 0.04;             // barrel line, bobbing
-  const hb = sin(th * 2 + 1) * 0.03;                // head nods a beat behind
+  // Both fade out with fly: nothing airborne should still be bouncing off a
+  // ground it is not touching. The nod kept running in flight before.
+  const by = 0.56 + sin(th * C.BOBR) * C.BOB * (1 - fly);
+  const hb = sin(th * C.NODR + 1) * C.NOD * (1 - fly);   // a beat behind the body
   const fine = s > C.LOD;
 
   for (const [side, hind] of LEGS) {                // four legs, two segments each
     const L = C.LEGL;
     const t = th + ((hind ? C.PHH : 0) + (side < 0 ? C.PHS : 0)) * 2 * PI;
-    const a = sin(t) * C.SWING + (hind ? C.HTILT : 0);
-    const b = (1 - cos(t)) * C.FOLD * (hind ? C.HFOLD : -1);
+    // Gallop and flight are the same rig: blend the hip angle toward a fixed
+    // reach and straighten the knee. At fly = 0 this is exactly the old gallop.
+    const ga = sin(t) * C.SWING + (hind ? C.HTILT : 0);
+    const gb = (1 - cos(t)) * C.FOLD * (hind ? C.HFOLD : -1);
+    const a = LERP(ga, hind ? C.FLYB : C.FLYF, fly);
+    const b = LERP(gb, gb * C.FLYK, fly);
     const lz = hind ? C.HHZ : C.FHZ;
     const x = side * C.STANCE, hy = by + C.LEGY;
     const kz = lz + sin(a) * L, ky = hy - cos(a) * L;
@@ -693,25 +657,11 @@ const horse = (cx, gy, s, ph, u) => {
 // DESIGN.md 5: the single most important depth cue. `r` is the caster's own
 // screen radius - a prism and a rainbow are nothing like the same size, and one
 // shadow width for both is what made them look unmoored.
-const shadow = (cx, z, r) => {
-  g.globalAlpha = 0.35;
-  g.fillStyle = '#000';
-  g.beginPath(); g.ellipse(cx, GY(z), r, r * 0.36, 0, 0, 7); g.fill();
-  g.globalAlpha = 1;
-};
-
-// ---------------------------------------------------------------------------
-// Prisms are real solids: an octahedron, six vertices at +/-r on each axis and
-// eight triangular faces, one per sign combination (sx, sy, sz). Each face's
-// normal IS its sign vector, so shading is one dot product and needs no cross
-// products or vertex tables. The solid is convex and the projection is affine,
-// so back-face culling alone gives correct occlusion - nothing needs sorting.
-// ---------------------------------------------------------------------------
 const LGT = [-0.42, 0.76, -0.5];                  // light direction, unit-ish
 const PCOL = [[255, 255, 255], [150, 84, 226]];   // light prism, dark prism
 
-const prism = (cx, gy, s, a, dark) => {
-  const co = cos(a), si = sin(a), r = s * C.PR, c = PCOL[dark], cy = gy - r * C.PCY;
+const prism = (cx, cy, s, a, dark) => {
+  const co = cos(a), si = sin(a), r = s * C.PR, c = PCOL[dark];
   for (let i = 0; i < 8; i++) {
     const sx = i & 1 ? 1 : -1, sy = i & 2 ? 1 : -1, sz = i & 4 ? 1 : -1;
     const nx = sx * co - sz * si, nz = sx * si + sz * co;   // normal, turned about Y
@@ -725,97 +675,34 @@ const prism = (cx, gy, s, a, dark) => {
   }
 };
 
-const track = () => {
-  const n = HW(0), f = HW(1), yb = GY(0), yt = GY(1), cx = W / 2;
-  g.fillStyle = '#161d38';                          // ground plane: filled trapezoid
-  g.beginPath();
-  g.moveTo(cx - n, yb); g.lineTo(cx + n, yb); g.lineTo(cx + f, yt); g.lineTo(cx - f, yt);
-  g.fill();
-  g.lineWidth = 1.5;
-  g.lineCap = 'butt';
-  for (let i = 0; i < 3; i++) {
-    const o = (i - 1) * (2 / 3);
-    g.strokeStyle = '#3a4a80';                      // 3 lane centre lines
-    g.beginPath(); g.moveTo(cx + o * n, yb); g.lineTo(cx + o * f, yt); g.stroke();
-    g.strokeStyle = '#7a6ac0';                      // 3 upper rails: lines only, not a plane
-    g.beginPath();
-    g.moveTo(cx + o * n, yb - C.TIER * n); g.lineTo(cx + o * f, yt - C.TIER * f);
-    g.stroke();
-  }
+// A mystery sphere: a rainbow-rimmed orb with a question mark, per DESIGN.md 8.
+const orb = (cx, cy, s) => {
+  g.fillStyle = '#0d1b3a';
+  g.beginPath(); g.arc(cx, cy, s * 0.4, 0, 7); g.fill();
+  g.lineWidth = s * 0.09;
+  g.strokeStyle = RB[(dist * 4 | 0) % 6];
+  g.stroke();
+  g.fillStyle = '#fff';
+  g.font = 'bold ' + s * 0.46 + 'px monospace';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('?', cx, cy);
+  g.textAlign = 'left';
+  g.textBaseline = 'alphabetic';
 };
 
-const herd = () => {   // massed at the horizon, ignoring the lane grid
-  // Unicorns still in flight are not standing in the herd yet.
-  const n = min(uni - arcs.length, C.HERD_CAP);
-  for (let i = 0; i < n; i++) {
-    const [x, y, s] = herdSlot(i);
-    horse(x, y, s, dist * C.GALLOP + JIT(i + 11), 1);
-  }
-};
-
-const ent = (o) => {
-  const z = o[0], s = OS(z), cx = LX(o[1], z), y = EY(z, o[2]);
-  // only prisms and boosters are ever raised; horses are lower tier only
-  if (o[2]) shadow(cx, z, s * (o[3] === 3 ? 0.34 : C.PR * 1.15));
-  if (o[3] === 3) {                                  // booster, marked with a ?
-    const oy = y - s * 0.45;
-    g.fillStyle = '#0d1b3a';
-    g.beginPath(); g.arc(cx, oy, s * 0.34, 0, 7); g.fill();
-    g.lineWidth = s * 0.08;
-    g.strokeStyle = RB[(dist * 4 | 0) % 6];          // cycles so it reads as a prize
-    g.stroke();
-    g.fillStyle = '#fff';
-    g.font = 'bold ' + s * 0.4 + 'px monospace';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText('?', cx, oy);
-    g.textAlign = 'left';
-    g.textBaseline = 'alphabetic';
-  } else if (o[3]) {                                 // prism
-    prism(cx, y, s, dist * C.PSPIN + o[4] * 7, isDark(o[3]) ? 1 : 0);
-  } else {
-    horse(cx, y, s, dist * C.GALLOP + o[4], 0);
-  }
-};
-
-// The rainbow is a sheet, not a stack of bars: a grid of quads lying in the
-// x-z plane, lifted by a wave travelling away from the camera and projected
-// through the same camera as everything else. Six lengthwise stripes, one per
-// column, each quad shaded by the slope of the wave beneath it - so the ripple
-// reads as a surface catching light rather than as scrolling stripes.
-const NX = 6, NZ = 12;   // 6 colour stripes long-ways, 12 segments of ripple
-
-const player = () => {
-  const z = C.PZ, s = OS(z), cx = LX(px, z), gy = EY(z, py);
-  if (py > 0.02) shadow(cx, z, s * C.RW * 0.55);
-  const w = s * C.RW, d = s * C.RD, ph = dist * C.RIPPLE, top = gy - s * C.RY;
-  const amp = C.RH * s;
-  // local (u, v) in [-.5, .5] -> screen y. Height and depth both fold into
-  // screen-y through the camera pitch.
-  // The phase advances with v, so crests travel away from the camera. The u term
-  // only skews it per column, which is what stops the crest arriving dead flat.
-  const SY = (u, v) =>
-    top - amp * sin(v * C.RV + ph + u * C.RU) * C.PCY - (v + C.RZ) * d * C.PCZ;
-
-  g.globalAlpha = 0.55 + 0.45 * min(1, energy / C.BAR * 2.5);
-  // One continuous polygon per colour, down one edge and back up the other.
-  // The previous version was a grid of quads, each stroked in its own shade to
-  // hide the seams - and those strokes are what read as checkering. A stripe
-  // drawn whole has no internal edges to show. The ripple still reads, through
-  // the wave in each stripe's own outline.
-  for (let i = 0; i < NX; i++) {
-    const u0 = i / NX - 0.5, u1 = u0 + 1.04 / NX;   // 4% overlap kills the seams
-    g.fillStyle = shade(RBV[i], 0.66 + 0.34 * cos(ph + u0 * C.RU * 3));
-    g.beginPath();
-    for (let j = 0; j <= NZ; j++) {
-      const v = 0.5 - j / NZ, y = SY(u0, v);
-      j ? g.lineTo(cx + u0 * w, y) : g.moveTo(cx + u0 * w, y);
+// The rainbow beam. Six stacked bands leaving the horn, rippling along their
+// length so it reads as light being poured rather than a drawn rectangle.
+const beam = () => {
+  const y0 = py + C.BEAMY * H, hh = C.BEAMH * H, x0 = px + C.PSZ * H * 0.45;
+  const n = 6, step2 = (W - x0) / 14;
+  for (let b = 0; b < n; b++) {
+    g.fillStyle = shade(RBV[b], 0.7 + 0.3 * cos(dist * 12 + b));
+    g.globalAlpha = 0.55 + 0.45 * (1 - b / n);
+    for (let x = x0; x < W; x += step2) {
+      const w = sin(x / W * 9 - dist * 14) * hh * 0.18;
+      g.fillRect(x, y0 - hh + (b * 2 * hh) / n + w, step2 + 1, (2 * hh) / n + 1);
     }
-    for (let j = NZ; j >= 0; j--) {
-      const v = 0.5 - j / NZ;
-      g.lineTo(cx + u1 * w, SY(u1, v));
-    }
-    g.fill();
   }
   g.globalAlpha = 1;
 };
@@ -829,24 +716,10 @@ const drawParts = () => {
   g.globalAlpha = 1;
 };
 
-const drawArcs = () => {
-  for (const a of arcs) {
-    const u = a[6];
-    horse(
-      LERP(a[0], a[2], u),
-      LERP(a[1], a[3], u) - sin(u * PI) * C.LIFT * H,
-      LERP(a[4], a[5], u),
-      dist * C.GALLOP + a[7],
-      1
-    );
-  }
-};
-
 const hud = () => {
   const bw = W - 24;
   g.fillStyle = '#000';
   g.fillRect(12, 12, bw, 14);
-  // The bar is the rainbow's strength, so it reads as one.
   const fw = bw * energy / C.BAR;
   for (let i = 0; i < 6; i++) {
     const x0 = bw / 6 * i;
@@ -856,10 +729,9 @@ const hud = () => {
   }
   g.fillStyle = '#fff';
   g.font = '16px monospace';
-  g.fillText('UNICORNS ' + uni, 12, 48);
+  g.fillText('DISTANCE ' + (dist | 0), 12, 48);
   if (best) { g.fillStyle = '#8a93b8'; g.fillText('BEST ' + best, 12, 68); }
 
-  // Active booster windows, in the units each one is denominated in.
   let bx = W - 12;
   const chip = (t, span, col) => {
     if (t <= 0) return;
@@ -871,7 +743,7 @@ const hud = () => {
   chip(bSlow, C.SLOW_S, '#4af');
   chip(bLuck, C.LUCK_U, '#a4f');
 
-  if (flash > 0) {                          // dark prism sting
+  if (flash > 0) {
     g.globalAlpha = flash * 0.25;
     g.fillStyle = '#7b3ab6';
     g.fillRect(0, 0, W, H);
@@ -882,29 +754,26 @@ const hud = () => {
     g.fillRect(0, H / 2 - 50, W, 100);
     g.fillStyle = '#fff';
     g.font = '28px monospace';
-    g.fillText(uni + ' UNICORNS', 20, H / 2 - 8);
+    g.fillText((dist | 0) + ' DISTANCE', 20, H / 2 - 8);
     g.font = '16px monospace';
-    g.fillStyle = uni >= best && uni ? '#ffd60a' : '#8a93b8';
-    g.fillText(uni >= best && uni ? 'NEW BEST' : 'BEST ' + best, 20, H / 2 + 14);
+    g.fillStyle = (dist | 0) >= best && dist >= 1 ? '#ffd60a' : '#8a93b8';
+    g.fillText((dist | 0) >= best && dist >= 1 ? 'NEW BEST' : 'BEST ' + best, 20, H / 2 + 14);
     g.fillStyle = '#fff';
-    g.fillText('tap or press a key to run again', 20, H / 2 + 36);
+    g.fillText('press any key or click to run again', 20, H / 2 + 36);
   }
 };
 
 const render = () => {
   g.fillStyle = sky;
   g.fillRect(0, 0, W, H);
-  track();
-  herd();
-  // Painter's algorithm, far to near. ents is already z-descending, and the player
-  // slots in at its fixed depth: herd, gap, player, play field, spawn edge.
-  let drawn = 0;
+  if (fire) beam();
+  const s = OS();
   for (const o of ents) {
-    if (!drawn && o[0] <= C.PZ) { player(); drawn = 1; }
-    ent(o);
+    if (o[2] === 3) orb(o[0], o[1], s);
+    else prism(o[0], o[1], s, dist * C.PSPIN + o[3] * 7, isDark(o[2]) ? 1 : 0);
   }
-  if (!drawn) player();
-  drawArcs();     // the score moment rides over everything
+  // The player: a unicorn in the flying pose, facing the way it travels.
+  horse(px, py + C.PSZ * H * 0.45, C.PSZ * H, dist * C.GALLOP, 1, fly);
   drawParts();
   hud();
 };
@@ -920,7 +789,9 @@ const frame = (t) => {
 addEventListener('resize', resize);
 addEventListener('pointerdown', PT);
 addEventListener('pointermove', PT);
-addEventListener('keydown', KD);
+addEventListener('pointerup', PT);
+addEventListener('keydown', (e) => KD(e, 1));
+addEventListener('keyup', (e) => KD(e, 0));
 resize();
 reset();
 last = 0;

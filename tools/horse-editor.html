@@ -122,12 +122,14 @@ const ORIG = JSON.parse(JSON.stringify(PARTS));
 const ORIGC = { YAW: C.YAW, STANCE: C.STANCE, ASC: C.ASC, LEGL: C.LEGL, LEGY: C.LEGY,
                 SWING: C.SWING, FOLD: C.FOLD, OUTL: C.OUTL, OUTA: C.OUTA,
                 GALLOP: C.GALLOP, FHZ: C.FHZ, HHZ: C.HHZ, HFOLD: C.HFOLD, HTILT: C.HTILT,
-                PHH: C.PHH, PHS: C.PHS, MANEN: C.MANEN, MANE0: C.MANE0,
+                PHH: C.PHH, PHS: C.PHS, FLYF: C.FLYF, FLYB: C.FLYB, FLYK: C.FLYK,
+                BOB: C.BOB, BOBR: C.BOBR, NOD: C.NOD, NODR: C.NODR,
+                MANEN: C.MANEN, MANE0: C.MANE0,
                 MANE1: C.MANE1, MANEL: C.MANEL, MANER: C.MANER, MANEX: C.MANEX,
                 MANEP: C.MANEP,
                 LEGR: [...C.LEGR] };
 
-let sel = 1, ph = 0, paused = false, last = 0, showU = 1;
+let sel = 1, ph = 0, paused = false, last = 0, showU = 1, fly = 0;
 
 // --- previews ---------------------------------------------------------------
 const W = 420;
@@ -178,7 +180,7 @@ const drawCell = (c, marker) => {
   ctx.moveTo(0, h - 10 * zoom + .5); ctx.lineTo(w, h - 10 * zoom + .5);
   ctx.stroke();
   M.setCtx(ctx);
-  M.horse(w / 2, h - 10 * zoom, c.s * zoom, ph, c.u);
+  M.horse(w / 2, h - 10 * zoom, c.s * zoom, ph, c.u, fly);
   if (marker) mark(c, PARTS[sel]);
 };
 
@@ -211,6 +213,16 @@ globCtl.push(slider(G, 'outline alpha', () => C.OUTA, (v) => (C.OUTA = v), 0, 1,
 // Gait pace. The game drives the phase from DISTANCE, not from time, so GALLOP
 // is strides per unit of track - at base speed 1 unit takes 1 second, making it
 // strides per second there, and it speeds up on its own as the run does.
+globCtl.push(slider(G, 'flying', () => fly, (v) => (fly = v), 0, 1, 0.02,
+  (v) => (v === 0 ? 'gallop' : v === 1 ? 'flight' : v.toFixed(2))));
+globCtl.push(slider(G, 'body bob', () => C.BOB, (v) => (C.BOB = v), 0, 0.08, 0.002,
+  (v) => (v === 0 ? 'still' : v.toFixed(3))));
+globCtl.push(slider(G, 'bob rate', () => C.BOBR, (v) => (C.BOBR = v), 0, 4, 0.5,
+  (v) => v.toFixed(1) + '/stride'));
+globCtl.push(slider(G, 'head nod', () => C.NOD, (v) => (C.NOD = v), 0, 0.06, 0.002,
+  (v) => (v === 0 ? 'still' : v.toFixed(3))));
+globCtl.push(slider(G, 'nod rate', () => C.NODR, (v) => (C.NODR = v), 0, 4, 0.5,
+  (v) => v.toFixed(1) + '/stride'));
 globCtl.push(slider(G, 'gallop rate', () => C.GALLOP, (v) => (C.GALLOP = v), 0, 8, 0.05,
   (v) => v.toFixed(2) + '/u'));
 let gameSpd = 1;
@@ -244,6 +256,10 @@ legCtl.push(slider(L, 'hind lean', () => C.HTILT, (v) => (C.HTILT = v), -0.8, 0.
 // Gait pattern. These decide WHEN each leg moves rather than how far.
 legCtl.push(slider(L, 'hind phase', () => C.PHH, (v) => (C.PHH = v), 0, 1, 0.01,
   (v) => v.toFixed(2) + (v < 0.06 || v > 0.94 ? ' bound' : Math.abs(v - 0.5) < 0.06 ? ' gallop' : '')));
+legCtl.push(slider(L, 'fly: front reach', () => C.FLYF, (v) => (C.FLYF = v), 0, 2, 0.02));
+legCtl.push(slider(L, 'fly: hind reach', () => C.FLYB, (v) => (C.FLYB = v), -2, 0, 0.02));
+legCtl.push(slider(L, 'fly: knee bend', () => C.FLYK, (v) => (C.FLYK = v), 0, 1, 0.02,
+  (v) => (v < 0.05 ? 'straight' : v.toFixed(2))));
 legCtl.push(slider(L, 'left/right split', () => C.PHS, (v) => (C.PHS = v), 0, 0.5, 0.01,
   (v) => v.toFixed(2) + (v < 0.04 ? ' paired' : Math.abs(v - 0.5) < 0.04 ? ' alternating' : '')));
 // Move all four legs at once - the hips live in C, not in PARTS, so the group
@@ -431,7 +447,9 @@ $('exp').onclick = () => {
     `  OUTL: ${f(C.OUTL)},  OUTA: ${f(C.OUTA)},  GALLOP: ${f(C.GALLOP)},\n` +
     `  FHZ: ${f(C.FHZ)},  HHZ: ${f(C.HHZ)},  HFOLD: ${f(C.HFOLD)},  HTILT: ${f(C.HTILT)},
 ` +
-    `  PHH: ${f(C.PHH)},  PHS: ${f(C.PHS)},
+    `  PHH: ${f(C.PHH)},  PHS: ${f(C.PHS)},  FLYF: ${f(C.FLYF)},  FLYB: ${f(C.FLYB)},  FLYK: ${f(C.FLYK)},
+` +
+    `  BOB: ${f(C.BOB)},  BOBR: ${f(C.BOBR)},  NOD: ${f(C.NOD)},  NODR: ${f(C.NODR)},
 ` +
     `  MANEN: ${C.MANEN},  MANE0: ${f(C.MANE0)},  MANE1: ${f(C.MANE1)},
 ` +
