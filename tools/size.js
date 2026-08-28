@@ -5,12 +5,10 @@ import { readFileSync, statSync, existsSync } from 'node:fs';
 export const ZIP_LIMIT = 13312;   // competition hard limit, 13 * 1024
 export const GAME_LIMIT = 11500;  // hard ceiling for the game itself
 
-// DESIGN.md 2 estimates 800 bytes for the Wavedash SDK. `npm run sdk-cost` measures
-// it and writes sdk/measured.json; prefer the measurement when it exists.
-const measured = existsSync('sdk/measured.json')
-  ? JSON.parse(readFileSync('sdk/measured.json', 'utf8')).game.delta
-  : null;
-export const SDK_RESERVE = measured ?? 800;
+// DESIGN.md 2 reserves 800 bytes for the Wavedash SDK. That is an estimate until
+// build-order step 4 measures it against the real bundle.
+export const SDK_RESERVE = 800;
+const measured = null;
 
 const bar = (n, limit, width = 34) => {
   const f = Math.max(0, Math.min(1, n / limit));
@@ -54,7 +52,7 @@ export function report(zipPath = 'dist/index.zip', htmlPath = 'dist/index.html')
   ];
 
   console.log('');
-  console.log('  Rainbowed  -  pack report');
+  console.log('  pack report');
   console.log('  ' + '-'.repeat(60));
   console.log(`  index.html (uncompressed)   ${String(html).padStart(6)} bytes`);
   console.log('');

@@ -1,13 +1,17 @@
-# Rainbowed — js13kGames 2026
+# js13kGames 2026 Entry — Design Spec
 
-You are a flying unicorn. Channel a rainbow beam to cut a path through what is
-coming at you, and survive as long as you can.
+> **This document supersedes all previous design documents for this project.**
+> Any earlier spec, and any gameplay code written against it, is void.
+> The project scaffold, build pipeline and size tooling remain valid.
+> Everything below the "Constraints" sections describes a different game.
+
+Working title: **TBD**. Do not bake a title into code — keep it in one constant.
 
 ---
 
 ## 1. Hard constraints
 
-These are competition rules. Violating any of them disqualifies the entry or drops it from the overall ranking.
+Competition rules. Violating any of these disqualifies the entry or drops it from the overall ranking.
 
 | Constraint | Value |
 |---|---|
@@ -17,7 +21,7 @@ These are competition rules. Violating any of them disqualifies the entry or dro
 | Browsers | Latest Chrome **and** Firefox, **zero console errors** |
 | Repo | Must contain full buildable source, not just unzipped output |
 | localStorage | All keys namespaced. Never call `localStorage.clear()` — games share an origin |
-| Category | One only (Desktop **or** Mobile). Targeting **Desktop, landscape** |
+| Category | One only. **Desktop**, landscape orientation |
 
 ### Deadlines
 
@@ -36,31 +40,33 @@ These are competition rules. Violating any of them disqualifies the entry or dro
  1,012  contingency
 ```
 
-**Hard ceiling: 11,500 bytes for the game.** A `npm run size` script must print bytes against 13,312 after every build. When the game hits 11,500, it is full.
+**Hard ceiling: 11,500 bytes for the game.** `npm run size` must pack and print actual zip bytes against both 13,312 and 11,500 after every build.
 
-### What the reserve actually costs
+### Indicative allocation (post-pack)
 
-Measured, not estimated: the SDK block is **158 bytes** packed (`sdk/measured.json`),
-against the 800 originally set aside. The difference is banked as contingency, not
-spent.
+| System | Bytes |
+|---|---|
+| Canvas setup, resize, main loop | 300 |
+| Input (aim, fire, hold-bind) | 200 |
+| Fake-3D projection + primitive generators | 700 |
+| Ghost blob generator + 5 type variants | 300 |
+| Ghost movement, damage, death | 250 |
+| Puppet arm: mesh, recoil, blink | 450 |
+| Casting arm: mesh, rainbow wrap, wave anim | 300 |
+| Horn projectiles + collision | 250 |
+| Bind AOE: rings, expansion, cooldown | 300 |
+| Minimap | 250 |
+| HUD (hearts, wave counter) | 250 |
+| Wave spawner + threat budget | 200 |
+| Upgrade cards + selection UI | 600 |
+| Particles + juice | 500 |
+| ZzFX + SFX definitions | 1,000 |
+| Generative music | 300 |
+| DOM/CSS UI (start, game over) | 400 |
+| PRNG + misc | 200 |
+| **Total** | **~6,750** |
 
-### Where it stands
-
-**8,169 bytes**, 3,331 free against the 11,500 ceiling. Everything below is built:
-canvas and loop, keyboard and mouse, the box/cone solid generator and its
-painter's-algorithm renderer, the unicorn and its flight rig, the rainbow beam
-with prism reflection, plated blocks and gates, the spawner and its separation
-rules, four boosters, the energy bar and HUD, particles, ZzFX with three sounds,
-generative music, and the backdrop.
-
-### The backdrop
-
-A daylight sky ramp with three mountain ranges parallaxing behind the field, at
-0.10, 0.24 and 0.48 of the world's own scroll. Each range is a ground line with
-overlapping triangular peaks on a fixed lattice, so a peak keeps its height as it
-travels. Distance reads as paleness: the layers fade toward a warm grey rather
-than toward the sky, because fading brown toward blue desaturates it through grey
-and stops it being a mountain.
+Roughly 4,750 spare against the ceiling.
 
 ---
 
@@ -80,15 +86,15 @@ Roadroller     only if JS exceeds ~8KB; test both ways
 ECT -9 -zip    or advzip — recompresses harder than any system archiver
 ```
 
-`js13k-vite-plugins` covers most of steps 2–5. Do not hand-roll unless it fails.
+`js13k-vite-plugins` covers most of steps 2–5.
 
 ### Code style for minification
 
 - One module, no build-time abstraction layers
 - Plain functions and object literals over classes (class method names don't mangle by default)
-- Arrays over objects for hot data — `[x,y,z,vx]` beats `{x,y,z,vx}` after compression
+- Arrays over objects for hot data — `[x,y,z,hp]` beats `{x,y,z,hp}` after compression
 - Destructure `Math` once; alias `document`, `canvas.getContext`
-- Everything procedural: geometry, textures, levels, audio. A seeded PRNG is ~50 bytes and replaces every asset file
+- Everything procedural. A seeded PRNG is ~50 bytes and replaces every asset file
 
 ---
 
@@ -96,7 +102,7 @@ ECT -9 -zip    or advzip — recompresses harder than any system archiver
 
 **Write-only. Nothing is read back, nothing is rendered from the SDK.**
 
-The SDK is injected by the platform as a host global — it is **not** bundled. Do not `npm install @wvdsh/sdk-js` into the shipped bundle (types only, if at all).
+The SDK is injected by the platform as a host global — it is **not** bundled. Do not ship `@wvdsh/sdk-js`.
 
 ```js
 // at startup
@@ -109,19 +115,12 @@ board = await Wavedash.getOrCreateLeaderboard(...)
 try { Wavedash.uploadLeaderboardScore(board.id, score, true) } catch(e){}
 ```
 
-### Rules for this integration
-
 - The `typeof` guard is mandatory. The zip must be fully playable standalone with no Wavedash global present
 - `try/catch` is mandatory — an unhandled promise rejection is a console error, which breaks a hard competition rule
 - Never `await` the upload before rendering the game-over screen
-- Personal best lives in namespaced `localStorage`, not on the leaderboard
+- Personal best lives in namespaced `localStorage`
 
-### To verify before writing the guard
-
-1. Global name: docs show `Wavedash.init()`, the developers page shows `WavedashJS.getUser()`. Confirm which is current.
-2. Third argument to `uploadLeaderboardScore` — appears to be a force / only-if-better flag. Determines whether personal-best filtering happens client- or server-side.
-
-Test locally with `wavedash dev`, which provides a sandbox SDK offline.
+**Verify before writing the guard:** global name (`Wavedash` vs `WavedashJS`), and the third argument to `uploadLeaderboardScore` (appears to be force / only-if-better). Test locally with `wavedash dev`.
 
 ---
 
@@ -129,276 +128,219 @@ Test locally with `wavedash dev`, which provides a sandbox SDK offline.
 
 ### Premise
 
-You are a unicorn flying across a scrolling world, held toward the left of the
-screen while the level comes at you from the right. You channel a rainbow beam
-from your horn. The beam is the whole game: it is the only way to clear the
-blocks in your path and the only way to open the gates, and it is paid for out of
-a bar that takes real time to refill.
+You stand in an open field wearing a unicorn hand puppet on your right arm and a rainbow bound around your left. Ghosts converge on you from every direction. The puppet fires horns. The rainbow binds. You cannot move.
 
-### What is out there
+**Genre:** stationary first-person roguelike wave shooter.
 
-| Thing | What it does |
-|---|---|
-| **Reflector prism** | Turns the beam 90 degrees. Its outgoing direction sweeps a full circle every 2.7s, so the same prism aims somewhere different a moment later. No collision - it passes behind you |
-| **Rainbow sphere** | +2 bars. Concentric rainbow rings |
-| **Mystery sphere** | One of four boosters, named on screen when you take it. Same size as a rainbow sphere, told apart by being a dark orb marked `?` |
-| **Block** | Solid. Shoves you when you touch it. Two beam hits to destroy |
-| **Spiked block** | The same, but fatal on contact, and three hits |
-| **Gate** | A full column that blocks you, with a rainbow panel set into it. Touch the panel with the beam and the gate dissolves. It does not kill you - being shoved into the left edge does |
+### Orientation
 
-Blocks and gates are the same material: plated, nailed, with two plates crossed
-inside. Gates are that material in dark green, stacked.
-
-### How a run ends
-
-Two ways, and only two. A spike on contact, or being pinned against the left edge
-with nowhere left to be pushed. An empty bar never kills you directly - it just
-means the next gate is a wall.
+**Landscape.** Full 360° turning. This is a change from earlier portrait planning — do not carry portrait assumptions forward.
 
 ### Camera
 
-None. Play is flat: screen x and screen y, nothing else. No depth ramp, no lane
-grid, no horizon, no vanishing point.
+First person, eye level, looking forward. Fixed position — the camera rotates but never translates.
 
-The 3D lives **inside each object**. Prisms are octahedra; the unicorn is built
-from boxes and cones. Both go through a face-level painter's algorithm - faces
-gathered in world space, back-face culled, sorted far-to-near, and shaded by
-`dot(normal, light)` quantised to exactly three hard steps.
+This is the core technical reason for the design: **every hard-to-render object is gone.** No small distant creatures, no quadruped rigs, no facet shading at 20px. The only detailed geometry sits an arm's length from the camera at a fixed distance and angle, where detail is affordable.
 
-### Screen layout
+### Renderer
 
-- **Left** - the unicorn, free to move anywhere, starting 16% across
-- **Right** - where everything enters
-- The world slides right to left; the unicorn's own movement is independent of it
+Canvas2D with painter's-algorithm fake-3D. **No WebGL.**
 
-### Object foreshortening
-
-A solid's own length maps to screen-y at `PCD`, not at a true camera pitch. At a
-real 40 degrees an animal's body spread as much vertical screen space as its
-height, which put the rump above the head and drove the front hooves through the
-floor.
-
-## 6. Controls
-
-Desktop first, because that is the category.
-
-- **Arrows or WASD** - fly. Both write the same velocity, so there is one
-  movement path downstream
-- **Space** - channel the beam. It is held, not tapped, and it costs a bar a
-  second. Run the bar to nothing and the beam cuts out until half a bar is
-  back, so an empty bar is a silence rather than a stutter
-- **Mouse** - steering follows the pointer while a button is held; **left click**
-  fires. Same velocity, same fire flag, no second code path
-- Arrows and Space are swallowed, so the page cannot scroll under the game
-- Any key or click restarts after a run ends
-- The score is time survived, shown as `mm:ss.mmm`
-
-Diagonal input is normalised, so two axes are not faster than one.
-
-### Mobile is possible, but is not the entry
-
-Category is a submission choice, not a capability claim - the game may still run
-on a phone. Landscape touch would need pointer-follow movement (which the mouse
-path already is) plus a second simultaneous pointer to fire: roughly 150 bytes.
-What it actually costs is device testing. Orientation cannot be locked outside
-fullscreen, only detected and prompted for.
-
-## 7. Economy and tuning
-
-### Everything is denominated in SECONDS
-
-This took three attempts, and both wrong answers are worth keeping, because each
-looks correct until you push it.
-
-**Charge per unit of track, demand per unit of track.** Speed-invariant, and it
-was the original design: a prism every N units against a beam costing X a unit
-means nothing revalues as the run speeds up. What it cannot do is stay legible.
-A second of beam costs three times as much at the speed cap as at base, so "how
-long can I hold this" has no answer.
-
-**Charge per second, demand per distance.** Legible - a bar is a second - but it
-inverts. Demand is spaced by distance, so at the cap you meet three times as many
-rainbow spheres per second while a second of beam still costs one bar. Income
-scales with speed; cost does not. Measured: from the speed cap onward, collecting
-perfectly paid *more* than holding the trigger cost, so the bar stopped
-constraining anything exactly where the game should bite hardest.
-
-There is no third option that keeps both. **The whole run is on the clock.**
-Spawn intervals, the difficulty ramp, the speed ramp and every booster window are
-seconds. `dist` survives only where it genuinely tracks ground covered: the
-gallop phase and the rainbow's shimmer.
-
-### BEAMC is the ceiling on what the game may ask for
-
-One second of beam per second is all a player can physically supply. So the block
-arrival rate cannot outrun `BEAMC`, which pins `SP_OBST_HI` near the time it
-takes to clear one block - and that in turn pins the speed cap, because once the
-arrival rate is fixed in seconds, a faster scroll empties the screen rather than
-filling it. One line sets the late game.
-
-### Constants
-
-| Constant | Value | |
-|---|---|---|
-| Bar capacity | 7 bars | one bar = one second of beam |
-| Beam | -1 bar/s | while channelling |
-| Passive trickle | +0.167 bar/s | a bar every 6s |
-| Rainbow sphere | +2 bars | every 6.4s, flat for the whole run |
-| Reload lockout | 0.5 bars | run dry and the beam stays out until this is back |
-| Beam damage | 1 hit / 0.5s | 2 hits a plain block, 3 a spiked one |
-| Speed | 1 to 1.4x | over 66s, then on to 2.2x over the next 8 minutes |
-| Blocks | every 2.08s to 1.4s | 30% to 54% spiked, 1.0x to 1.32x size |
-| Prisms | every 2.8s to 2.1s | |
-| Escalation | 0s to 159s | ramps from the first second, not from the cap |
-
-### Why these numbers
-
-Income if you collect perfectly is **0.48 bars/s against a beam costing 1.00/s**.
-Deliberately under: catching everything still does not pay for holding the
-trigger, so the beam is never free and never neutral. A held trigger empties a
-full bar in **13 seconds**, and that number is the same in minute one and minute
-three - which is the entire point of a single denomination.
-
-The forced duty cycle - the fraction of time you would need to be firing to
-destroy every block - is **55% early and 91% late**. Late, clearing everything
-costs 0.91/s against 0.48/s of income, so you cannot. You choose which fights to
-take. That is the decision-making late game, and it is now arithmetic rather than
-an aspiration.
-
-### The curve, and the two holes that were in it
-
-Escalation used to wait for the speed cap, on the reasoning that thickening the
-field while still accelerating asks two things of the player at once. Measured,
-that was backwards. Spawns are spaced in SECONDS, so a rising speed clears
-objects off the screen faster while they arrive at the same rate: over the first
-66s the field **thinned** from 2.4 blocks on screen to 1.7, and covered area fell
-from 5.1% to 3.6%. The opening got emptier, and the screen was at its emptiest at
-the exact moment before escalation began. `HARD()` now ramps from the first
-second, and `OBSC` is 1.32 rather than a round number because that is the point
-where growing blocks exactly cancel the screen that rising speed empties.
-
-The second hole was at the other end: every number froze at `HARD_TO`, so 159s
-and 600s were identical and a good run ended only when the player slipped. Past
-the ramp, speed keeps creeping toward `CAP2` and **the spawner divides every
-interval by the speed**, so the field stays spatially identical - same density,
-same gaps, 353px between blocks at four minutes and at fifteen - and the only
-thing that changes is how long you get to read it.
-
-`CAP2` is set by the economy rather than by taste. Income is
-`RGEN + RBFILL * speed / SP_RB`, which reaches the 1 bar/s the beam costs at
-about 2.6x; past that the bar would stop constraining anything, which is the same
-inversion that forced the move to a single denomination in the first place. It
-stops at 2.2x, where income tops out at 0.66.
-
-| t | speed | reaction window | blocks on screen | cover | forced duty |
-|---|---|---|---|---|---|
-| 0s | 1.00x | 5.0s | 2.4 | 5.1% | 55% |
-| 66s | 1.40x | 3.6s | 2.0 | 5.4% | 67% |
-| 159s | 1.40x | 3.6s | 2.6 | 9.4% | 91% |
-| 400s | 1.79x | 2.8s | 2.6 | 9.4% | 116% |
-| 660s | 2.20x | 2.3s | 2.6 | 9.4% | 143% |
-
-Covered area never falls and the reaction window never widens - both checked
-across 1,200 simulated seconds rather than eyeballed.
-
-### Escalation is spawn rate and block size, not speed
-
-Speed stops at 1.4x because of the argument above. Blocks get more frequent
-(2.08s to 1.4s), more often spiked (30% to 54%), and **bigger** (1.25x). Size is
-the one lever `BEAMC` does not cap: a wider block is harder to fly around but
-still takes the same number of hits, so it adds pressure without adding energy
-demand. Blocks cover 5.1% of the screen early and 8.4% late.
-
-Checked, not assumed: a full-size block at its worst height still leaves 111px of
-slot for an 82px unicorn, and two of them can never share a column - the
-separation rule would need them 288px apart inside a 210px band of spawn heights.
-
-### Spawn separation
-
-Separation uses each object's real half-extents, not centre distance. A gate
-reserves a corridor at **every** height, plus a run-up during which nothing else
-spawns at all: a gate arrives into an already-populated lane, so its approach can
-only be cleared before it, never after. Verified over 900s of driven play - 318
-gates, nothing overlapping, 239px clear around every one.
-
-## 8. Boosters
-
-Auto-activate on touch. No held-item slot - the control scheme has no spare
-gesture. Pickups arrive as dark spheres marked with a question mark, and the one
-you took names itself on screen as it floats away.
-
-| Booster | Effect | Weight |
-|---|---|---|
-| **FULL CHARGE** | Refills the bar | 2 |
-| **SLOW TIME** | 5s at 0.55x speed | 3 |
-| **PATH CLEARED** | Removes every block on screen | 2 |
-| **BAD LUCK** | 8s with every block spiked | 1 |
-
-Bad luck is the rarest and is the only one that reads in red. Slow time is the
-safest under a per-second economy: it buys reaction time and grants no charge, so
-it cannot touch the bar's arithmetic either way.
-
-### Do not add
-
-Shields (removes the stakes), magnets (removes the dodging), extra lives (removes
-the stakes again).
-
-## 9. Audio
-
-- **SFX**: ZzFX, ~1KB. Parameter arrays, no sample data
-- **Music**: generative, not tracked. Notes picked from a scale and scheduled
-  with ZzFX on a timer, developing a motif over an 8-bar progression rather than
-  looping. The key climbs as the run goes on; the **tempo does not** - a tempo
-  that accelerated with the run was built and rejected as stressful. Bass, hat
-  and melody only. ~300 bytes versus 1,500-2,500 for ZzFXM
+- Project vertices manually: `s = f/(f+z); px = x*s + w/2; py = y*s + h/2`
+- Sort per-part back-to-front, fill as 2D polygons
+- Flat shading: face normal dotted with a fixed light direction, **quantised to 3 discrete steps**. No gradients, no smooth shading
+- **Hard polygon edges only.** No rounded primitives, no capsules, no anti-aliased blobs for solid geometry
+- Viewmodel (both arms) draws last, on top, with no depth sorting at all
+- Ghosts use additive blending, which is order-independent — they skip depth sorting entirely
 
 ---
 
-## 10. Build order
+## 6. The two arms
 
-Sessions, not calendar days - the schedule below is order, not dates.
+### Right arm — unicorn puppet
 
-1. **Done** - scaffold, pack pipeline, `npm run size`, measured Wavedash reserve
-   (158 bytes, not the 800 estimated)
-2. **Done** - audio: ZzFX, SFX, generative music on a developed motif, separate
-   master/music/sfx buses
-3. **Done** - solid renderer, unicorn model and flight rig, octahedral prisms,
-   and the editors that drive them
-4. **Done** - the genre change: 2D landscape play, keyboard and mouse, scrolling
-   field, rainbow beam
-5. **Done** - obstacles, gates, the reflecting ray, and what the beam is *for*
-6. **Done** - the economy: one denomination, the difficulty curve against it,
-   spawn separation, the time gauge
-7. **Done** - environment: sky, three parallax ranges, outlined HUD text
-8. **Next** - whatever the remaining 3,331 bytes are best spent on
-9. Then - Firefox pass, console-error hunt, README, submit
-10. Finally - publish to Wavedash on the frozen build
+A unicorn head-and-neck mesh worn over the forearm, the arm entering through the neck opening. Built from box and cone primitives.
 
-### Still outstanding
+- **Fires horns.** Infinite ammo, gated by fire rate only
+- Horns are projectiles with travel time, not hitscan
+- Occupies the bottom-right of the frame. It is the largest and best-lit object in the game — spend detail here
+- The horn is the brightest single element on screen (amber)
 
-- Real-device check. Landscape on a phone is not the entry, but section 1's
-  zero-console-errors rule spans every browser the game loads in
-- Section 11's two Wavedash questions, which gate turning the measured 158 bytes
-  into real code
-- Gate panels spawn at a random height with no guarantee a prism can reach them,
-  so a gate's solvability is currently luck. It has not bitten yet because the
-  panel tolerance is generous, but it is a real hole
+**Animations:**
+- **Recoil** — offset the whole puppet transform back along its axis on fire, ease out over ~0.15s (~40 bytes)
+- **Blink** — collapse the eye's Y scale to near zero on a randomised timer (~30 bytes)
+
+### Left arm — casting arm
+
+A forearm wrapped in rainbow bands, palm open, bottom-left of the frame.
+
+- **The rainbow is always visible on the arm.** Saturation is the cooldown readout: fully coloured = ready, faded = recharging
+- This replaces an on-screen cooldown bar. One multiplier on band colours driven by cooldown fraction (~20 bytes)
+- **Animation:** damped sine rotation about the elbow while a cast is active (~40 bytes)
+
+### Bind — the AOE
+
+**Centred on the player, not in front of them.** This is critical to get right.
+
+- Hold to charge. The radius expands the longer you hold
+- Releasing casts at the current radius
+- Bound ghosts are held in place for a duration
+- All ghost types are held equally, **except the Warden, which is immune**
+
+**Rendering in first person:** a circle centred on the camera projects with its near half behind the viewer, off-screen. What the player sees is an **arc sweeping outward toward the horizon** as the radius grows. Draw as concentric ellipses whose centre lies below the bottom of the viewport, clipped to the screen.
+
+- Solid inner ring = current radius
+- Dashed outer ring = the maximum currently affordable (scales with bind-radius upgrades, giving free feedback on that card)
+- **The minimap is where the actual circle reads.** Draw it there as a real circle around the player dot
+
+**Balance rule: cooldown must scale with r², not r.** Area grows quadratically, so a linear cost makes max-charge always optimal and kills the short tactical bind.
+
+---
+
+## 7. Ghosts
+
+No anatomy. A ghost is a blob outline with a sine-deformed wavy hem and two dark eye voids. Amorphousness is the point — every imperfection that would break a creature model reads as correct here.
+
+All five types are the **same generator with different parameters**: size, hue, wobble amplitude, wobble frequency, wisp count.
+
+| Type | HP | Speed | Damage | Cost | Unlocks | Hue |
+|---|---|---|---|---|---|---|
+| Drifter | 3 | 1.0× | 1 | 1 | wave 1 | pale white |
+| Darter | 2 | 1.8× | 1 | 2 | wave 3 | sharp cyan |
+| Hulk | 10 | 0.5× | 3 | 5 | wave 5 | angry red |
+| Splitter | 6 | 0.8× | 1 | 4 | wave 10 | sickly green |
+| Warden | 8 | 0.7× | 2 | 6 | wave 20 | pale gold |
+
+**Splitter** — on death, breaks into two Drifters. Reuses the Drifter entirely. Makes a large bind valuable, since you can hold the children before they scatter.
+
+**Warden** — immune to bind. One boolean. It must visibly shrug off the ring so the player learns the rule without being told. This is a mechanical shift at wave 20 rather than just larger numbers.
+
+### Behaviour
+
+Ghosts spawn at the edge of the arena at a random bearing and drift straight toward the player. On reaching the player they deal their damage and are removed.
+
+### Feedback
+
+- **Flash white on hit**
+- **Opacity drops a step per HP lost** — a nearly-dead Hulk is visibly faint
+- **No health bars.** Bars over 360° of enemies would be unreadable clutter
+- **Ghost under the crosshair is outlined in white** to confirm the target
+
+---
+
+## 8. Waves and spawning
+
+### Threat budget
+
+Each wave has a budget. The spawner buys ghost types randomly from those currently unlocked until the budget is spent.
+
+- Costs are in the table above
+- Budget grows per wave by a single formula — tune the whole difficulty curve from that one place
+- **Unlock gating applies to the buy list, not the budget.** Wave number decides what is *available*; budget decides how much
+
+No wave is hand-authored. Composition varies every run.
+
+### Between waves
+
+Three upgrade cards are offered. Pick one.
+
+---
+
+## 9. Upgrade cards
+
+| Card | Effect | Cap |
+|---|---|---|
+| Fire rate | Horns per second | — |
+| Horn damage | Damage per horn | — |
+| Bind radius | Max affordable radius | — |
+| Bind cooldown | Recharge speed | — |
+| Bind duration | How long ghosts stay held | — |
+| Extra heart | +1 max heart | 2 |
+| Regen | Health restored between waves | 2 |
+
+**Regen** starts at +1 by default. Two cards raise it to +2 then +3. Always capped by max hearts.
+
+- Regen is the strongest card in the pool — sustain compounds across a long run in a way fire rate does not. **Weight it rarer in the draw**, or every player takes it twice immediately and the rest of the pool goes unread
+- **Once a card hits its cap it drops out of the pool.** One line, and it prevents dead draws late in a run
+- Fire rate and horn damage are distinct because ghost HP varies: fire rate answers swarms, damage answers tanks
+
+---
+
+## 10. Player state
+
+- **3 hearts** to start, max 5 with both Extra Heart cards
+- Damage is per-ghost-contact, values in the ghost table
+- **Cap all damage at 3.** A larger hit takes most of a run's health from a single mistake
+- Score = waves survived, plus ghosts killed as a tiebreaker
+
+---
+
+## 11. HUD
+
+- **Minimap, top-left.** Circular. Shows: view cone, player dot, ghost blips at true bearing including behind, and the current bind circle. This is a **primary display**, not decoration — a threat may only be perceivable here. Do not shrink it for tidiness, but it should not exceed roughly a quarter of the screen height
+- **Hearts, top-right.** Filled and empty states
+- **Wave counter**, small
+- No cooldown bar — the casting arm's saturation carries that
+
+---
+
+## 12. Controls
+
+| Action | Input |
+|---|---|
+| Aim / turn | Drag (pointer X → yaw, pointer Y → pitch) |
+| Fire horn | Tap / click |
+| Bind | Hold, release to cast at current radius |
+
+One code path for mouse and touch via Pointer Events. No gestures to learn.
+
+**Turn speed is the primary difficulty knob** — slow turning plus 360° threats is the tension; fast turning trivialises it. Make it a tunable constant from day one.
+
+---
+
+## 13. Audio
+
+- **SFX:** ZzFX, ~1KB. Parameter arrays, no sample data
+- **Music:** generative. Pick notes from a scale, schedule with ZzFX on a timer, shift key as waves escalate. ~300 bytes vs 1,500–2,500 for a tracker
+- **Directional cue for off-screen ghosts is required.** With 360° threats and no movement, being hit by something you never had a chance to perceive is the main way this design feels unfair. Pan a spawn sound to the ghost's bearing
+
+---
+
+## 14. Visual direction
+
+Saturated emissive spectrum on near-black.
+
+- Dark field, dark sky, faint horizon
+- Ghosts are desaturated and translucent — the rainbow and the horn are the only strongly chromatic things in the world, except the Hulk's red
+- Flat shading, hard edges, three value steps
+- Colour via `hsl(h,100%,50%)` — the whole spectrum from one variable, near-free for a rainbow theme
+
+---
+
+## 15. Build order
+
+Milestones, not a rigid schedule.
+
+1. **Scaffold + pipeline + `npm run size`.** Must work before any game code exists
+2. **Renderer.** Fake-3D projection, primitive generators, flat 3-step shading. Prove it with one box before anything else
+3. **Core loop, ugly.** Camera yaw, ghost spawn and approach, puppet fires horns, collision, hearts, death, restart
+4. **Measure the Wavedash reserve.** Throwaway build with every SDK call site, packed with and without. Replace the 800-byte estimate with a measured number
+5. **Bind system.** Charge, expanding rings, cooldown, r² cost, held ghosts
+6. **Minimap.** Bearings, blips, bind circle
+7. **Ghost types.** All five, via generator parameters
+8. **Waves + threat budget + upgrade cards**
+9. **Feel pass.** Recoil, blink, cast wave, arm saturation, particles, audio, directional cue
+10. **Ship pass.** Firefox, console-error hunt, repo cleanup, README, submit
 
 ### Store page
 
-Wavedash listing art, screenshots, and description are **platform metadata, not
-inside the 13KB**. This is the one place a normal 2D art pipeline is useful.
-Prepare it during the build, not on September 19.
+Wavedash listing art, screenshots and description are **platform metadata, not inside the 13KB**. Prepare during the build, not on September 19.
 
 ---
 
-## 11. Open questions
+## 16. Open items
 
-- Wavedash global name: `Wavedash` vs `WavedashJS`
-- `uploadLeaderboardScore` third-argument semantics
-- The score is now a **time in seconds**, not a distance. Higher is still better
-  (longer survival), so the leaderboard's sort direction is unchanged - but it
-  is a float now, and whether the board wants integers needs checking before the
-  guard is written
-- Cloud save: currently out. Only worth ~250 bytes if progression spans sessions, which it does not
+- Game title
+- Wavedash global name and `uploadLeaderboardScore` signature
+- Wave budget growth formula — tune after the loop is playable
 - Confirm with js13k organisers that a feature-gated SDK global does not count as an external resource for the overall ranking (the rules explicitly invite the question)

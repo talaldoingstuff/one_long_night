@@ -3,13 +3,12 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "js13kGames 2026 entry — rainbow ribbon converts horses into unicorns",
+  "description": "js13kGames 2026 entry \u2014 rainbow ribbon converts horses into unicorns",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "size": "vite build && node tools/size.js",
-    "sdk-cost": "node tools/sdk-cost.js"
+    "size": "vite build && node tools/size.js"
   },
   "devDependencies": {
     "js13k-vite-plugins": "1.0.4",
