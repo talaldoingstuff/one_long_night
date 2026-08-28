@@ -116,9 +116,15 @@ export const C = {
   CASTB: 0.62,        // and pitch up
   CASTR: [0.115, 0.085],       // radius at the elbow and at the wrist
   SLEEVE: [54, 48, 72],        // the arm under the bands
-  BANDN: 5,           // rainbow bands wrapped round it
-  BANDW: 0.055,       // how long each band is along the arm
-  BANDO: 1.18,        // and how far it stands proud of the arm, as a multiple
+  // The rainbow is the one from the old game's beam: six bands side by side, in
+  // the same six colours, running as one ribbon. Here it is wound round the
+  // forearm instead of fired down a track - the same object, worn.
+  WRAPT: 1.35,        // turns it makes from elbow to wrist
+  WRAPW: 0.032,       // width of each of the six bands, along the arm
+  WRAPN: 12,          // segments per band. The ribbon is a strip of quads, so
+                      // this is how smoothly it curves round.
+  WRAPO: 1.06,        // how far off the arm's surface it sits, as a multiple
+  WRAPP: 0.4,         // where on the arm it starts, radians round
   PALM: [0.13, 0.045, 0.16],   // the open hand: across, thick, along
   PALMA: 0.5,         // cocked back from the forearm, radians
 
@@ -615,16 +621,34 @@ const arm = () => {
   const r0 = C.CASTR[0], r1 = C.CASTR[1];
   swept(ID, e[0], e[1], e[2], w[0], w[1], w[2], r0, r0, r1, r1, C.SLEEVE);
 
-  // Bands round it, evenly spaced, each a short fat slice of the same tube. The
-  // colour is washed by how far the bind has recharged.
+  // The rainbow, wound round the forearm: six bands side by side following one
+  // helix, which is the old beam's ribbon with its path bent round an arm. Its
+  // colour is washed by how far the bind has recharged - that is the whole
+  // cooldown readout.
   const k = C.SAT0 + (1 - C.SAT0) * (1 - bindT / C.BINDCD);
-  for (let i = 0; i < C.BANDN; i++) {
-    const t = (i + 0.5) / C.BANDN;
-    const r = (r0 + (r1 - r0) * t) * C.BANDO, h = C.BANDW / 2;
-    const cx = e[0] + px * L * t, cy = e[1] + py * L * t, cz = e[2] + pz * L * t;
-    swept(ID, cx - px * h, cy - py * h, cz - pz * h,
-          cx + px * h, cy + py * h, cz + pz * h,
-          r, r, r, r, wash(RBV[i % 6], k));
+  // Two axes across the arm, built the way swept() builds its cross-section, so
+  // an arm pointing straight up does not lose its own frame.
+  let ax0 = 1 - px * px, ay0 = -px * py, az0 = -px * pz;
+  const aL = hypot(ax0, ay0, az0) || 1;
+  ax0 /= aL; ay0 /= aL; az0 /= aL;
+  const bx = py * az0 - pz * ay0, by = pz * ax0 - px * az0, bz = px * ay0 - py * ax0;
+  // A point on the ribbon: t along the arm for the twist, o metres along it for
+  // which of the six bands, so the bands lie side by side across the helix.
+  const RP = (t, o) => {
+    const th = t * C.WRAPT * 2 * PI + C.WRAPP;
+    const r = (r0 + (r1 - r0) * t) * C.WRAPO;
+    const d = L * t + o, cs = cos(th) * r, sn = sin(th) * r;
+    return [e[0] + px * d + ax0 * cs + bx * sn,
+            e[1] + py * d + ay0 * cs + by * sn,
+            e[2] + pz * d + az0 * cs + bz * sn];
+  };
+  for (let b = 0; b < 6; b++) {
+    const col = wash(RBV[b], k), o0 = (b - 3) * C.WRAPW, o1 = o0 + C.WRAPW;
+    for (let i = 0; i < C.WRAPN; i++) {
+      const t0 = i / C.WRAPN, t1 = (i + 1) / C.WRAPN, tm = (t0 + t1) / 2;
+      push([RP(t0, o0), RP(t1, o0), RP(t1, o1), RP(t0, o1)], col,
+           [e[0] + px * L * tm, e[1] + py * L * tm, e[2] + pz * L * tm]);
+    }
   }
 
   // The open palm: a slab at the wrist, cocked back off the forearm so it reads

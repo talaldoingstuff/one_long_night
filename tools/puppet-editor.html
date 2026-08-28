@@ -222,11 +222,14 @@ slider('points up', () => C.CASTB, (v) => (C.CASTB = v), -1.2, 1.2, 0.01, deg);
 slider('elbow thick', () => C.CASTR[0], (v) => (C.CASTR[0] = v), 0.02, 0.25, 0.005);
 slider('wrist thick', () => C.CASTR[1], (v) => (C.CASTR[1] = v), 0.02, 0.25, 0.005);
 
-h2('bands and hand');
-slider('bands', () => C.BANDN, (v) => (C.BANDN = Math.round(v)), 0, 10, 1, (v) => String(v));
-slider('band width', () => C.BANDW, (v) => (C.BANDW = v), 0.01, 0.2, 0.005);
-slider('band proud', () => C.BANDO, (v) => (C.BANDO = v), 1, 1.8, 0.01,
+h2('the rainbow, and the hand');
+slider('turns', () => C.WRAPT, (v) => (C.WRAPT = v), 0, 4, 0.05,
+       (v) => v.toFixed(2) + ' round');
+slider('band width', () => C.WRAPW, (v) => (C.WRAPW = v), 0.005, 0.1, 0.002);
+slider('smoothness', () => C.WRAPN, (v) => (C.WRAPN = Math.round(v)), 3, 28, 1, (v) => String(v));
+slider('sits proud', () => C.WRAPO, (v) => (C.WRAPO = v), 1, 1.6, 0.01,
        (v) => '+' + (100 * (v - 1)).toFixed(0) + '%');
+slider('starts at', () => C.WRAPP, (v) => (C.WRAPP = v), 0, 6.28, 0.05, deg);
 slider('palm across', () => C.PALM[0], (v) => (C.PALM[0] = v), 0.03, 0.35, 0.005);
 slider('palm thick', () => C.PALM[1], (v) => (C.PALM[1] = v), 0.01, 0.15, 0.005);
 slider('palm along', () => C.PALM[2], (v) => (C.PALM[2] = v), 0.03, 0.4, 0.005);
@@ -299,8 +302,9 @@ const dump = () => {
       ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
     '  CAST: [' + C.CAST.map(f).join(', ') + '],  CASTL: ' + f(C.CASTL) +
       ',  CASTA: ' + f(C.CASTA) + ',  CASTB: ' + f(C.CASTB) + ',\n' +
-    '  CASTR: [' + C.CASTR.map(f).join(', ') + '],  BANDN: ' + C.BANDN +
-      ',  BANDW: ' + f(C.BANDW) + ',  BANDO: ' + f(C.BANDO) + ',\n' +
+    '  CASTR: [' + C.CASTR.map(f).join(', ') +
+      ',  WRAPT: ' + f(C.WRAPT) + ',  WRAPW: ' + f(C.WRAPW) + ',\n' +
+    '  WRAPN: ' + C.WRAPN + ',  WRAPO: ' + f(C.WRAPO) + ',  WRAPP: ' + f(C.WRAPP) + ',\n' +
     '  PALM: [' + C.PALM.map(f).join(', ') + '],  PALMA: ' + f(C.PALMA) +
       ',  SAT0: ' + f(C.SAT0) + ',  BINDCD: ' + f(C.BINDCD) + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
