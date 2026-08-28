@@ -208,6 +208,24 @@ slider('gap', () => C.MANEG, (v) => (C.MANEG = v), 0.1, 0.5, 0.01,
        (v) => (100 * 2 * v).toFixed(0) + '% of slot');
 slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
 
+// --- animation ---------------------------------------------------------------
+// DESIGN.md 6 asks for exactly two: a recoil on firing and a blink on a
+// randomised timer. Turn auto fire on to tune the first.
+h2('recoil and blink');
+slider('kick', () => C.RECOIL, (v) => (C.RECOIL = v), 0, 0.8, 0.01);
+slider('kick time', () => C.RECT, (v) => (C.RECT = v), 0.04, 0.5, 0.01,
+       (v) => v.toFixed(2) + 's');
+slider('fire every', () => C.FIRE, (v) => (C.FIRE = v), 0.08, 2, 0.02,
+       (v) => v.toFixed(2) + 's');
+slider('blink for', () => C.BLINKD, (v) => (C.BLINKD = v), 0.03, 0.4, 0.01,
+       (v) => v.toFixed(2) + 's');
+slider('blink every', () => C.BLINK0, (v) => (C.BLINK0 = Math.min(v, C.BLINK1)), 0.3, 8, 0.1,
+       (v) => v.toFixed(1) + 's');
+slider('  to', () => C.BLINK1, (v) => (C.BLINK1 = Math.max(v, C.BLINK0)), 0.3, 12, 0.1,
+       (v) => v.toFixed(1) + 's');
+slider('closes to', () => C.BLINKS, (v) => (C.BLINKS = v), 0, 0.6, 0.01,
+       (v) => (100 * v).toFixed(0) + '%');
+
 // --- colours -----------------------------------------------------------------
 h2('colour');
 const rgbRow = (label, arr) => {
@@ -242,6 +260,9 @@ const dump = () => {
     '  EYES: [' + C.EYES.map(f).join(', ') + '],\n' +
     '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  HEADS: ' + f(C.HEADS) +
       ',  HEADR: [' + C.HEADR.map(f).join(', ') + '],\n' +
+    '  RECOIL: ' + f(C.RECOIL) + ',  RECT: ' + f(C.RECT) + ',  FIRE: ' + f(C.FIRE) + ',\n' +
+    '  BLINKD: ' + f(C.BLINKD) + ',  BLINK0: ' + f(C.BLINK0) + ',  BLINK1: ' + f(C.BLINK1) +
+      ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS + '],';
 };
 dump();

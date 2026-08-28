@@ -105,8 +105,20 @@ export const C = {
   MANEG: 0.31,        // that clamp, as a fraction of a tuft's own slot
   MANEP: 0.04,        // tip thickness as a fraction of the root. Low is pointy.
 
+  // --- Animation (DESIGN.md 6) ----------------------------------------------
+  RECOIL: 0.3,        // metres the puppet kicks back along its OWN axis on firing.
+                      // Measured on screen: 0.1 moves the horn tip 5px, 0.3 moves
+                      // it 16px, 0.6 moves it 35px.
+  RECT: 0.16,         // and the seconds it takes to ease back out
+  BLINKD: 0.11,       // how long a blink lasts
+  BLINK0: 2,          // and the window between them, seconds. Randomised, because
+  BLINK1: 5,          // a blink on a fixed timer reads as a machine.
+  BLINKS: 0.05,       // how far the eye closes: its own height, times this
+
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
-  FIRE: 0.26,         // seconds between shots
+  FIRE: 1,            // seconds between shots at fire rate level 1. DESIGN.md 9
+                      // makes fire rate an upgrade card, so this is the slowest
+                      // the gun ever is, not a fixed cadence.
   HSPD: 26,           // metres per second
   HLIFE: 1.2,         // seconds before it expires
   HHIT: 0.5,          // metres, collision radius against a ghost centre
@@ -356,12 +368,14 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ---------------------------------------------------------------------------
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
-let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake;
+let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
+    rec, blink, nextB;
 
 const reset = () => {
   ghosts = []; horns = [];
   hearts = C.HEARTS; kills = 0; over = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
+  rec = 0; blink = 0; nextB = C.BLINK0;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -401,6 +415,7 @@ const fire = () => {
   const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
   const L = hypot(d[0], d[1], d[2]) || 1;
   horns.push([o[0], o[1], o[2], d[0] / L * C.HSPD, d[1] / L * C.HSPD, d[2] / L * C.HSPD, C.HLIFE]);
+  rec = 1;                                       // after the shot, so it leaves from the un-kicked muzzle
 };
 
 const onDown = (e) => {
@@ -486,7 +501,13 @@ const T = (x, y, z) => {
   const s = C.PUPS, ca = cos(C.PUPA), sa = sin(C.PUPA), cb = cos(C.PUPB), sb = sin(C.PUPB);
   const a = (x - PIV[0]) * s, b = -(y - PIV[1]) * s, c = (z - PIV[2]) * s;
   const a2 = a * ca + c * sa, c2 = c * ca - a * sa;
-  return [C.PUP[0] + a2, C.PUP[1] + b * cb - c2 * sb, C.PUP[2] + c2 * cb + b * sb];
+  // Recoil, back along the puppet's own axis rather than straight at the camera:
+  // (sa, -ca*sb, ca*cb) is where its nose points once the pose has been applied.
+  // Squared, so it snaps back and then eases the last of the way out.
+  const k = rec * rec * C.RECOIL;
+  return [C.PUP[0] + a2 - k * sa,
+          C.PUP[1] + b * cb - c2 * sb + k * ca * sb,
+          C.PUP[2] + c2 * cb + b * sb - k * ca * cb];
 };
 
 // The head lies in the sagittal plane, so its own lateral axis is exactly x and
@@ -502,10 +523,13 @@ const eyes = () => {
   // Out along the head's OWN flank, which is only model x while the group is
   // unrotated. The up and forward axes of the disc follow the head too.
   const fl = hrot(1, 0, 0), up = hrot(0, 1, 0), fw = hrot(0, 0, 1);
+  // A blink is the eye's own height going to almost nothing and back. Shaped with
+  // a sine so it closes and opens rather than switching.
+  const bk = blink > 0 ? 1 - (1 - C.BLINKS) * sin(PI * blink / C.BLINKD) : 1;
   for (const sx of [1, -1]) {
     const o = hw * C.EYES[2] * C.HEADS + d / 2;
     cone(frame([ax + sx * fl[0] * o, ay + sx * fl[1] * o, az + sx * fl[2] * o],
-               [up[0] * r, up[1] * r, up[2] * r],
+               [up[0] * r * bk, up[1] * r * bk, up[2] * r * bk],
                [sx * fl[0] * d / 2, sx * fl[1] * d / 2, sx * fl[2] * d / 2],
                [fw[0] * r, fw[1] * r, fw[2] * r]), 10, C.IRIS, T);
   }
@@ -622,6 +646,10 @@ const step = (dt) => {
   clock += dt;
   if (over) return;
   fireT = max(0, fireT - dt);
+  rec = max(0, rec - dt / C.RECT);
+  blink = max(0, blink - dt);
+  nextB -= dt;
+  if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
   inv = max(0, inv - dt);
   shake = max(0, shake - dt * 4);
   if (down && !fireT) fire();                     // holding keeps firing at the cap
@@ -785,6 +813,7 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { down = v; };
+export const anim = () => ({ rec, blink, nextB });
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);
