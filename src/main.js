@@ -97,13 +97,13 @@ export const C = {
   // neck actually has, at the width it actually has there.
   MANEN: 5,           // tufts
   MANEC: 0.45,        // where the middle of the mane sits, 0 = base, 1 = poll
-  MANEW: 0.59,        // and how much of the neck it covers
-  MANEH: 0.075,       // how far each tuft rises off the surface
+  MANEW: 0.7,         // and how much of the neck it covers
+  MANEH: 0.09,        // how far each tuft rises off the surface
   MANEB: 0.01,        // and how far it sweeps back while it does. A mane lies
                       // back along the neck; straight up reads as a fin.
-  MANER: 0.016,       // tuft thickness - a maximum, clamped to leave a gap
+  MANER: 0.01,        // tuft thickness - a maximum, clamped to leave a gap
   MANEG: 0.31,        // that clamp, as a fraction of a tuft's own slot
-  MANEP: 0.02,        // tip thickness as a fraction of the root. Low is pointy.
+  MANEP: 0.04,        // tip thickness as a fraction of the root. Low is pointy.
 
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
   FIRE: 0.26,         // seconds between shots
@@ -443,7 +443,7 @@ const onUp = () => { down = 0; };
 export const PARTS = [
   [0.1, 0.11, 0.2, 0.088, 0.27, 0.364, 0.075, 0.115, 0.05, 0.085, 0],    // neck
   [0.076, 0.33, 0.346, 0.1, 0.324, 0.7, 0.06, 0.104, 0.06, 0.04, 0],     // head
-  [0.1, 0.34, 0.42, 0.1, 0.55, 1, 0.03, 0.03, 0.002, 0.002, 1],          // horn
+  [0.1, 0.38, 0.42, 0.1, 0.53, 1, 0.03, 0.03, 0.002, 0.002, 1],          // horn
 ];
 const MAT = [C.BODY, C.GOLD];
 
