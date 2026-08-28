@@ -151,29 +151,25 @@ slider('sideways', () => C.HEADO[0], (v) => (C.HEADO[0] = v), -0.3, 0.3, 0.002);
 slider('up', () => C.HEADO[1], (v) => (C.HEADO[1] = v), -0.3, 0.4, 0.002);
 slider('forward', () => C.HEADO[2], (v) => (C.HEADO[2] = v), -0.3, 0.4, 0.002);
 
-h2('eyes on the head');
-slider('up', () => C.EYES[0], (v) => (C.EYES[0] = v), -0.2, 0.2, 0.002);
-slider('forward', () => C.EYES[1], (v) => (C.EYES[1] = v), -0.2, 0.3, 0.002);
-slider('spread', () => C.EYES[2], (v) => (C.EYES[2] = v), 0, 3, 0.02);
+// The eyes are discs laid against the head's flank, so they are placed against
+// the head - a fraction along it, and a multiple of its own half-width out - and
+// stay put when the head is retuned.
+h2('eyes');
+slider('up', () => C.EYES[0], (v) => (C.EYES[0] = v), -0.12, 0.12, 0.002);
+slider('along head', () => C.EYES[1], (v) => (C.EYES[1] = v), -0.1, 1.1, 0.01);
+slider('out', () => C.EYES[2], (v) => (C.EYES[2] = v), 0.5, 2, 0.01);
+slider('radius', () => C.EYES[3], (v) => (C.EYES[3] = v), 0.004, 0.08, 0.001);
+slider('stands out', () => C.EYES[4], (v) => (C.EYES[4] = v), 0.001, 0.06, 0.001);
 
 // --- the parts ---------------------------------------------------------------
 // Every row is [ax,ay,az, bx,by,bz, w0,h0, w1,h1, material]: a box swept from one
 // point to another, with its own half-extents at each end.
-const NAMES = ['neck', 'head', 'horn', 'eye near', 'eye far'];
+const NAMES = ['neck', 'head', 'horn'];
 const AX = ['x', 'up', 'fwd'];
-let mirror = true;
 const partRows = (i) => {
   h2(NAMES[i]);
   const q = PARTS[i];
-  const write = (j, v) => {
-    q[j] = v;
-    // The eyes are a pair; editing one and hand-matching the other is how they
-    // end up half a millimetre apart. Mirror about the sagittal plane instead.
-    if (mirror && (i === 3 || i === 4)) {
-      const o = PARTS[i === 3 ? 4 : 3], sag = PARTS[1][0];
-      o[j] = (j === 0 || j === 3) ? 2 * sag - v : v;
-    }
-  };
+  const write = (j, v) => { q[j] = v; };
   for (let k = 0; k < 3; k++) slider('base ' + AX[k], () => q[k], (v) => write(k, v), -0.4, 1.0, 0.002);
   for (let k = 0; k < 3; k++) slider('tip ' + AX[k], () => q[3 + k], (v) => write(3 + k, v), -0.4, 1.0, 0.002);
   slider('base wide', () => q[6], (v) => write(6, v), 0.001, 0.3, 0.001);
@@ -184,13 +180,6 @@ const partRows = (i) => {
 partRows(0);
 partRows(1);
 partRows(2);
-h2('eyes');
-{
-  const r = btnRow();
-  btn('mirror', (b) => { mirror = !mirror; b.classList.toggle('on', mirror); }, r).classList.add('on');
-}
-partRows(3);
-partRows(4);
 
 // --- mane --------------------------------------------------------------------
 h2('mane');
@@ -237,6 +226,7 @@ const dump = () => {
     '  PUPS: ' + f(C.PUPS) + ',  PUPA: ' + f(C.PUPA) + ',  PUPB: ' + f(C.PUPB) + ',\n' +
     '  MANEN: ' + C.MANEN + ',  MANE0: ' + f(C.MANE0) + ',  MANE1: ' + f(C.MANE1) + ',\n' +
     '  MANEL: ' + f(C.MANEL) + ',  MANER: ' + f(C.MANER) + ',  MANEX: ' + f(C.MANEX) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
+    '  EYES: [' + C.EYES.map(f).join(', ') + '],\n' +
     '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  EYES: [' + C.EYES.map(f).join(', ') + '],  MANEO: [' + C.MANEO.map(f).join(', ') + '],\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS + '],';
 };

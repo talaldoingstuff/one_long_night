@@ -68,8 +68,16 @@ export const C = {
   // so one slider moves everything attached. Step 9 needs exactly these handles
   // anyway: recoil offsets the head group, and a blink flattens the eyes.
   HEADO: [0, 0, 0],   // head group: sideways, up, forward
-  EYES: [0, 0, 1],    // eyes within the head: up, forward, and spread about the
-                      // sagittal plane
+  // Eyes are discs on the flanks of the head, not rows in the table. They were
+  // swept boxes, which at this size reads as a rectangular stud rather than an
+  // eye. A ten-sided disc is round enough at a few pixels across and is still
+  // made of the hard-edged polygons DESIGN.md 5 asks for - no rounded primitive.
+  // Placed against the head rather than in model coordinates, so they stay on it
+  // when the head is retuned:
+  EYES: [-0.01, 0.42, 1.02, 0.028, 0.012],
+                      // up, how far along the head, how far out as a multiple of
+                      // the head's own half-width there, radius, and how far the
+                      // disc stands proud
   MANEO: [0, 0, 0],   // mane against the crest it is swept along: up, along, side
   BODY: [246, 245, 252],       // the unicorn is white
   GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
@@ -169,6 +177,7 @@ export const proj = (p) => {
 // hand-written vertex orders all have to get right.
 // ---------------------------------------------------------------------------
 export let FACES = [];
+const ID = (x, y, z) => [x, y, z];             // for geometry already in the space it is wanted in
 
 const push = (vs, col, ins) => {
   const [a, b, c] = vs;
@@ -190,7 +199,6 @@ const push = (vs, col, ins) => {
 // Every primitive takes one, so a part can be leant, twisted or squashed without
 // the generator knowing anything about it.
 export const frame = (o, r, u, f) => [o, r, u, f];
-const ID = (x, y, z) => [x, y, z];             // for geometry already in the space it is wanted in
 const at = (M, a, b, c) => [
   M[0][0] + M[1][0] * a + M[2][0] * b + M[3][0] * c,
   M[0][1] + M[1][1] * a + M[2][1] * b + M[3][1] * c,
@@ -212,14 +220,15 @@ export const box = (M, col) => {
 // A cone: n side triangles to the apex, plus an n-gon base. Radius 1 in the
 // frame's r/f plane, base at -1 along u and apex at +1, so the frame's own origin
 // is inside it. Taper is the frame's job, not the generator's.
-export const cone = (M, n, col) => {
-  const tip = at(M, 0, 1, 0), ring = [];
+export const cone = (M, n, col, X = ID) => {
+  const tip = X(...at(M, 0, 1, 0)), ring = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * 2 * PI;
-    ring.push(at(M, cos(a), -1, sin(a)));
+    ring.push(X(...at(M, cos(a), -1, sin(a))));
   }
-  for (let i = 0; i < n; i++) push([ring[i], tip, ring[(i + 1) % n]], col, M[0]);
-  push(ring, col, M[0]);
+  const ins = X(...M[0]);
+  for (let i = 0; i < n; i++) push([ring[i], tip, ring[(i + 1) % n]], col, ins);
+  push(ring, col, ins);
 };
 
 // A box swept between two points with independent half-extents at each end. Taper
@@ -380,10 +389,8 @@ export const PARTS = [
   [0.1, 0.11, 0.2, 0.1, 0.27, 0.364, 0.1, 0.115, 0.075, 0.085, 0],       // neck
   [0.1, 0.346, 0.346, 0.1, 0.3, 0.7, 0.085, 0.099, 0.055, 0.061, 0],     // head
   [0.1, 0.39, 0.42, 0.1, 0.53, 1, 0.03, 0.03, 0.002, 0.002, 1],          // horn
-  [0.1, 0.3319, 0.4239, 0.152, 0.3187, 0.4724, 0.02, 0.02, 0.013, 0.013, 2],  // eye near
-  [0.1, 0.3319, 0.4239, 0.048, 0.3187, 0.4724, 0.02, 0.02, 0.013, 0.013, 2],  // eye far
 ];
-const MAT = [C.BODY, C.GOLD, C.IRIS];
+const MAT = [C.BODY, C.GOLD];
 
 // A part's endpoints with its group offsets folded in. Everything that draws or
 // aims reads the table through this, so the head, horn and eyes cannot drift
@@ -394,12 +401,6 @@ export const eff = (i) => {
     for (const k of [0, 3]) q[k] += C.HEADO[0];
     for (const k of [1, 4]) q[k] += C.HEADO[1];
     for (const k of [2, 5]) q[k] += C.HEADO[2];
-  }
-  if (i > 2) {                                   // and the eyes move within that
-    const sag = PARTS[1][0] + C.HEADO[0];
-    for (const k of [0, 3]) q[k] = sag + (q[k] - sag) * C.EYES[2];
-    for (const k of [1, 4]) q[k] += C.EYES[0];
-    for (const k of [2, 5]) q[k] += C.EYES[1];
   }
   return q;
 };
@@ -415,11 +416,27 @@ const T = (x, y, z) => {
   return [C.PUP[0] + a2, C.PUP[1] + b * cb - c2 * sb, C.PUP[2] + c2 * cb + b * sb];
 };
 
+// The head lies in the sagittal plane, so its own lateral axis is exactly x and
+// an eye is a shallow disc pushed out along it.
+const eyes = () => {
+  const q = eff(1), t = C.EYES[1];
+  const ax = q[0] + (q[3] - q[0]) * t;
+  const ay = q[1] + (q[4] - q[1]) * t + C.EYES[0];
+  const az = q[2] + (q[5] - q[2]) * t;
+  const hw = q[6] + (q[8] - q[6]) * t;           // the head's half-width there
+  const r = C.EYES[3], d = C.EYES[4];
+  for (const sx of [1, -1]) {
+    const x0 = ax + sx * (hw * C.EYES[2] + d / 2);
+    cone(frame([x0, ay, az], [0, r, 0], [sx * d / 2, 0, 0], [0, 0, r]), 10, C.IRIS, T);
+  }
+};
+
 const puppet = () => {
   for (let i = 0; i < PARTS.length; i++) {
     const q = eff(i);
     swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]]);
   }
+  eyes();
 
   // Mane, swept along the neck. Reading the neck out of PARTS means moving the
   // neck carries the mane with it, which placing tufts by hand never did.
