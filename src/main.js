@@ -55,10 +55,10 @@ export const C = {
   // frame so there is no hole to see into, the silhouette has to reach the right
   // side, and half the screen height has to be VISIBLE - measuring the whole
   // bounding box once scored a buried puppet at 60% tall.
-  PUP: [1.4, 0.7, 0.7],        // camera-space placement, bottom-right
-  PUPS: 2.3,          // scale applied to the model's own units
+  PUP: [0.96, 0.98, 0.7],      // camera-space placement
+  PUPS: 2.7,          // scale applied to the model's own units
   PUPA: 0,            // yaw
-  PUPB: -0.205,       // pitch. The pose is yours to set from the view a player
+  PUPB: -0.18,        // pitch. The pose is yours to set from the view a player
                       // sees; the servo below takes care of the aim, so nothing
                       // here has to be traded against it. The editor reads out
                       // where the neck's opening lands, as a warning, not a rule.
@@ -112,6 +112,13 @@ export const C = {
   SAT0: 0.12,         // how much colour is left at the moment of casting
   BINDCD: 3,          // seconds to recharge. The bind itself is step 5; this is
                       // the clock its readout runs on.
+
+  // --- Outline ---------------------------------------------------------------
+  // A dark edge on the neck and head only. They are one colour meeting one
+  // colour, so without it the joint between them is invisible; the horn, eyes and
+  // mane already separate themselves by being a different colour entirely.
+  OUTL: 0.0022,       // width, as a fraction of screen height. Thin on purpose.
+  OUTA: 0.5,          // and its opacity
 
   // --- Animation (DESIGN.md 6) ----------------------------------------------
   RECOIL: 0.3,        // metres the puppet kicks back along its OWN axis on firing.
@@ -236,6 +243,9 @@ export const proj = (p) => {
 // hand-written vertex orders all have to get right.
 // ---------------------------------------------------------------------------
 export let FACES = [];
+// Set around a part to have its faces outlined. A flag rather than a parameter
+// because it would otherwise have to be threaded through every generator.
+let OUT = 0;
 const ID = (x, y, z) => [x, y, z];             // for geometry already in the space it is wanted in
 
 const push = (vs, col, ins) => {
@@ -251,7 +261,7 @@ const push = (vs, col, ins) => {
   if ((ax / k - ins[0]) * nx + (ay / k - ins[1]) * ny + (az / k - ins[2]) * nz < 0) {
     nx = -nx; ny = -ny; nz = -nz;
   }
-  FACES.push([vs, nx, ny, nz, col]);
+  FACES.push([vs, nx, ny, nz, col, OUT]);
 };
 
 // A frame: an origin and three axes already scaled to the half-extents wanted.
@@ -354,12 +364,14 @@ export const flush = (world = 1) => {
     // the view vector to the face.
     const n = world ? cam([f[1], f[2], f[3]]) : [f[1], f[2], f[3]];
     if (n[0] * vs[0][0] + n[1] * vs[0][1] + n[2] * vs[0][2] >= 0) continue;
-    draw.push([z / vs.length, vs, shade(f[4], f[1], f[2], f[3])]);
+    draw.push([z / vs.length, vs, shade(f[4], f[1], f[2], f[3]), f[5]]);
   }
   // DESIGN.md 5 says the viewmodel is not depth sorted - meaning not sorted
   // against the world, which it never is: it is drawn afterwards, on top. Its own
   // parts still have to occlude each other, or the horn draws through the head.
   draw.sort((a, b) => b[0] - a[0]);
+  g.lineWidth = C.OUTL * H;
+  g.strokeStyle = 'rgba(0,0,0,' + C.OUTA + ')';
   for (const d of draw) {
     g.fillStyle = d[2];
     g.beginPath();
@@ -367,7 +379,9 @@ export const flush = (world = 1) => {
       const p = proj(v);
       g.lineTo(p[0], p[1]);
     }
+    g.closePath();
     g.fill();
+    if (d[3]) g.stroke();
   }
   FACES = [];
   return draw.length;
@@ -400,17 +414,38 @@ const reset = () => {
 // ---------------------------------------------------------------------------
 let down = 0, lx = 0, ly = 0, auto = 1;
 
-// How far away the thing you are aiming at is. Anything within AIMR of the middle
-// of the screen counts; the nearest to the middle wins.
+// Where the puppet is pointing: the straight line from the base of the horn to
+// its tip, carried on out into the world. The crosshair sits on it and the shots
+// follow it, so what you are aiming at is what the horn is aiming at - the camera
+// axis is not involved.
+const aimRay = () => {
+  const q = eff(2);
+  const b = T(q[0], q[1], q[2]), t = T(q[3], q[4], q[5]);
+  const d = [t[0] - b[0], t[1] - b[1], t[2] - b[2]];
+  const L = hypot(d[0], d[1], d[2]) || 1;
+  return [t, [d[0] / L, d[1] / L, d[2] / L]];
+};
+
+// How far along that line the thing you are aiming at sits. Anything within AIMR
+// of the line counts; the closest to it wins.
 const targetRange = () => {
+  const [o, u] = aimRay();
   let r = C.CONV, bd = C.AIMR;
-  for (const o of ghosts) {
-    const c = cam([o[0], o[1], o[2]]);
-    if (c[2] < C.NEAR) continue;
-    const off = hypot(c[0], c[1]) / c[2];
-    if (off < bd) { bd = off; r = c[2]; }
+  for (const g2 of ghosts) {
+    const c = cam([g2[0], g2[1], g2[2]]);
+    const w = [c[0] - o[0], c[1] - o[1], c[2] - o[2]];
+    const t = w[0] * u[0] + w[1] * u[1] + w[2] * u[2];
+    if (t < C.NEAR) continue;
+    const off = hypot(w[0] - u[0] * t, w[1] - u[1] * t, w[2] - u[2] * t) / t;
+    if (off < bd) { bd = off; r = t; }
   }
   return r;
+};
+
+// The point the crosshair marks and the shots converge on.
+const aimAt = () => {
+  const [o, u] = aimRay(), r = targetRange();
+  return [o[0] + u[0] * r, o[1] + u[1] * r, o[2] + u[2] * r];
 };
 
 const fire = () => {
@@ -423,7 +458,7 @@ const fire = () => {
   const c = T(q[3], q[4], q[5]);                 // the horn tip, camera space
   const k = (C.F / (C.F + c[2])) / (C.F / (C.F + C.MUZZ));
   const o = unCam(c[2] > C.MUZZ ? [c[0] * k, c[1] * k, C.MUZZ] : c);
-  const p = unCam([0, 0, targetRange()]);
+  const p = unCam(aimAt());
   const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
   const L = hypot(d[0], d[1], d[2]) || 1;
   horns.push([o[0], o[1], o[2], d[0] / L * C.HSPD, d[1] / L * C.HSPD, d[2] / L * C.HSPD, C.HLIFE]);
@@ -474,7 +509,7 @@ const onUp = () => { down = 0; };
 export const PARTS = [
   [0.1, 0.11, 0.2, 0.088, 0.27, 0.364, 0.075, 0.115, 0.05, 0.085, 0],    // neck
   [0.076, 0.33, 0.346, 0.1, 0.324, 0.7, 0.06, 0.104, 0.06, 0.04, 0],     // head
-  [0.1, 0.38, 0.42, 0.1, 0.53, 1, 0.03, 0.03, 0.002, 0.002, 1],          // horn
+  [0.1, 0.336, 0.42, 0.1, 0.548, 1, 0.03, 0.03, 0.002, 0.002, 1],        // horn
 ];
 const MAT = [C.BODY, C.GOLD];
 
@@ -595,8 +630,10 @@ const wash = (c, k) => {
 const puppet = () => {
   for (let i = 0; i < PARTS.length; i++) {
     const q = eff(i);
+    OUT = i < 2;                                 // neck and head carry the outline
     swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]], i ? C.HEADR[2] : 0);
   }
+  OUT = 0;
   eyes();
   flush(0);
   // The mane goes over the top, in its own pass. It sits ON the neck's surface,
@@ -738,14 +775,15 @@ const hud = () => {
   g.font = (u * 0.62 | 0) + 'px monospace';
   g.fillText('KILLS ' + kills, 16, 16 + u * 0.62);
 
-  if (!over) {                                    // crosshair
+  if (!over) {                                    // crosshair, on the horn's line
+    const a = proj(aimAt());
     g.strokeStyle = '#ffffff88';
     g.lineWidth = 1.5;
     const c = min(W, H) * 0.012;
     g.beginPath();
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      g.moveTo(W / 2 + dx * c, H / 2 + dy * c);
-      g.lineTo(W / 2 + dx * c * 2.2, H / 2 + dy * c * 2.2);
+      g.moveTo(a[0] + dx * c, a[1] + dy * c);
+      g.lineTo(a[0] + dx * c * 2.2, a[1] + dy * c * 2.2);
     }
     g.stroke();
   } else {
@@ -763,11 +801,12 @@ const hud = () => {
 // The one ghost nearest the middle of the screen, so the player can tell what
 // they are aimed at (DESIGN.md 7).
 const underCrosshair = () => {
+  const a = proj(aimAt());
   let best = null, bd = min(W, H) * 0.09;
   for (const o of ghosts) {
     const v = ghostAt(o);
     if (!v) continue;
-    const d = hypot(v.px - W / 2, v.py - H / 2);
+    const d = hypot(v.px - a[0], v.py - a[1]);
     if (d < bd + v.r) { bd = d - v.r; best = o; }
   }
   return best;
@@ -832,6 +871,13 @@ export const drawPuppet = () => puppet();
 // What a pose has to satisfy, measured rather than eyeballed: how far the horn
 // points from the line a shot to a 10m target takes, and where the neck's arm
 // opening lands relative to the bottom of the frame.
+export const aimPoint = () => proj(aimAt());   // editor and tests
+// A world point r metres along the aim ray. Tests place targets with it, because
+// "look at the ghost" no longer means "aim at it" - the horn aims, not the camera.
+export const aimWorld = (r) => {
+  const [o, u] = aimRay();
+  return unCam([o[0] + u[0] * r, o[1] + u[1] * r, o[2] + u[2] * r]);
+};
 export const poseCheck = () => {
   const q = eff(2), b = T(q[0], q[1], q[2]), t = T(q[3], q[4], q[5]);
   const d = [t[0] - b[0], t[1] - b[1], t[2] - b[2]], dl = hypot(d[0], d[1], d[2]);
