@@ -208,33 +208,8 @@ slider('gap', () => C.MANEG, (v) => (C.MANEG = v), 0.1, 0.5, 0.01,
        (v) => (100 * 2 * v).toFixed(0) + '% of slot');
 slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
 
-// --- the casting arm ---------------------------------------------------------
-// No part table here: a forearm is a tapered tube, so it is an elbow, a
-// direction, a length and two radii. Drag the cooldown to watch the bands wash
-// out - that IS the cooldown readout, there is no bar to draw.
-h2('casting arm');
-slider('elbow left', () => C.CAST[0], (v) => (C.CAST[0] = v), -1.6, 0.2, 0.01);
-slider('elbow down', () => C.CAST[1], (v) => (C.CAST[1] = v), -0.4, 1.8, 0.01);
-slider('elbow fwd', () => C.CAST[2], (v) => (C.CAST[2] = v), 0.2, 2, 0.01);
-slider('length', () => C.CASTL, (v) => (C.CASTL = v), 0.2, 1.6, 0.01);
-slider('points in', () => C.CASTA, (v) => (C.CASTA = v), -1.2, 1.2, 0.01, deg);
-slider('points up', () => C.CASTB, (v) => (C.CASTB = v), -1.2, 1.2, 0.01, deg);
-slider('elbow thick', () => C.CASTR[0], (v) => (C.CASTR[0] = v), 0.02, 0.25, 0.005);
-slider('wrist thick', () => C.CASTR[1], (v) => (C.CASTR[1] = v), 0.02, 0.25, 0.005);
-
-h2('the rainbow, and the hand');
-slider('turns', () => C.WRAPT, (v) => (C.WRAPT = v), 0, 4, 0.05,
-       (v) => v.toFixed(2) + ' round');
-slider('band width', () => C.WRAPW, (v) => (C.WRAPW = v), 0.005, 0.1, 0.002);
-slider('smoothness', () => C.WRAPN, (v) => (C.WRAPN = Math.round(v)), 3, 28, 1, (v) => String(v));
-slider('sits proud', () => C.WRAPO, (v) => (C.WRAPO = v), 1, 1.6, 0.01,
-       (v) => '+' + (100 * (v - 1)).toFixed(0) + '%');
-slider('starts at', () => C.WRAPP, (v) => (C.WRAPP = v), 0, 6.28, 0.05, deg);
-slider('palm across', () => C.PALM[0], (v) => (C.PALM[0] = v), 0.03, 0.35, 0.005);
-slider('palm thick', () => C.PALM[1], (v) => (C.PALM[1] = v), 0.01, 0.15, 0.005);
-slider('palm along', () => C.PALM[2], (v) => (C.PALM[2] = v), 0.03, 0.4, 0.005);
-slider('palm cocked', () => C.PALMA, (v) => (C.PALMA = v), -1.4, 1.4, 0.02, deg);
-
+// DESIGN.md 6 hangs this on a casting arm. There is no arm - the unicorn casts -
+// so it runs on the mane, which is the rainbow the unicorn has.
 h2('cooldown readout');
 let cd = 0;
 slider('cooldown', () => cd, (v) => { cd = v; M.setBind(v * C.BINDCD); }, 0, 1, 0.02,
@@ -270,7 +245,6 @@ const rgbRow = (label, arr) => {
   }
 };
 rgbRow('body', C.BODY);
-rgbRow('sleeve', C.SLEEVE);
 rgbRow('horn', C.GOLD);
 rgbRow('eye', C.IRIS);
 
@@ -300,15 +274,9 @@ const dump = () => {
     '  RECOIL: ' + f(C.RECOIL) + ',  RECT: ' + f(C.RECT) + ',  FIRE: ' + f(C.FIRE) + ',\n' +
     '  BLINKD: ' + f(C.BLINKD) + ',  BLINK0: ' + f(C.BLINK0) + ',  BLINK1: ' + f(C.BLINK1) +
       ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
-    '  CAST: [' + C.CAST.map(f).join(', ') + '],  CASTL: ' + f(C.CASTL) +
-      ',  CASTA: ' + f(C.CASTA) + ',  CASTB: ' + f(C.CASTB) + ',\n' +
-    '  CASTR: [' + C.CASTR.map(f).join(', ') +
-      ',  WRAPT: ' + f(C.WRAPT) + ',  WRAPW: ' + f(C.WRAPW) + ',\n' +
-    '  WRAPN: ' + C.WRAPN + ',  WRAPO: ' + f(C.WRAPO) + ',  WRAPP: ' + f(C.WRAPP) + ',\n' +
-    '  PALM: [' + C.PALM.map(f).join(', ') + '],  PALMA: ' + f(C.PALMA) +
       ',  SAT0: ' + f(C.SAT0) + ',  BINDCD: ' + f(C.BINDCD) + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
-      '],  SLEEVE: [' + C.SLEEVE + '],';
+      '],';
 };
 dump();
 </script>
