@@ -27,18 +27,25 @@ export const C = {
   // one second of beam per second is all a player can physically supply, so the
   // block rate (SP_OBST_HI) cannot outrun it. That one line sets the late game.
   BAR: 7,             // bar capacity, in bars. One bar = one second of channelling.
-  DRAIN: 0,           // no passive drain. Raise to put a clock back.
   BEAMC: 1,           // bars spent per SECOND while channelling
   RGEN: 0.1667,       // and trickled back per second, always: one bar every 6s.
   RBFILL: 2,          // a rainbow sphere is worth two bars.
+  RELOAD: 0.5,        // Run the bar to nothing and the ray cuts out until this
+                      // much has come back. Without it, holding the trigger on an
+                      // empty bar restarts the beam the instant the trickle lands
+                      // a fraction of a bar, and it strobes on and off every
+                      // frame - 30 times a second, measured.
 
   // --- Spawn spacing, in SECONDS -------------------------------------------
   // The whole game is denominated in time now: the beam costs per second, damage
   // lands per second, and things arrive per second. Nothing silently changes
   // value when the run speeds up, in either direction.
   SP_LIGHT: 2.8,      // reflector prisms
-  SP_RB: 6.4,         // rainbow spheres
-  SP_BOOST: 17.6,     // mystery spheres
+  SP_RB: 6.4,         // rainbow spheres. Flat for the whole run on purpose: income
+                      // per second must not drift, or the bar means something
+                      // different late than it does early. Escalation is the block
+                      // rate's job, not the sphere rate's.
+  SP_BOOST: 17.6,     // mystery spheres, also flat
   SP_OBST: 2.08,      // obstacles
   SP_OBST_HI: 1.4,    // and how fast they come once escalation is complete. This
                       // is THE difficulty knob now, and it did NOT move when the
@@ -102,7 +109,6 @@ export const C = {
   // +1 was the anatomical hock, and it threw the lower leg 74 degrees forward
   // mid-stride against the front leg's 25 - which is what read as a spider.
   HFOLD: -1,
-  HTILT: 0,           // extra backward lean on the hind legs, radians
   PHH: 0.4,           // hind pair's phase offset from the front pair, in strides
   PHS: 0.15,          // and the left/right split within each pair
   // Flying pose. horse() takes a 0..1 blend, so an animal can leave the ground
@@ -122,10 +128,6 @@ export const C = {
   // Bounce. The barrel bob lifts the whole animal and the head nods on top of
   // it, so the head carries both and reads as twice the motion the body has.
   // Rates are cycles per stride: the body beats twice, the head nods once.
-  BOB: 0.02,         // barrel rise and fall, body-lengths
-  BOBR: 1.5,            // ...per stride
-  NOD: 0.024,         // head nod on top of that
-  NODR: 1.5,            // ...per stride
   // The mane is generated along the neck rather than placed by hand, so it
   // follows the neck wherever the neck goes instead of being left behind.
   MANEN: 5,           // how many tufts
@@ -135,7 +137,6 @@ export const C = {
   MANER: 0.026,        // tuft thickness
   MANEX: 0.01,           // sideways flop
   MANEP: 0.1,        // tip thickness as a fraction of the root. Low is pointy.
-  SWING: 0.8,         // how far the hip swings fore and aft, radians
   FOLD: 0.5,          // how hard the knee folds mid-swing
   LEGR: [.1, .06, .04, .045, .05, .032],      // hip w,h - knee w,h - hoof w,h
   OUTL: 0.009,        // face outline width, as a fraction of the animal's scale.
@@ -182,7 +183,11 @@ export const C = {
   BOUNCE: 4,          // how many times the ray may turn
   PROT: 2.667,        // seconds for a prism's output to sweep a full circle
   HITT: 0.5,          // seconds between hits, so 2 a second
-  FLASHT: 0.13,       // how long the white hit-flash takes to fade
+  FLASHHZ: 4,         // white flashes per second on whatever the ray is on. It is
+                      // deliberately NOT tied to HITT or to hit points: the flash
+                      // says "the ray is on this", and a steady beat reads better
+                      // than a blip whose rhythm changes with what you are shooting.
+  FLASHA: 0.72,       // and how white the top of each flash gets
   MSGT: 1.1,          // how long a booster's name floats before it is gone
   MSGR: 46,           // and how far it rises while it fades, in pixels
   HP: [2, 3],         // hits to break an obstacle: plain, spiked
@@ -202,9 +207,9 @@ export const C = {
   GALLOP: 1.5,        // stride cycles per unit of track, so the gait tracks speed
   PARTS: 90,          // particle cap
   GRAV: 900,          // particle gravity, px/s^2
-  // The beam is denominated in DISTANCE like everything else in the economy, so
-  // holding it costs the same at 1x as at the speed cap. Firing through a dark
-  // prism has to cost less than eating one, or there is no decision in it.
+  // The beam is denominated in seconds, like everything else. What it is FOR is
+  // clearing blocks and opening gates, and both are paid for out of the same bar
+  // that has to be full when the next gate arrives.
   BEAMH: 0.026,        // beam half-height, fraction of screen height
   BEAMY: 0.014,        // where it leaves, relative to the unicorn centre
   BEAMX: 0,       // and how far BEHIND it starts, in unicorn-size units, so
@@ -222,8 +227,8 @@ export const C = {
   LUCK_S: 8,          // spiked-everything window, seconds
 
   // --- Difficulty past the speed cap (DESIGN.md 7) -------------------------
-  // Speed stops at 3x. After that, escalate through dark-prism ratio and spawn
-  // density instead, so difficulty shifts from reflex to decision-making.
+  // Speed stops early and low. Escalation is spawn rate and block size instead,
+  // so difficulty shifts from reflex to decision-making.
   HARD_AT: 66,        // SECONDS elapsed where the speed cap lands and escalation starts
   HARD_TO: 159,       // seconds where escalation is complete
   // Light prisms thin out, but must stay under LIGHT/DRAIN = 3.0 or perfect play
@@ -231,11 +236,6 @@ export const C = {
   // than by skill. At 2.9 the surplus drops from +0.5 to +0.1 a lap: still
   // sustainable, with no margin left for a single mistake.
   SP_LIGHT_HI: 2.1,
-  SP_RB_HI: 6.4,      // held FLAT: income per second must not drift over the run,
-                      // or the bar means something different late than it does
-                      // early. Escalation is the block rate's job, not the
-                      // sphere rate's.
-  SP_BOOST_HI: 17.6,  // mystery spheres hold their rate
 
   // --- Audio (DESIGN.md 9) -------------------------------------------------
   // Separate buses. One shared gain made SFX and music impossible to balance,
@@ -280,12 +280,12 @@ const PAD = () => C.PAD * H;
 
 // ---------------------------------------------------------------------------
 // State. Entities are arrays, not objects (DESIGN.md 3):
-//   [z, lane, tier, type, phase]  and boosters carry a 6th slot, the booster id.
-//   type 0 = horse, 1 = light prism, 2 = dark prism, 3 = booster.
-// The array stays sorted far-to-near for free: spawns push at z=0, the near end.
+//   [x, y, type, phase, extra, w, h, fade, hp]
+//   type 0 destroyed, 1 reflector prism, 2 rainbow sphere, 3 mystery sphere,
+//   4 obstacle, 5 gate. Spawns push at the right edge and scroll left.
 // ---------------------------------------------------------------------------
 let ents, parts, dist, energy, over, px, py, vx, vy, fire, flash,
-    bSlow, bLuck, nL, nR, nB, nO, nG, last, fly, clock,
+    bSlow, bLuck, nL, nR, nB, nO, nG, last, clock, dry,
     msg, msgT, msgC, msgX, msgY;                 // the floating booster name
 
 // Personal best, in namespaced localStorage (DESIGN.md 4). Never
@@ -300,8 +300,8 @@ try { best = +localStorage[BEST] || 0; } catch (e) {}
 
 const reset = () => {
   ents = []; parts = [];
-  dist = 0; clock = 0; energy = C.BAR; over = 0; flash = 0; fire = 0; fly = 1;
-  bSlow = bLuck = msgT = 0;
+  dist = 0; clock = 0; energy = C.BAR; over = 0; flash = 0; fire = 0;
+  bSlow = bLuck = msgT = dry = 0;
   px = C.PX0 * W; py = H / 2; vx = vy = 0;
   SEG = [];
   nL = C.SP_LIGHT; nR = C.SP_RB; nB = C.SP_BOOST; nO = C.SP_OBST; nG = C.SP_GATE;
@@ -473,9 +473,7 @@ const burst = (x, y, n, spread, col) => {
 
 // ---------------------------------------------------------------------------
 // Simulation. The economy still advances on DISTANCE, not wall time, so every
-// cost is the same at 1x as at the speed cap - DESIGN.md 7's argument survives
-// the change of genre intact. Entities are [x, y, type, phase, boost].
-// type 1 = light prism, 2 = dark prism, 3 = mystery sphere.
+// cost is charged per second, and so is everything it is spent on.
 // ---------------------------------------------------------------------------
 const HARD = () => min(1, max(0, (clock - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
 
@@ -572,7 +570,7 @@ const trace = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Simulation. Entities are [x, y, type, phase, extra, w, h, fade].
+// Simulation. Entities are [x, y, type, phase, extra, w, h, fade, hp].
 //   1 light prism  - reflector. extra is +1 or -1, the way it turns the ray.
 //                    No collision at all; it passes behind the unicorn.
 //   2 rainbow sphere - recharges the bar
@@ -586,8 +584,11 @@ const step = (dt) => {
   dist += dd;
   clock += dt;
 
-  fire = (KEYS[' '] || mouse) && energy > 0 ? 1 : 0;
-  energy = min(C.BAR, max(0, energy + dt * (C.RGEN - C.DRAIN - (fire ? C.BEAMC : 0))));
+  fire = (KEYS[' '] || mouse) && !dry ? 1 : 0;
+  energy = min(C.BAR, max(0, energy + dt * (C.RGEN - (fire ? C.BEAMC : 0))));
+  // Latched, not a threshold: it stays out until RELOAD is back, so an empty bar
+  // is a clean silence rather than a stutter.
+  dry = energy <= 0 ? 1 : energy >= C.RELOAD ? 0 : dry;
   bLuck = max(0, bLuck - dt);
   bSlow = max(0, bSlow - dt);
   msgT = max(0, msgT - dt);
@@ -616,7 +617,6 @@ const step = (dt) => {
     BURN[3] += dt;
     if (BURN[3] >= C.HITT) {
       BURN[3] -= C.HITT;
-      BURN[9] = C.FLASHT;                        // one white flash per landed hit
       if (--BURN[8] <= 0) {
         burst(BURN[0], BURN[1], 20, os2 * 5, '#ffe9a0');
         sfx(S_BOOST);
@@ -638,7 +638,6 @@ const step = (dt) => {
 
   for (let i = ents.length; i--;) {
     const o = ents[i], t = o[2];
-    if (o[9] > 0) o[9] = max(0, o[9] - dt);
     if (o[7]) { o[7] -= dt; if (o[7] <= 0) { ents.splice(i, 1); continue; } }
     if (o[0] < -W * 0.2) { ents.splice(i, 1); continue; }
     if (t === 1 || t === 0) continue;              // prisms never collide
@@ -695,13 +694,13 @@ const step = (dt) => {
       const y = lo + random() * (hi - lo);
       if (ents.some((o) => abs(o[0] - sx) < ew(o) + hw + sep &&
                            abs((o[2] === 5 ? H / 2 : o[1]) - y) < eh(o) + hh + sep)) continue;
-      ents.push([sx, y, t, random(), b, w, hgt, 0, C.HP[b ? 1 : 0], 0]);
+      ents.push([sx, y, t, random(), b, w, hgt, 0, C.HP[b ? 1 : 0]]);
       return;
     }
   };
   while (clock >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1, random() < 0.5 ? 1 : -1); }
-  while (clock >= nR) { nR += LERP(C.SP_RB, C.SP_RB_HI, h); put(2); }
-  while (clock >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); put(3, pickBoost()); }
+  while (clock >= nR) { nR += C.SP_RB; put(2); }
+  while (clock >= nB) { nB += C.SP_BOOST; put(3, pickBoost()); }
   while (clock >= nO) {
     nO += LERP(C.SP_OBST, C.SP_OBST_HI, h);
     const sc = LERP(1, C.OBSC, h) * H;
@@ -711,7 +710,7 @@ const step = (dt) => {
   while (clock >= nG) {
     nG += C.SP_GATE;
     const gy = lo + random() * (hi - lo);
-    ents.push([sx, H / 2, 5, 0, gy, C.GATEW * H, H * 2, 0, 0, 0]);
+    ents.push([sx, H / 2, 5, 0, gy, C.GATEW * H, H * 2, 0, 0]);
   }
 
   if (over) {
@@ -831,28 +830,28 @@ const PARTS = [
   [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 8, 1, 1, 1],   // eye far
 ];
 
-const horse = (cx, gy, s, ph, u, fly = 0) => {
+const horse = (cx, gy, s, ph, u) => {
   const A = PI + C.YAW * PI / 180;
   CO = cos(A); SI = sin(A); SX = cx; SY = gy; SS = s * C.ASC;
   const th = ph * 2 * PI, bd = BODY[u], R = C.LEGR;
-  // Ground and flight each have their own amplitude and rate; fly blends between
-  // them. Zeroing both in flight left the animal completely static.
-  const by = 0.56 + sin(th * LERP(C.BOBR, C.FBOBR, fly)) * LERP(C.BOB, C.FBOB, fly);
-  const hb = sin(th * LERP(C.NODR, C.FNODR, fly) + 1) * LERP(C.NOD, C.FNOD, fly);
+  // The unicorn only ever flies, so there is one rig, not a blend between a
+  // gallop and a flight pose. The gallop constants and the blend they fed went
+  // with it - nothing had set fly to anything but 1 since the genre changed.
+  const by = 0.56 + sin(th * C.FBOBR) * C.FBOB;
+  const hb = sin(th * C.FNODR + 1) * C.FNOD;
   const fine = s > C.LOD;
 
   for (const [side, hind] of LEGS) {                // four legs, two segments each
     const L = C.LEGL;
     const t = th + ((hind ? C.PHH : 0) + (side < 0 ? C.PHS : 0)) * 2 * PI;
-    // Gallop and flight are the same rig: blend the hip angle toward a fixed
-    // reach and straighten the knee. At fly = 0 this is exactly the old gallop.
-    const ga = sin(t) * C.SWING + (hind ? C.HTILT : 0);
+    // The hip angle is a fixed reach plus a flutter; the knee stays straightened
+    // by FLYK off the fold the stride would otherwise have given it.
     const gb = (1 - cos(t)) * C.FOLD * (hind ? C.HFOLD : -1);
     // The flying pose flutters rather than holding rigid, with the two sides
     // offset so the pair is not in lockstep.
     const fa = (hind ? C.FLYB : C.FLYF) + sin(th * C.FLYR + (side < 0 ? 1.6 : 0)) * C.FLYW;
-    const a = LERP(ga, fa, fly);
-    const b = LERP(gb, gb * C.FLYK, fly);
+    const a = fa;
+    const b = gb * C.FLYK;
     const lz = hind ? C.HHZ : C.FHZ;
     const x = side * C.STANCE, hy = by + C.LEGY;
     const kz = lz + sin(a) * L, ky = hy - cos(a) * L;
@@ -899,10 +898,10 @@ const horse = (cx, gy, s, ph, u, fly = 0) => {
 // screen radius - a prism and a rainbow are nothing like the same size, and one
 // shadow width for both is what made them look unmoored.
 const LGT = [-0.42, 0.76, -0.5];                  // light direction, unit-ish
-const PCOL = [[255, 255, 255], [150, 84, 226]];   // light prism, dark prism
+const PCOL = [255, 255, 255];                     // reflector prisms are white
 
-const prism = (cx, cy, s, a, dark) => {
-  const co = cos(a), si = sin(a), r = s * C.PR, q = C.PRY, c = PCOL[dark];
+const prism = (cx, cy, s, a) => {
+  const co = cos(a), si = sin(a), r = s * C.PR, q = C.PRY, c = PCOL;
   const nl = (2 * q * q + 1) ** 0.5;
   for (let i = 0; i < 8; i++) {
     const sx = i & 1 ? 1 : -1, sy = i & 2 ? 1 : -1, sz = i & 4 ? 1 : -1;
@@ -1011,36 +1010,42 @@ const plated = (x, y, w, h, c, spiked, fl) => {
   nails(x + pl / 2, y + pl / 2, 0, 1, h - pl);
   nails(x + w - pl / 2, y + pl / 2, 0, 1, h - pl);
 
-  if (spiked) {
-    // Every edge gets the same tooth size and the same spacing rule, so the top
-    // row cannot end up a different shape from the other three.
-    g.fillStyle = shade(c, 1.25);
-    const edge = (ex, ey, dx, dy, len) => {
-      const n = max(2, round(len / (sz * 2))), st = len / n;
-      for (let i = 0; i < n; i++) {
-        g.beginPath();
-        g.moveTo(ex + dx * i * st, ey + dy * i * st);
-        g.lineTo(ex + dx * (i + 0.5) * st + dy * sz, ey + dy * (i + 0.5) * st - dx * sz);
-        g.lineTo(ex + dx * (i + 1) * st, ey + dy * (i + 1) * st);
-        g.fill();
-      }
-    };
+  // Every edge gets the same tooth size and the same spacing rule, so the top row
+  // cannot end up a different shape from the other three. Hoisted out of the
+  // spiked branch so the flash can repaint them: a white body still wearing grey
+  // spikes reads as a rendering bug.
+  const edge = (ex, ey, dx, dy, len) => {
+    const n = max(2, round(len / (sz * 2))), st = len / n;
+    for (let i = 0; i < n; i++) {
+      g.beginPath();
+      g.moveTo(ex + dx * i * st, ey + dy * i * st);
+      g.lineTo(ex + dx * (i + 0.5) * st + dy * sz, ey + dy * (i + 0.5) * st - dx * sz);
+      g.lineTo(ex + dx * (i + 1) * st, ey + dy * (i + 1) * st);
+      g.fill();
+    }
+  };
+  const teeth = () => {
     edge(x, y, 1, 0, w);
     edge(x + w, y, 0, 1, h);
     edge(x + w, y + h, -1, 0, w);
     edge(x, y + h, 0, -1, h);
-  }
-  if (fl > 0) {                                   // one white flash per landed hit
-    g.globalAlpha = fl / C.FLASHT;
+  };
+  if (spiked) { g.fillStyle = shade(c, 1.25); teeth(); }
+  if (fl > 0) {                                   // the ray is resting on this
+    g.globalAlpha = fl;
     g.fillStyle = '#fff';
     g.fillRect(x, y, w, h);
+    if (spiked) teeth();
     g.globalAlpha = 1;
   }
 };
 
+// A sawtooth: snaps to full white and falls away, FLASHHZ times a second.
+const PULSE = () => C.FLASHA * (1 - ((clock * C.FLASHHZ) % 1));
+
 const slab = (o) => {
   const w = o[5], h = o[6], sp = o[4] || bLuck > 0;
-  plated(o[0] - w / 2, o[1] - h / 2, w, h, OBC[sp ? 1 : 0], sp, o[9]);
+  plated(o[0] - w / 2, o[1] - h / 2, w, h, OBC[sp ? 1 : 0], sp, o === BURN ? PULSE() : 0);
 };
 
 // The rainbow sphere: concentric bands, no question mark. It was being drawn by
@@ -1060,8 +1065,8 @@ const rsphere = (cx, cy, s) => {
 const gate = (o) => {
   const w = o[5], q = C.GATESQ * H;
   g.globalAlpha = o[7] ? o[7] / C.GFADE : 1;
-  const n = max(3, (H / (w * 1.7)) | 0), sh = H / n;
-  for (let i = 0; i < n; i++) plated(o[0] - w / 2, i * sh, w, sh, GATEC, 0, 0);
+  const n = max(3, (H / (w * 1.7)) | 0), sh = H / n, fl = o[7] ? PULSE() : 0;
+  for (let i = 0; i < n; i++) plated(o[0] - w / 2, i * sh, w, sh, GATEC, 0, fl);
   for (let i = 0; i < 6; i++) {
     g.fillStyle = shade(RBV[i], o[7] ? 1.4 : 0.9);
     g.fillRect(o[0] - w / 2, o[4] - q / 2 + (i * q) / 6, w, q / 6 + 1);
@@ -1154,12 +1159,12 @@ const render = () => {
   }
   if (fire) beam();
   for (const o of ents) {
-    if (o[2] === 1) prism(o[0], o[1], s, pang(o), 0);
+    if (o[2] === 1) prism(o[0], o[1], s, pang(o));
     else if (o[2] === 2) rsphere(o[0], o[1], s);
     else if (o[2] === 3) orb(o[0], o[1], s);
   }
   // The player: a unicorn in the flying pose, facing the way it travels.
-  horse(px, py + C.PSZ * H * 0.45, C.PSZ * H, dist * C.GALLOP, 1, fly);
+  horse(px, py + C.PSZ * H * 0.45, C.PSZ * H, dist * C.GALLOP, 1);
   drawParts();
   hud();
 };

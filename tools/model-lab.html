@@ -73,13 +73,14 @@ window.addEventListener = ael;
 const C = M.C;
 const $ = (id) => document.getElementById(id);
 
-// The sizes the game actually renders animals at: OS(z) = SC(z) * OBJ * W.
+// One size: the depth ramp went with the 3D track, so there is no OS(z) any more.
+// PSZ is a fraction of screen HEIGHT; 500 stands in for a landscape viewport.
 const W = 420;
-const OS = (z) => (1 + (C.FAR / C.NEAR - 1) * z) * C.OBJ * W;
+const PLAYED = C.PSZ * 500;
 const SIZES = [
-  ['herd', OS(C.HERD_Z)],
-  ['at the ribbon', OS(C.PZ)],
-  ['spawn edge', OS(0)],
+  ['as played', PLAYED],
+  ['2x', PLAYED * 2],
+  ['4x', PLAYED * 4],
 ];
 
 const build = (host, zoom) => {
