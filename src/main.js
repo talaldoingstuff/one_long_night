@@ -116,14 +116,18 @@ export const C = {
   BLINKS: 0.05,       // how far the eye closes: its own height, times this
 
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
-  FIRE: 1,            // seconds between shots at fire rate level 1. DESIGN.md 9
-                      // makes fire rate an upgrade card, so this is the slowest
-                      // the gun ever is, not a fixed cadence.
+  FIRE: 1,            // seconds between shots at fire rate level 1. The puppet
+                      // fires on its own at this cadence - the trigger is not a
+                      // trigger. DESIGN.md 9 makes fire rate an upgrade card, so
+                      // this is the slowest the gun ever is, and the pointer is
+                      // left free for aiming and, at step 5, the bind.
   HSPD: 26,           // metres per second
   HLIFE: 1.2,         // seconds before it expires
   HHIT: 0.5,          // metres, collision radius against a ghost centre
-  HW: 0.035,          // the flying horn's own half-width at its base
+  HW: 0.035,          // the flying horn's own radius at its base
   HL: 0.3,            // and its length, metres
+  HN: 7,              // sides on it. It is a cone - a horn is round - and a box
+                      // swept to a point is a pyramid, which is what it was.
   CONV: 9,            // metres. Where a shot goes when nothing is under the
                       // crosshair. The muzzle sits over a metre off the camera
                       // axis - a worn puppet has to sit where a hand is - so a
@@ -382,11 +386,11 @@ const reset = () => {
 // ---------------------------------------------------------------------------
 // Input (DESIGN.md 12). One pointer path for mouse and touch.
 //
-// A press fires immediately rather than on release. Release-to-fire is the only
-// way to tell a tap from a hold, but it puts the shot behind the input, and the
-// bind (step 5) can charge from the same press without stealing the shot.
+// The puppet fires by itself, so a press is not a trigger. Dragging aims; a press
+// restarts a finished run; and the whole hold gesture is left for the bind at
+// step 5, which no longer has to share the button with a shot.
 // ---------------------------------------------------------------------------
-let down = 0, lx = 0, ly = 0;
+let down = 0, lx = 0, ly = 0, auto = 1;
 
 // How far away the thing you are aiming at is. Anything within AIMR of the middle
 // of the screen counts; the nearest to the middle wins.
@@ -425,8 +429,7 @@ const fire = () => {
 
 const onDown = (e) => {
   down = 1; lx = e.clientX; ly = e.clientY;
-  if (over) { reset(); return; }
-  fire();
+  if (over) reset();
 };
 const onMove = (e) => {
   if (!down) return;
@@ -657,7 +660,7 @@ const step = (dt) => {
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
   inv = max(0, inv - dt);
   shake = max(0, shake - dt * 4);
-  if (down && !fireT) fire();                     // holding keeps firing at the cap
+  if (auto && !fireT) fire();                     // it fires on its own, at FIRE
 
   spawnT -= dt;
   if (spawnT <= 0) { spawnT = C.SPAWN; spawn(); }
@@ -768,13 +771,23 @@ const render = () => {
   for (const o of ghosts) drawGhost(o, target);
   g.globalCompositeOperation = 'source-over';
 
-  // A horn in flight is a horn: the same tapered spike, in the same gold, built
-  // in the world and put through the same pipeline as everything else. It was a
-  // stroked line, which is the one thing DESIGN.md 5 says solid geometry is not.
+  // A horn in flight is a cone, apex forward, built in the world and put through
+  // the same pipeline as everything else. It was a swept box tapered to a point,
+  // which is a pyramid; a horn is round.
   for (const h of horns) {
     const L = hypot(h[3], h[4], h[5]) || 1;
-    swept(ID, h[0] - (h[3] / L) * C.HL, h[1] - (h[4] / L) * C.HL, h[2] - (h[5] / L) * C.HL,
-          h[0], h[1], h[2], C.HW, C.HW, C.HW * 0.1, C.HW * 0.1, C.GOLD);
+    const px = h[3] / L, py = h[4] / L, pz = h[5] / L;
+    // Any two axes across the flight direction. Same construction swept() uses,
+    // so a horn flying straight up does not collapse its own cross-section.
+    let ux = 1 - px * px, uy = -px * py, uz = -px * pz;
+    const uL = hypot(ux, uy, uz) || 1;
+    ux /= uL; uy /= uL; uz /= uL;
+    const vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
+    const r = C.HW, k = C.HL / 2;
+    cone(frame([h[0] - px * k, h[1] - py * k, h[2] - pz * k],
+               [ux * r, uy * r, uz * r],
+               [px * k, py * k, pz * k],
+               [vx * r, vy * r, vz * r]), C.HN, C.GOLD);
   }
   flush();
 
@@ -817,7 +830,7 @@ export const poseCheck = () => {
     tip: proj(t),
   };
 };
-export const setFire = (v) => { down = v; };
+export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB });
 
 addEventListener('resize', resize);

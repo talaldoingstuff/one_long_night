@@ -102,15 +102,15 @@ tick();
 h2('preview');
 {
   const r = btnRow();
-  let auto = 0;
-  btn('auto fire', (b) => {
-    auto = !auto;
-    b.classList.toggle('on', !!auto);
-    M.setFire(auto ? 1 : 0);          // the same flag a held pointer sets
-  }, r);
-  // Re-assert it: a click in the preview ends with a pointerup, which clears the
-  // very flag this sets, and auto fire would stop with the button still lit.
-  setInterval(() => auto && M.setFire(1), 100);
+  // The puppet fires on its own now, so the useful button is the one that STOPS
+  // it - a still puppet is easier to tune than one kicking once a second.
+  let firing = 1;
+  btn('firing', (b) => {
+    firing = !firing;
+    b.classList.toggle('on', !!firing);
+    b.textContent = firing ? 'firing' : 'held';
+    M.setFire(firing ? 1 : 0);
+  }, r).classList.add('on');
   let ghosts = 1;
   btn('ghosts', (b) => {
     ghosts = !ghosts;
