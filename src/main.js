@@ -55,7 +55,7 @@ export const C = {
   // frame so there is no hole to see into, the silhouette has to reach the right
   // side, and half the screen height has to be VISIBLE - measuring the whole
   // bounding box once scored a buried puppet at 60% tall.
-  PUP: [0.96, 0.98, 0.7],      // camera-space placement
+  PUP: [0.96, 1.02, 0.7],      // camera-space placement
   PUPS: 2.7,          // scale applied to the model's own units
   PUPA: -0.092,       // yaw. Solved, not chosen: this is the value that puts the
                       // horn's line through the middle of the screen.
