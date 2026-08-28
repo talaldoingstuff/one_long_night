@@ -46,22 +46,41 @@ export const C = {
   HORIZ: '#1b2036',
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
-  // Camera-space placement: bottom-right of the frame, an arm's length away.
-  PUP: [0.3, 0.34, 0.78],
-  PUPS: 0.115,        // overall scale, metres
-  PUPA: -0.34,        // yaw of the whole puppet, radians - it faces slightly in
-  PUPB: -0.22,        // and tips its muzzle up
-  SKIN: [232, 228, 244],
-  MANE: [255, 59, 107],
-  HORNC: [255, 196, 64],       // amber. The brightest single thing on screen.
-  IRIS: [26, 20, 38],
+  // The mesh is the unicorn head and neck from the previous game, recovered from
+  // git rather than redrawn: it was tuned over many rounds in a purpose-built
+  // editor, and none of that work is invalidated by the genre change. Only the
+  // body, legs and tail are gone - a puppet is a head and a neck.
+  // Placement solved against the projected silhouette rather than by eye: it has
+  // to run off the bottom edge (an arm continues past the frame), reach the right
+  // side, and be the biggest thing on screen. The yaw is part of that - at a
+  // shallow angle the head is seen almost end-on and reads as a sliver.
+  PUP: [1.1, 0.7, 0.55],       // camera-space placement, bottom-right
+  PUPS: 1.8,          // scale applied to the model's own units
+  PUPA: -0.7,         // yaw: three-quarter view, muzzle angled in toward the aim
+  PUPB: -0.35,        // and tipped up
+  BODY: [246, 245, 252],       // the unicorn is white
+  GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
+  IRIS: [58, 150, 255],        // blue eyes
+  MANEN: 5,           // mane tufts
+  MANE0: 0.3,         // where the first sits along the neck, 0 = base, 1 = poll
+  MANE1: 1.2,         // and the last
+  MANEL: 0.1,         // how far each stands off the crest
+  MANER: 0.026,       // tuft thickness - a maximum, clamped to the spacing
+  MANEX: 0.01,        // sideways flop
+  MANEP: 0.1,         // tip thickness as a fraction of the root. Low is pointy.
 
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
   FIRE: 0.26,         // seconds between shots
   HSPD: 26,           // metres per second
   HLIFE: 1.2,         // seconds before it expires
   HR: 0.13,           // metres, half-length of the drawn sliver
-  HHIT: 0.42,         // metres, collision radius against a ghost centre
+  HHIT: 0.5,          // metres, collision radius against a ghost centre
+  CONV: 10,           // metres. The muzzle sits nearly a metre off the camera
+                      // axis, because the puppet is worn on the right hand and
+                      // has to look it. A horn fired PARALLEL to the view misses
+                      // by that offset at every range, so it is aimed at the
+                      // point the crosshair is on instead. Convergence is exact
+                      // at CONV and tightens as a ghost closes.
 
   // --- Ghosts (DESIGN.md 7) --------------------------------------------------
   // One generator, parameters per type. Only the Drifter exists at step 3; the
@@ -192,6 +211,36 @@ export const cone = (M, n, col) => {
   push(ring, col, M[0]);
 };
 
+// A box swept between two points with independent half-extents at each end. Taper
+// one end and it is a cone; taper it almost to nothing and it is a horn. This is
+// the primitive the recovered part table is expressed in, so it comes back with
+// it. T maps the model's own space into the space the faces are wanted in.
+//
+// u is the lateral axis with the part's direction projected out of it. Building
+// the cross-section from dy and dz alone was fine while every part lay in the
+// sagittal plane, but a part leaning sideways then came out sheared, with side
+// normals wrong for both shading and culling.
+export const swept = (T, ax, ay, az, bx, by, bz, w0, h0, w1, h1, col) => {
+  const dx = bx - ax, dy = by - ay, dz = bz - az, L = hypot(dx, dy, dz) || 1;
+  const px = dx / L, py = dy / L, pz = dz / L;
+  let ux = 1 - px * px, uy = -px * py, uz = -px * pz;
+  const uL = hypot(ux, uy, uz) || 1;
+  ux /= uL; uy /= uL; uz /= uL;
+  const vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
+  const V = (x, y, z, su, sv, w, h) => T(x + su * w * ux + sv * h * vx,
+                                         y + su * w * uy + sv * h * vy,
+                                         z + su * w * uz + sv * h * vz);
+  const A = (su, sv) => V(ax, ay, az, su, sv, w0, h0);
+  const B = (su, sv) => V(bx, by, bz, su, sv, w1, h1);
+  const ins = T((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+  push([A(1, 1), A(1, -1), B(1, -1), B(1, 1)], col, ins);
+  push([A(-1, 1), B(-1, 1), B(-1, -1), A(-1, -1)], col, ins);
+  push([A(1, 1), B(1, 1), B(-1, 1), A(-1, 1)], col, ins);
+  push([A(1, -1), A(-1, -1), B(-1, -1), B(1, -1)], col, ins);
+  push([A(1, 1), A(-1, 1), A(-1, -1), A(1, -1)], col, ins);
+  push([B(1, 1), B(1, -1), B(-1, -1), B(-1, 1)], col, ins);
+};
+
 // ---------------------------------------------------------------------------
 // Draw. Painter's algorithm: cull what faces away, sort far to near, fill flat.
 // ---------------------------------------------------------------------------
@@ -236,6 +285,8 @@ export const flush = (world = 1) => {
   return draw.length;
 };
 
+const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 201, 255], [180, 92, 255]];
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -262,9 +313,13 @@ let down = 0, lx = 0, ly = 0;
 const fire = () => {
   if (over || fireT > 0) return;
   fireT = C.FIRE;
-  // Out of the horn tip, along the way the camera is looking at this instant.
-  const o = unCam(MUZZLE()), d = unCam([0, 0, 1]);
-  horns.push([o[0], o[1], o[2], d[0] * C.HSPD, d[1] * C.HSPD, d[2] * C.HSPD, C.HLIFE]);
+  // Out of the horn tip, aimed at what the crosshair is on rather than parallel
+  // to the view - see CONV.
+  const m = MUZZLE();
+  const o = unCam(m), p = unCam([0, 0, C.CONV]);
+  let dx = p[0] - o[0], dy = p[1] - o[1], dz = p[2] - o[2];
+  const L = hypot(dx, dy, dz) || 1;
+  horns.push([o[0], o[1], o[2], dx / L * C.HSPD, dy / L * C.HSPD, dz / L * C.HSPD, C.HLIFE]);
 };
 
 const onDown = (e) => {
@@ -282,40 +337,64 @@ const onMove = (e) => {
 const onUp = () => { down = 0; };
 
 // ---------------------------------------------------------------------------
-// The puppet (DESIGN.md 6). Built in CAMERA space: it is worn, not placed.
+// The puppet (DESIGN.md 6). The recovered head-and-neck mesh, placed in CAMERA
+// space: it is worn, not placed in the world.
+//
+// The table is the old rig's, verbatim. Each row is a swept box from one point to
+// another with half-extents at each end, then a material:
+//   [ax, ay, az,  bx, by, bz,  w0, h0,  w1, h1,  material]
+// Model space is the rig's own: +y UP, the animal facing +z, the head sitting
+// around x = 0.1. The new world is y-down, so T flips y - the numbers themselves
+// are untouched.
 // ---------------------------------------------------------------------------
-// One frame for the whole puppet, so every part is authored in its local space
-// and the arm's pose is a single change here rather than in seven places.
-const rig = () => {
-  const s = C.PUPS, ca = cos(C.PUPA), sa = sin(C.PUPA), cb = cos(C.PUPB), sb = sin(C.PUPB);
-  return [
-    C.PUP,
-    [ca * s, 0, -sa * s],
-    [sa * sb * s, cb * s, ca * sb * s],
-    [sa * cb * s, -sb * s, ca * cb * s],
-  ];
-};
-// A sub-frame inside the puppet: offset in puppet units, then scaled.
-const part = (M, ox, oy, oz, rx, ry, rz) => [
-  at(M, ox, oy, oz),
-  [M[1][0] * rx, M[1][1] * rx, M[1][2] * rx],
-  [M[2][0] * ry, M[2][1] * ry, M[2][2] * ry],
-  [M[3][0] * rz, M[3][1] * rz, M[3][2] * rz],
+export const PARTS = [
+  [.025, .105, .2, .075, .2737, .365, .1, .11, .075, .085, 0],         // neck
+  [.1, .345, .345, .1, .2546, .5834, .085, .099, .055, .061, 0],       // head
+  [.1, .3927, .4239, .1, .6829, .5077, .03, .03, .002, .002, 1],       // horn
+  [.148, .3319, .4239, .156, .3187, .4724, .02, .02, .013, .013, 2],   // eye near
+  [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 2],   // eye far
 ];
+const MAT = [C.BODY, C.GOLD, C.IRIS];
+// The neck's base: where the forearm enters, and so what the puppet pivots about.
+const PIV = [PARTS[0][0], PARTS[0][1], PARTS[0][2]];
 
-// Where a horn leaves, in camera space.
-const MUZZLE = () => at(rig(), 0, -1.55, 3.9);
+// Model space into camera space. A rigid placement plus a uniform scale, so
+// normals stay normals and push() can go on deriving them from the geometry.
+const T = (x, y, z) => {
+  const s = C.PUPS, ca = cos(C.PUPA), sa = sin(C.PUPA), cb = cos(C.PUPB), sb = sin(C.PUPB);
+  const a = (x - PIV[0]) * s, b = -(y - PIV[1]) * s, c = (z - PIV[2]) * s;
+  const a2 = a * ca + c * sa, c2 = c * ca - a * sa;
+  return [C.PUP[0] + a2, C.PUP[1] + b * cb - c2 * sb, C.PUP[2] + c2 * cb + b * sb];
+};
+
+// Where a horn leaves: the tip of the model's own horn.
+const MUZZLE = () => T(PARTS[2][3], PARTS[2][4], PARTS[2][5]);
 
 const puppet = () => {
-  const M = rig();
-  box(part(M, 0, 0.5, -0.9, 0.62, 0.95, 1.15), C.SKIN);        // neck over the forearm
-  box(part(M, 0, -0.35, 0.85, 0.55, 0.6, 1.3), C.SKIN);        // muzzle
-  box(part(M, 0, -0.95, 0.15, 0.5, 0.32, 0.62), C.SKIN);       // brow
-  for (let i = 0; i < 4; i++)                                   // mane, one strip
-    box(part(M, -0.5 + i * 0.33, -0.62 - i * 0.06, -0.55, 0.17, 0.42, 0.3), C.MANE);
-  box(part(M, 0.42, -0.72, 0.9, 0.16, 0.2, 0.16), C.IRIS);      // eye
-  box(part(M, -0.42, -0.72, 0.9, 0.16, 0.2, 0.16), C.IRIS);
-  cone(part(M, 0, -1.05, 1.5, 0.17, 0.62, 0.17), 6, C.HORNC);   // the horn
+  for (const q of PARTS) {
+    swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]]);
+  }
+
+  // Mane, swept along the neck. Reading the neck out of PARTS means moving the
+  // neck carries the mane with it, which placing tufts by hand never did.
+  const nk = PARTS[0];
+  const ny = nk[4] - nk[1], nz = nk[5] - nk[2], nL = hypot(ny, nz) || 1;
+  const vy = nz / nL, vz = -ny / nL;                // up the crest
+  // MANER is the tuft's maximum thickness, not its actual one: a tuft can never
+  // be wider than the gap it has, or the mane merges into one lump.
+  const gap = C.MANEN > 1 ? ((C.MANE1 - C.MANE0) / (C.MANEN - 1)) * nL : 1;
+  const mr = min(C.MANER, gap * 0.48);
+  for (let i = 0; i < C.MANEN; i++) {
+    const t = C.MANEN < 2 ? 0.5 : C.MANE0 + (C.MANE1 - C.MANE0) * (i / (C.MANEN - 1));
+    // One lateral line for every tuft. Lerping the neck's own x made the mane fan
+    // sideways whenever the neck leaned, instead of running straight.
+    const ax = (nk[0] + nk[3]) / 2;
+    const ay = nk[1] + (nk[4] - nk[1]) * t, az = nk[2] + (nk[5] - nk[2]) * t;
+    const h = nk[7] + (nk[9] - nk[7]) * t, o = h * 0.6, e = h + C.MANEL;
+    swept(T, ax, ay + o * vy, az + o * vz,
+          ax - C.MANEX, ay + e * vy, az + e * vz,
+          mr, mr, mr * C.MANEP, mr * C.MANEP, RBV[1 + (i % 5)]);
+  }
   flush(0);
 };
 
@@ -502,7 +581,7 @@ const render = () => {
     if (a[2] < C.NEAR) continue;
     const b = cam([h[0] - h[3] * 0.012, h[1] - h[4] * 0.012, h[2] - h[5] * 0.012]);
     const p = proj(a), q = proj(b);
-    g.strokeStyle = 'rgb(' + C.HORNC + ')';
+    g.strokeStyle = 'rgb(' + C.GOLD + ')';
     g.lineWidth = max(1.5, C.HR * (C.F / (C.F + a[2])) * PX);
     g.beginPath();
     g.moveTo(p[0], p[1]);
