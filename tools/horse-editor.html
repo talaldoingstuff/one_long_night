@@ -217,15 +217,13 @@ globCtl.push(slider(G, 'outline alpha', () => C.OUTA, (v) => (C.OUTA = v), 0, 1,
 // Gait pace. The game drives the phase from DISTANCE, not from time, so GALLOP
 // is strides per unit of track - at base speed 1 unit takes 1 second, making it
 // strides per second there, and it speeds up on its own as the run does.
+globCtl.push(slider(G, 'body bob', () => C.FBOB, (v) => (C.FBOB = v), 0, 0.08, 0.002,
+  (v) => (v === 0 ? 'still' : v.toFixed(3))));
 globCtl.push(slider(G, 'bob rate', () => C.FBOBR, (v) => (C.FBOBR = v), 0, 6, 0.5,
   (v) => v.toFixed(1) + '/stride'));
-globCtl.push(slider(G, 'fly: body bob', () => C.FBOB, (v) => (C.FBOB = v), 0, 0.08, 0.002,
+globCtl.push(slider(G, 'head nod', () => C.FNOD, (v) => (C.FNOD = v), 0, 0.08, 0.002,
   (v) => (v === 0 ? 'still' : v.toFixed(3))));
-globCtl.push(slider(G, 'fly: bob rate', () => C.FBOBR, (v) => (C.FBOBR = v), 0, 6, 0.5,
-  (v) => v.toFixed(1) + '/stride'));
-globCtl.push(slider(G, 'fly: head nod', () => C.FNOD, (v) => (C.FNOD = v), 0, 0.08, 0.002,
-  (v) => (v === 0 ? 'still' : v.toFixed(3))));
-globCtl.push(slider(G, 'fly: nod rate', () => C.FNODR, (v) => (C.FNODR = v), 0, 6, 0.5,
+globCtl.push(slider(G, 'nod rate', () => C.FNODR, (v) => (C.FNODR = v), 0, 6, 0.5,
   (v) => v.toFixed(1) + '/stride'));
 globCtl.push(slider(G, 'gallop rate', () => C.GALLOP, (v) => (C.GALLOP = v), 0, 8, 0.05,
   (v) => v.toFixed(2) + '/u'));
@@ -258,13 +256,13 @@ legCtl.push(slider(L, 'hind fold', () => C.HFOLD, (v) => (C.HFOLD = v), -1.5, 1.
 // Gait pattern. These decide WHEN each leg moves rather than how far.
 legCtl.push(slider(L, 'hind phase', () => C.PHH, (v) => (C.PHH = v), 0, 1, 0.01,
   (v) => v.toFixed(2) + (v < 0.06 || v > 0.94 ? ' bound' : Math.abs(v - 0.5) < 0.06 ? ' gallop' : '')));
-legCtl.push(slider(L, 'fly: front reach', () => C.FLYF, (v) => (C.FLYF = v), 0, 2, 0.02));
-legCtl.push(slider(L, 'fly: hind reach', () => C.FLYB, (v) => (C.FLYB = v), -2, 0, 0.02));
-legCtl.push(slider(L, 'fly: knee bend', () => C.FLYK, (v) => (C.FLYK = v), 0, 1, 0.02,
+legCtl.push(slider(L, 'front reach', () => C.FLYF, (v) => (C.FLYF = v), 0, 2, 0.02));
+legCtl.push(slider(L, 'hind reach', () => C.FLYB, (v) => (C.FLYB = v), -2, 0, 0.02));
+legCtl.push(slider(L, 'knee bend', () => C.FLYK, (v) => (C.FLYK = v), 0, 1, 0.02,
   (v) => (v < 0.05 ? 'straight' : v.toFixed(2))));
-legCtl.push(slider(L, 'fly: beat', () => C.FLYR, (v) => (C.FLYR = v), 0, 8, 0.1,
+legCtl.push(slider(L, 'beat', () => C.FLYR, (v) => (C.FLYR = v), 0, 8, 0.1,
   (v) => v.toFixed(1) + '/stride'));
-legCtl.push(slider(L, 'fly: leg flutter', () => C.FLYW, (v) => (C.FLYW = v), 0, 0.6, 0.01,
+legCtl.push(slider(L, 'leg flutter', () => C.FLYW, (v) => (C.FLYW = v), 0, 0.6, 0.01,
   (v) => (v === 0 ? 'rigid' : v.toFixed(2))));
 legCtl.push(slider(L, 'left/right split', () => C.PHS, (v) => (C.PHS = v), 0, 0.5, 0.01,
   (v) => v.toFixed(2) + (v < 0.04 ? ' paired' : Math.abs(v - 0.5) < 0.04 ? ' alternating' : '')));
