@@ -50,14 +50,16 @@ export const C = {
   // git rather than redrawn: it was tuned over many rounds in a purpose-built
   // editor, and none of that work is invalidated by the genre change. Only the
   // body, legs and tail are gone - a puppet is a head and a neck.
-  // Placement solved against the projected silhouette rather than by eye: it has
-  // to run off the bottom edge (an arm continues past the frame), reach the right
-  // side, and be the biggest thing on screen. The yaw is part of that - at a
-  // shallow angle the head is seen almost end-on and reads as a sliver.
-  PUP: [1.1, 0.7, 0.55],       // camera-space placement, bottom-right
-  PUPS: 1.8,          // scale applied to the model's own units
-  PUPA: -0.7,         // yaw: three-quarter view, muzzle angled in toward the aim
-  PUPB: -0.35,        // and tipped up
+  // Pose solved against four things at once rather than set by eye: the horn has
+  // to point where the shots go, the neck's arm opening has to sit below the
+  // frame so there is no hole to see into, the silhouette has to reach the right
+  // side, and half the screen height has to be VISIBLE - measuring the whole
+  // bounding box once scored a buried puppet at 60% tall.
+  PUP: [0.9, 0.8, 0.5],        // camera-space placement, bottom-right
+  PUPS: 2.6,          // scale applied to the model's own units
+  PUPA: -0.1,         // yaw
+  PUPB: -0.25,        // pitch. Together these leave the horn 1.3 degrees off the
+                      // line a shot takes, at a 10m convergence.
   BODY: [246, 245, 252],       // the unicorn is white
   GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
   IRIS: [58, 150, 255],        // blue eyes
@@ -73,14 +75,9 @@ export const C = {
   FIRE: 0.26,         // seconds between shots
   HSPD: 26,           // metres per second
   HLIFE: 1.2,         // seconds before it expires
-  HR: 0.13,           // metres, half-length of the drawn sliver
   HHIT: 0.5,          // metres, collision radius against a ghost centre
-  CONV: 10,           // metres. The muzzle sits nearly a metre off the camera
-                      // axis, because the puppet is worn on the right hand and
-                      // has to look it. A horn fired PARALLEL to the view misses
-                      // by that offset at every range, so it is aimed at the
-                      // point the crosshair is on instead. Convergence is exact
-                      // at CONV and tightens as a ghost closes.
+  HW: 0.035,          // the flying horn's own half-width at its base
+  HL: 0.3,            // and its length, metres
 
   // --- Ghosts (DESIGN.md 7) --------------------------------------------------
   // One generator, parameters per type. Only the Drifter exists at step 3; the
@@ -180,6 +177,7 @@ const push = (vs, col, ins) => {
 // Every primitive takes one, so a part can be leant, twisted or squashed without
 // the generator knowing anything about it.
 export const frame = (o, r, u, f) => [o, r, u, f];
+const ID = (x, y, z) => [x, y, z];             // for geometry already in the space it is wanted in
 const at = (M, a, b, c) => [
   M[0][0] + M[1][0] * a + M[2][0] * b + M[3][0] * c,
   M[0][1] + M[1][1] * a + M[2][1] * b + M[3][1] * c,
@@ -313,13 +311,18 @@ let down = 0, lx = 0, ly = 0;
 const fire = () => {
   if (over || fireT > 0) return;
   fireT = C.FIRE;
-  // Out of the horn tip, aimed at what the crosshair is on rather than parallel
-  // to the view - see CONV.
-  const m = MUZZLE();
-  const o = unCam(m), p = unCam([0, 0, C.CONV]);
-  let dx = p[0] - o[0], dy = p[1] - o[1], dz = p[2] - o[2];
-  const L = hypot(dx, dy, dz) || 1;
-  horns.push([o[0], o[1], o[2], dx / L * C.HSPD, dy / L * C.HSPD, dz / L * C.HSPD, C.HLIFE]);
+  // Along the horn's own axis, from its tip. The muzzle sits nearly a metre off
+  // the camera axis - the puppet is worn on the right hand and has to look it -
+  // so a shot fired parallel to the view would miss by that offset at every
+  // range. Aiming it at the crosshair instead would fix the miss but leave the
+  // horn pointing somewhere else. The pose solves it at the source: the horn
+  // points where the shot goes, and the shot leaves along the horn.
+  const b = T(PARTS[2][0], PARTS[2][1], PARTS[2][2]);
+  const t2 = T(PARTS[2][3], PARTS[2][4], PARTS[2][5]);
+  const o = unCam(t2);
+  const d = unCam([t2[0] - b[0], t2[1] - b[1], t2[2] - b[2]]);
+  const L = hypot(d[0], d[1], d[2]) || 1;
+  horns.push([o[0], o[1], o[2], d[0] / L * C.HSPD, d[1] / L * C.HSPD, d[2] / L * C.HSPD, C.HLIFE]);
 };
 
 const onDown = (e) => {
@@ -343,14 +346,26 @@ const onUp = () => { down = 0; };
 // The table is the old rig's, verbatim. Each row is a swept box from one point to
 // another with half-extents at each end, then a material:
 //   [ax, ay, az,  bx, by, bz,  w0, h0,  w1, h1,  material]
-// Model space is the rig's own: +y UP, the animal facing +z, the head sitting
-// around x = 0.1. The new world is y-down, so T flips y - the numbers themselves
-// are untouched.
+// Model space is the rig's own: +y UP, the animal facing +z. The new world is
+// y-down, so T flips y.
+//
+// One number IS changed from the recovered table: the neck ran from x=.025 to
+// x=.075 while the head, horn and both eyes sit on x=.1. The old game viewed the
+// animal side-on, where a lateral offset is a depth offset and invisible. Worn on
+// an arm and seen from behind, it put the whole neck - and the mane that reads its
+// position out of this row - down one side of the head. The neck is on the
+// sagittal plane now.
+//
+// The horn is re-angled for the same class of reason. On the side-on animal it
+// rose 74 degrees from the muzzle line, which is what a unicorn horn does when it
+// is scenery. Here it is the barrel: it has to point where the shots go, and
+// pitching the whole puppet 66 degrees to achieve that buried the head below the
+// frame. It now leaves the forehead at 15 degrees, the same length as before.
 // ---------------------------------------------------------------------------
 export const PARTS = [
-  [.025, .105, .2, .075, .2737, .365, .1, .11, .075, .085, 0],         // neck
+  [.1, .105, .2, .1, .2737, .365, .1, .11, .075, .085, 0],             // neck
   [.1, .345, .345, .1, .2546, .5834, .085, .099, .055, .061, 0],       // head
-  [.1, .3927, .4239, .1, .6829, .5077, .03, .03, .002, .002, 1],       // horn
+  [.1, .3927, .4239, .1, .468, .716, .03, .03, .002, .002, 1],         // horn
   [.148, .3319, .4239, .156, .3187, .4724, .02, .02, .013, .013, 2],   // eye near
   [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 2],   // eye far
 ];
@@ -576,18 +591,15 @@ const render = () => {
   for (const o of ghosts) drawGhost(o, target);
   g.globalCompositeOperation = 'source-over';
 
-  for (const h of horns) {                        // horns in flight
-    const a = cam([h[0], h[1], h[2]]);
-    if (a[2] < C.NEAR) continue;
-    const b = cam([h[0] - h[3] * 0.012, h[1] - h[4] * 0.012, h[2] - h[5] * 0.012]);
-    const p = proj(a), q = proj(b);
-    g.strokeStyle = 'rgb(' + C.GOLD + ')';
-    g.lineWidth = max(1.5, C.HR * (C.F / (C.F + a[2])) * PX);
-    g.beginPath();
-    g.moveTo(p[0], p[1]);
-    g.lineTo(q[0], q[1]);
-    g.stroke();
+  // A horn in flight is a horn: the same tapered spike, in the same gold, built
+  // in the world and put through the same pipeline as everything else. It was a
+  // stroked line, which is the one thing DESIGN.md 5 says solid geometry is not.
+  for (const h of horns) {
+    const L = hypot(h[3], h[4], h[5]) || 1;
+    swept(ID, h[0] - (h[3] / L) * C.HL, h[1] - (h[4] / L) * C.HL, h[2] - (h[5] / L) * C.HL,
+          h[0], h[1], h[2], C.HW, C.HW, C.HW * 0.1, C.HW * 0.1, C.GOLD);
   }
+  flush();
 
   puppet();                                       // viewmodel last, on top
   hud();
