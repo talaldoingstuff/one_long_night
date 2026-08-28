@@ -55,23 +55,34 @@ export const C = {
   // frame so there is no hole to see into, the silhouette has to reach the right
   // side, and half the screen height has to be VISIBLE - measuring the whole
   // bounding box once scored a buried puppet at 60% tall.
-  PUP: [0.9, 0.8, 0.5],        // camera-space placement, bottom-right
-  PUPS: 2.6,          // scale applied to the model's own units
-  PUPA: -0.1,         // yaw
-  PUPB: -0.25,        // pitch. Together these leave the horn 1.3 degrees off the
-                      // line a shot takes, at a 10m convergence.
+  PUP: [1.15, 0.83, 0.6],      // camera-space placement, bottom-right
+  PUPS: 2.3,          // scale applied to the model's own units
+  PUPA: -0.11,        // yaw
+  PUPB: -0.205,       // pitch. The pose is not free: it has to leave the horn
+                      // pointing where the shot goes, and the neck's opening
+                      // below the frame. The editor reads both out live.
+
+  // Group placement. The table is one row per part, but on a real animal the
+  // head, its horn and its eyes move together - nudging the head row alone
+  // leaves its own horn behind. These are applied on the way out of the table,
+  // so one slider moves everything attached. Step 9 needs exactly these handles
+  // anyway: recoil offsets the head group, and a blink flattens the eyes.
+  HEADO: [0, 0, 0],   // head group: sideways, up, forward
+  EYES: [0, 0, 1],    // eyes within the head: up, forward, and spread about the
+                      // sagittal plane
+  MANEO: [0, 0, 0],   // mane against the crest it is swept along: up, along, side
   BODY: [246, 245, 252],       // the unicorn is white
   GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
   IRIS: [58, 150, 255],        // blue eyes
   MANEN: 5,           // mane tufts
-  MANE0: 0.08,        // where the first sits along the neck, 0 = base, 1 = poll
-  MANE1: 0.95,        // and the last. Both stay inside 0..1 on purpose: past 1 the
+  MANE0: 0.27,        // where the first sits along the neck, 0 = base, 1 = poll
+  MANE1: 0.8,         // and the last. Both stay inside 0..1 on purpose: past 1 the
                       // sweep extrapolates beyond the neck's end point and the
                       // last tufts land on the head.
   MANEL: 0.1,         // how far each stands off the crest
-  MANER: 0.026,       // tuft thickness - a maximum, clamped to the spacing
+  MANER: 0.015,       // tuft thickness - a maximum, clamped to the spacing
   MANEX: 0.01,        // sideways flop
-  MANEP: 0.1,         // tip thickness as a fraction of the root. Low is pointy.
+  MANEP: 0.02,        // tip thickness as a fraction of the root. Low is pointy.
 
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
   FIRE: 0.26,         // seconds between shots
@@ -319,8 +330,9 @@ const fire = () => {
   // range. Aiming it at the crosshair instead would fix the miss but leave the
   // horn pointing somewhere else. The pose solves it at the source: the horn
   // points where the shot goes, and the shot leaves along the horn.
-  const b = T(PARTS[2][0], PARTS[2][1], PARTS[2][2]);
-  const t2 = T(PARTS[2][3], PARTS[2][4], PARTS[2][5]);
+  const q = eff(2);
+  const b = T(q[0], q[1], q[2]);
+  const t2 = T(q[3], q[4], q[5]);
   const o = unCam(t2);
   const d = unCam([t2[0] - b[0], t2[1] - b[1], t2[2] - b[2]]);
   const L = hypot(d[0], d[1], d[2]) || 1;
@@ -365,13 +377,32 @@ const onUp = () => { down = 0; };
 // frame. It now leaves the forehead at 15 degrees, the same length as before.
 // ---------------------------------------------------------------------------
 export const PARTS = [
-  [.1, .105, .2, .1, .2737, .365, .1, .11, .075, .085, 0],             // neck
-  [.1, .345, .345, .1, .2546, .5834, .085, .099, .055, .061, 0],       // head
-  [.1, .3927, .4239, .1, .468, .716, .03, .03, .002, .002, 1],         // horn
-  [.148, .3319, .4239, .156, .3187, .4724, .02, .02, .013, .013, 2],   // eye near
-  [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 2],   // eye far
+  [0.1, 0.11, 0.2, 0.1, 0.27, 0.364, 0.1, 0.115, 0.075, 0.085, 0],       // neck
+  [0.1, 0.346, 0.346, 0.1, 0.3, 0.7, 0.085, 0.099, 0.055, 0.061, 0],     // head
+  [0.1, 0.39, 0.42, 0.1, 0.53, 1, 0.03, 0.03, 0.002, 0.002, 1],          // horn
+  [0.1, 0.3319, 0.4239, 0.152, 0.3187, 0.4724, 0.02, 0.02, 0.013, 0.013, 2],  // eye near
+  [0.1, 0.3319, 0.4239, 0.048, 0.3187, 0.4724, 0.02, 0.02, 0.013, 0.013, 2],  // eye far
 ];
 const MAT = [C.BODY, C.GOLD, C.IRIS];
+
+// A part's endpoints with its group offsets folded in. Everything that draws or
+// aims reads the table through this, so the head, horn and eyes cannot drift
+// apart, and the horn a shot leaves along is the horn that gets drawn.
+export const eff = (i) => {
+  const q = PARTS[i].slice();
+  if (i) {                                       // head, horn and eyes ride together
+    for (const k of [0, 3]) q[k] += C.HEADO[0];
+    for (const k of [1, 4]) q[k] += C.HEADO[1];
+    for (const k of [2, 5]) q[k] += C.HEADO[2];
+  }
+  if (i > 2) {                                   // and the eyes move within that
+    const sag = PARTS[1][0] + C.HEADO[0];
+    for (const k of [0, 3]) q[k] = sag + (q[k] - sag) * C.EYES[2];
+    for (const k of [1, 4]) q[k] += C.EYES[0];
+    for (const k of [2, 5]) q[k] += C.EYES[1];
+  }
+  return q;
+};
 // The neck's base: where the forearm enters, and so what the puppet pivots about.
 const PIV = [PARTS[0][0], PARTS[0][1], PARTS[0][2]];
 
@@ -384,11 +415,9 @@ const T = (x, y, z) => {
   return [C.PUP[0] + a2, C.PUP[1] + b * cb - c2 * sb, C.PUP[2] + c2 * cb + b * sb];
 };
 
-// Where a horn leaves: the tip of the model's own horn.
-const MUZZLE = () => T(PARTS[2][3], PARTS[2][4], PARTS[2][5]);
-
 const puppet = () => {
-  for (const q of PARTS) {
+  for (let i = 0; i < PARTS.length; i++) {
+    const q = eff(i);
     swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]]);
   }
 
@@ -408,8 +437,12 @@ const puppet = () => {
     const ax = (nk[0] + nk[3]) / 2;
     const ay = nk[1] + (nk[4] - nk[1]) * t, az = nk[2] + (nk[5] - nk[2]) * t;
     const h = nk[7] + (nk[9] - nk[7]) * t, o = h * 0.6, e = h + C.MANEL;
-    swept(T, ax, ay + o * vy, az + o * vz,
-          ax - C.MANEX, ay + e * vy, az + e * vz,
+    // MANEO shifts the whole mane against the crest it rides: out from the neck,
+    // along it, and sideways off the centreline.
+    const ox = ax + C.MANEO[2], oy = C.MANEO[0] * vy + C.MANEO[1] * vz;
+    const oz = C.MANEO[0] * vz - C.MANEO[1] * vy;
+    swept(T, ox, ay + o * vy + oy, az + o * vz + oz,
+          ox - C.MANEX, ay + e * vy + oy, az + e * vz + oz,
           mr, mr, mr * C.MANEP, mr * C.MANEP, RBV[1 + (i % 5)]);
   }
   flush(0);
@@ -622,6 +655,23 @@ export const place = (gs) => { ghosts = gs; };
 export const restart = reset;
 // Test and editor seams. Dropped from the app build, so they cost nothing.
 export const drawPuppet = () => puppet();
+// What a pose has to satisfy, measured rather than eyeballed: how far the horn
+// points from the line a shot to a 10m target takes, and where the neck's arm
+// opening lands relative to the bottom of the frame.
+export const poseCheck = () => {
+  const q = eff(2), b = T(q[0], q[1], q[2]), t = T(q[3], q[4], q[5]);
+  const d = [t[0] - b[0], t[1] - b[1], t[2] - b[2]], dl = hypot(d[0], d[1], d[2]);
+  const w = [-t[0], -t[1], 10 - t[2]], wl = hypot(w[0], w[1], w[2]);
+  const k = eff(0);
+  const capY = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([su, sv]) => {
+    const P2 = T(k[0] + su * k[6], k[1], k[2] + sv * k[7]);
+    return P2[1] * (C.F / (C.F + P2[2])) * PX + H / 2;
+  });
+  return {
+    aim: Math.acos(max(-1, min(1, (d[0] * w[0] + d[1] * w[1] + d[2] * w[2]) / (dl * wl)))) * 180 / PI,
+    cap: min(...capY) - H,
+  };
+};
 export const setFire = (v) => { down = v; };
 
 addEventListener('resize', resize);

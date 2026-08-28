@@ -27,6 +27,9 @@
   textarea{width:100%;height:150px;background:#070912;color:#9fb0d8;border:1px solid #232a44;
            border-radius:4px;font:11px/1.45 ui-monospace,monospace;padding:6px;resize:vertical}
   #hint{position:fixed;left:356px;bottom:10px;color:#59618a}
+  #chk{margin:0 0 8px;padding:6px 8px;border-radius:4px;background:#101528;border:1px solid #232a44;line-height:1.7}
+  #chk b{font-weight:400;color:#8b93b8;display:inline-block;width:150px}
+  .good{color:#5fd08a}.bad{color:#ff6b8a}
 </style>
 </head>
 <body>
@@ -72,6 +75,25 @@ const btn = (label, onclick, host) => {
   return b;
 };
 const btnRow = () => { const d = document.createElement('div'); d.className = 'btns'; panel.append(d); return d; };
+
+// --- what the pose has to satisfy -------------------------------------------
+// Two invariants that a good-looking pose can quietly break, so they are on
+// screen while you drag rather than discovered later by a test.
+h2('pose check');
+const chk = document.createElement('div');
+chk.id = 'chk';
+panel.append(chk);
+const tick = () => {
+  const r = M.poseCheck();
+  const aimOK = r.aim < 2, capOK = r.cap > 0;
+  chk.innerHTML =
+    '<b>horn vs where it shoots</b><span class="' + (aimOK ? 'good' : 'bad') + '">' +
+      r.aim.toFixed(1) + '\u00b0' + (aimOK ? '' : '  shots will miss') + '</span><br>' +
+    '<b>neck opening</b><span class="' + (capOK ? 'good' : 'bad') + '">' +
+      (r.cap > 0 ? r.cap.toFixed(0) + 'px below the frame' : Math.abs(r.cap).toFixed(0) + 'px ABOVE - open neck visible') + '</span>';
+  requestAnimationFrame(tick);
+};
+tick();
 
 // --- preview -----------------------------------------------------------------
 h2('preview');
@@ -121,6 +143,19 @@ slider('yaw', () => C.PUPA, (v) => (C.PUPA = v), -1.6, 1.6, 0.01,
 slider('pitch', () => C.PUPB, (v) => (C.PUPB = v), -1.6, 1.6, 0.01,
        (v) => (v * 57.3).toFixed(0) + '\u00b0');
 
+// --- group placement ---------------------------------------------------------
+// The head, its horn and its eyes move together. Nudging the head row on its own
+// leaves the horn behind, which is not a thing a head does.
+h2('head, horn and eyes together');
+slider('sideways', () => C.HEADO[0], (v) => (C.HEADO[0] = v), -0.3, 0.3, 0.002);
+slider('up', () => C.HEADO[1], (v) => (C.HEADO[1] = v), -0.3, 0.4, 0.002);
+slider('forward', () => C.HEADO[2], (v) => (C.HEADO[2] = v), -0.3, 0.4, 0.002);
+
+h2('eyes on the head');
+slider('up', () => C.EYES[0], (v) => (C.EYES[0] = v), -0.2, 0.2, 0.002);
+slider('forward', () => C.EYES[1], (v) => (C.EYES[1] = v), -0.2, 0.3, 0.002);
+slider('spread', () => C.EYES[2], (v) => (C.EYES[2] = v), 0, 3, 0.02);
+
 // --- the parts ---------------------------------------------------------------
 // Every row is [ax,ay,az, bx,by,bz, w0,h0, w1,h1, material]: a box swept from one
 // point to another, with its own half-extents at each end.
@@ -168,6 +203,9 @@ slider('stand off', () => C.MANEL, (v) => (C.MANEL = v), 0, 0.35, 0.005);
 slider('thickness', () => C.MANER, (v) => (C.MANER = v), 0.002, 0.09, 0.001);
 slider('side flop', () => C.MANEX, (v) => (C.MANEX = v), -0.08, 0.08, 0.002);
 slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
+slider('lift', () => C.MANEO[0], (v) => (C.MANEO[0] = v), -0.2, 0.2, 0.002);
+slider('along', () => C.MANEO[1], (v) => (C.MANEO[1] = v), -0.2, 0.2, 0.002);
+slider('sideways', () => C.MANEO[2], (v) => (C.MANEO[2] = v), -0.15, 0.15, 0.002);
 
 // --- colours -----------------------------------------------------------------
 h2('colour');
@@ -199,6 +237,7 @@ const dump = () => {
     '  PUPS: ' + f(C.PUPS) + ',  PUPA: ' + f(C.PUPA) + ',  PUPB: ' + f(C.PUPB) + ',\n' +
     '  MANEN: ' + C.MANEN + ',  MANE0: ' + f(C.MANE0) + ',  MANE1: ' + f(C.MANE1) + ',\n' +
     '  MANEL: ' + f(C.MANEL) + ',  MANER: ' + f(C.MANER) + ',  MANEX: ' + f(C.MANEX) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
+    '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  EYES: [' + C.EYES.map(f).join(', ') + '],  MANEO: [' + C.MANEO.map(f).join(', ') + '],\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS + '],';
 };
 dump();
