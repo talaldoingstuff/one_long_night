@@ -1,9 +1,9 @@
 {
-  "name": "rainbowed",
+  "name": "js13k-2026",
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "js13kGames 2026 entry \u2014 rainbow ribbon converts horses into unicorns",
+  "description": "js13kGames 2026 entry - stationary first-person roguelike wave shooter",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
