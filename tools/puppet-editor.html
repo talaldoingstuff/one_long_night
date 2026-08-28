@@ -238,6 +238,15 @@ slider('closes to', () => C.BLINKS, (v) => (C.BLINKS = v), 0, 0.6, 0.01,
        (v) => (100 * v).toFixed(0) + '%');
 
 // --- colours -----------------------------------------------------------------
+// A dark edge on the neck and head only - one colour meeting one colour, so the
+// joint between them is otherwise invisible. The horn, eyes and mane separate
+// themselves by being a different colour entirely.
+h2('outline');
+slider('width', () => C.OUTL, (v) => (C.OUTL = v), 0, 0.008, 0.0002,
+       (v) => (v * 500).toFixed(1) + 'px');
+slider('opacity', () => C.OUTA, (v) => (C.OUTA = v), 0, 1, 0.02,
+       (v) => (100 * v).toFixed(0) + '%');
+
 h2('colour');
 const rgbRow = (label, arr) => {
   for (const [k, ch] of [[0, 'r'], [1, 'g'], [2, 'b']]) {
@@ -274,7 +283,8 @@ const dump = () => {
     '  RECOIL: ' + f(C.RECOIL) + ',  RECT: ' + f(C.RECT) + ',  FIRE: ' + f(C.FIRE) + ',\n' +
     '  BLINKD: ' + f(C.BLINKD) + ',  BLINK0: ' + f(C.BLINK0) + ',  BLINK1: ' + f(C.BLINK1) +
       ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
-    '  SAT0: ' + f(C.SAT0) + ',  BINDCD: ' + f(C.BINDCD) + ',\n' +
+    '  SAT0: ' + f(C.SAT0) + ',  BINDCD: ' + f(C.BINDCD) +
+      ',  OUTL: ' + f(C.OUTL) + ',  OUTA: ' + f(C.OUTA) + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
       '],';
 };
