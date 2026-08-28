@@ -415,7 +415,12 @@ const fire = () => {
   const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
   const L = hypot(d[0], d[1], d[2]) || 1;
   horns.push([o[0], o[1], o[2], d[0] / L * C.HSPD, d[1] / L * C.HSPD, d[2] / L * C.HSPD, C.HLIFE]);
-  rec = 1;                                       // after the shot, so it leaves from the un-kicked muzzle
+  // After the shot, so it leaves from the un-kicked muzzle. The blink goes with
+  // the kick - a thing that recoils screws its eyes up - and pushes the idle
+  // timer back, so a shot is never followed by a second blink a moment later.
+  rec = 1;
+  blink = C.BLINKD;
+  nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0);
 };
 
 const onDown = (e) => {
