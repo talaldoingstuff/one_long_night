@@ -68,13 +68,17 @@ export const C = {
   // so one slider moves everything attached. Step 9 needs exactly these handles
   // anyway: recoil offsets the head group, and a blink flattens the eyes.
   HEADO: [0, 0, 0],   // head group: sideways, up, forward
+  HEADS: 1,           // and its scale
+  HEADR: [0, 0, 0],   // and its rotation about the joint where it meets the neck:
+                      // pitch, yaw, roll. The pivot is derived from the head row
+                      // rather than stored, so a retuned neck keeps the joint.
   // Eyes are discs on the flanks of the head, not rows in the table. They were
   // swept boxes, which at this size reads as a rectangular stud rather than an
   // eye. A ten-sided disc is round enough at a few pixels across and is still
   // made of the hard-edged polygons DESIGN.md 5 asks for - no rounded primitive.
   // Placed against the head rather than in model coordinates, so they stay on it
   // when the head is retuned:
-  EYES: [-0.01, 0.42, 1.02, 0.028, 0.012],
+  EYES: [0.028, 0.37, 0.78, 0.028, 0.005],
                       // up, how far along the head, how far out as a multiple of
                       // the head's own half-width there, radius, and how far the
                       // disc stands proud
@@ -240,13 +244,22 @@ export const cone = (M, n, col, X = ID) => {
 // the cross-section from dy and dz alone was fine while every part lay in the
 // sagittal plane, but a part leaning sideways then came out sheared, with side
 // normals wrong for both shading and culling.
-export const swept = (T, ax, ay, az, bx, by, bz, w0, h0, w1, h1, col) => {
+export const swept = (T, ax, ay, az, bx, by, bz, w0, h0, w1, h1, col, roll = 0) => {
   const dx = bx - ax, dy = by - ay, dz = bz - az, L = hypot(dx, dy, dz) || 1;
   const px = dx / L, py = dy / L, pz = dz / L;
   let ux = 1 - px * px, uy = -px * py, uz = -px * pz;
   const uL = hypot(ux, uy, uz) || 1;
   ux /= uL; uy /= uL; uz /= uL;
-  const vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
+  let vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
+  // Roll twists the cross-section about the part's own axis. Without it the frame
+  // is derived entirely from the direction, so a rolled part moves but never
+  // turns - the head would lean while staying resolutely upright.
+  if (roll) {
+    const c2 = cos(roll), s2 = sin(roll);
+    const tx = ux * c2 + vx * s2, ty = uy * c2 + vy * s2, tz = uz * c2 + vz * s2;
+    vx = vx * c2 - ux * s2; vy = vy * c2 - uy * s2; vz = vz * c2 - uz * s2;
+    ux = tx; uy = ty; uz = tz;
+  }
   const V = (x, y, z, su, sv, w, h) => T(x + su * w * ux + sv * h * vx,
                                          y + su * w * uy + sv * h * vy,
                                          z + su * w * uz + sv * h * vz);
@@ -395,12 +408,30 @@ const MAT = [C.BODY, C.GOLD];
 // A part's endpoints with its group offsets folded in. Everything that draws or
 // aims reads the table through this, so the head, horn and eyes cannot drift
 // apart, and the horn a shot leaves along is the horn that gets drawn.
+// The head group's rotation, applied to a direction. Kept separate from the point
+// version so the eyes can push out along the head's rotated flank instead of along
+// model x, which is where they would stay if only positions were rotated.
+const hrot = (a, b, c) => {
+  const [rx, ry, rz] = C.HEADR;
+  const cx = cos(rx), sx = sin(rx), cw = cos(ry), sw = sin(ry), cz = cos(rz), sz = sin(rz);
+  const a2 = a * cw + c * sw, c2 = c * cw - a * sw;    // yaw, about up
+  const b2 = b * cx - c2 * sx, c3 = c2 * cx + b * sx;  // pitch, about the flank
+  return [a2 * cz - b2 * sz, a2 * sz + b2 * cz, c3];   // roll, about the muzzle
+};
+// And to a point: scaled and rotated about the joint, then moved.
+const hmap = (x, y, z) => {
+  const P0 = PARTS[1], k = C.HEADS;
+  const v = hrot((x - P0[0]) * k, (y - P0[1]) * k, (z - P0[2]) * k);
+  return [P0[0] + v[0] + C.HEADO[0], P0[1] + v[1] + C.HEADO[1], P0[2] + v[2] + C.HEADO[2]];
+};
+
 export const eff = (i) => {
   const q = PARTS[i].slice();
   if (i) {                                       // head, horn and eyes ride together
-    for (const k of [0, 3]) q[k] += C.HEADO[0];
-    for (const k of [1, 4]) q[k] += C.HEADO[1];
-    for (const k of [2, 5]) q[k] += C.HEADO[2];
+    const a = hmap(q[0], q[1], q[2]), b = hmap(q[3], q[4], q[5]);
+    q[0] = a[0]; q[1] = a[1]; q[2] = a[2];
+    q[3] = b[0]; q[4] = b[1]; q[5] = b[2];
+    for (const k of [6, 7, 8, 9]) q[k] *= C.HEADS;
   }
   return q;
 };
@@ -420,21 +451,28 @@ const T = (x, y, z) => {
 // an eye is a shallow disc pushed out along it.
 const eyes = () => {
   const q = eff(1), t = C.EYES[1];
-  const ax = q[0] + (q[3] - q[0]) * t;
-  const ay = q[1] + (q[4] - q[1]) * t + C.EYES[0];
-  const az = q[2] + (q[5] - q[2]) * t;
+  const ax = q[0] + (q[3] - q[0]) * t + hrot(0, C.EYES[0], 0)[0];
+  const u0 = hrot(0, C.EYES[0], 0);              // "up" is the head's up, not the world's
+  const ay = q[1] + (q[4] - q[1]) * t + u0[1];
+  const az = q[2] + (q[5] - q[2]) * t + u0[2];
   const hw = q[6] + (q[8] - q[6]) * t;           // the head's half-width there
-  const r = C.EYES[3], d = C.EYES[4];
+  const r = C.EYES[3] * C.HEADS, d = C.EYES[4] * C.HEADS;
+  // Out along the head's OWN flank, which is only model x while the group is
+  // unrotated. The up and forward axes of the disc follow the head too.
+  const fl = hrot(1, 0, 0), up = hrot(0, 1, 0), fw = hrot(0, 0, 1);
   for (const sx of [1, -1]) {
-    const x0 = ax + sx * (hw * C.EYES[2] + d / 2);
-    cone(frame([x0, ay, az], [0, r, 0], [sx * d / 2, 0, 0], [0, 0, r]), 10, C.IRIS, T);
+    const o = hw * C.EYES[2] * C.HEADS + d / 2;
+    cone(frame([ax + sx * fl[0] * o, ay + sx * fl[1] * o, az + sx * fl[2] * o],
+               [up[0] * r, up[1] * r, up[2] * r],
+               [sx * fl[0] * d / 2, sx * fl[1] * d / 2, sx * fl[2] * d / 2],
+               [fw[0] * r, fw[1] * r, fw[2] * r]), 10, C.IRIS, T);
   }
 };
 
 const puppet = () => {
   for (let i = 0; i < PARTS.length; i++) {
     const q = eff(i);
-    swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]]);
+    swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]], i ? C.HEADR[2] : 0);
   }
   eyes();
 

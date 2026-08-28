@@ -147,9 +147,16 @@ slider('pitch', () => C.PUPB, (v) => (C.PUPB = v), -1.6, 1.6, 0.01,
 // The head, its horn and its eyes move together. Nudging the head row on its own
 // leaves the horn behind, which is not a thing a head does.
 h2('head, horn and eyes together');
+const deg = (v) => (v * 57.3).toFixed(0) + '\u00b0';
 slider('sideways', () => C.HEADO[0], (v) => (C.HEADO[0] = v), -0.3, 0.3, 0.002);
 slider('up', () => C.HEADO[1], (v) => (C.HEADO[1] = v), -0.3, 0.4, 0.002);
 slider('forward', () => C.HEADO[2], (v) => (C.HEADO[2] = v), -0.3, 0.4, 0.002);
+slider('scale', () => C.HEADS, (v) => (C.HEADS = v), 0.3, 2.5, 0.01);
+// About the joint where the head meets the neck, so it swings rather than
+// drifting off the end of it.
+slider('nod', () => C.HEADR[0], (v) => (C.HEADR[0] = v), -1.2, 1.2, 0.01, deg);
+slider('turn', () => C.HEADR[1], (v) => (C.HEADR[1] = v), -1.2, 1.2, 0.01, deg);
+slider('tilt', () => C.HEADR[2], (v) => (C.HEADR[2] = v), -1.2, 1.2, 0.01, deg);
 
 // The eyes are discs laid against the head's flank, so they are placed against
 // the head - a fraction along it, and a multiple of its own half-width out - and
@@ -227,7 +234,9 @@ const dump = () => {
     '  MANEN: ' + C.MANEN + ',  MANE0: ' + f(C.MANE0) + ',  MANE1: ' + f(C.MANE1) + ',\n' +
     '  MANEL: ' + f(C.MANEL) + ',  MANER: ' + f(C.MANER) + ',  MANEX: ' + f(C.MANEX) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
     '  EYES: [' + C.EYES.map(f).join(', ') + '],\n' +
-    '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  EYES: [' + C.EYES.map(f).join(', ') + '],  MANEO: [' + C.MANEO.map(f).join(', ') + '],\n' +
+    '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  HEADS: ' + f(C.HEADS) +
+      ',  HEADR: [' + C.HEADR.map(f).join(', ') + '],\n' +
+    '  MANEO: [' + C.MANEO.map(f).join(', ') + '],\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS + '],';
 };
 dump();
