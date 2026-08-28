@@ -59,6 +59,13 @@ export const C = {
   // --- Speed ----------------------------------------------------------------
   SPEED: 1,           // base units per second
   STEP: 0.00606,      // LINEAR, per SECOND elapsed. Never compound.
+  ENDL: 0.0016,       // extra speed per second once escalation is complete, and
+  CAP2: 2.2,          // where even that stops. Past CAP the spawner divides every
+                      // interval by the speed, so density holds and only the
+                      // reaction window closes. CAP2 is set by the economy, not by
+                      // taste: income is RGEN + RBFILL * speed / SP_RB, which
+                      // reaches the 1 bar/s the beam costs at about 2.6x. Beyond
+                      // that the bar would stop constraining anything again.
   CAP: 1.4,           // Deliberately low, and it is a consequence, not a taste.
                       // Spawns are spaced in seconds now, so an object crosses
                       // the screen in VIEW/speed seconds: raise the cap and the
@@ -167,12 +174,16 @@ export const C = {
   OBW2: 0.255,
   OBH: 0.09,          // and height range
   OBH2: 0.315,
-  OBSC: 1.25,         // and how much bigger they grow by the end. Size is the one
+  OBSC: 1.32,         // and how much bigger they grow by the end. Size is the one
                       // escalation lever the beam does not cap: a wider block is
                       // harder to fly around but still takes HP hits to clear, so
                       // it adds pressure without adding energy demand. With the
                       // rate pinned at SP_OBST_HI this is what keeps the late run
-                      // climbing at all.
+                      // climbing at all. 1.32 rather than a round number: it is the
+                      // point where growing blocks exactly cancel the screen the
+                      // rising speed empties, so the covered area never dips. It
+                      // still leaves a full-size block 111px of slot for an 82px
+                      // unicorn.
   GATEW: 0.07,        // gate column width
   GATESQ: 0.11,       // panel HEIGHT; its width is the gate's, so it fills the column
   GFADE: 0.6,         // seconds a struck gate takes to clear
@@ -228,8 +239,7 @@ export const C = {
   // --- Difficulty past the speed cap (DESIGN.md 7) -------------------------
   // Speed stops early and low. Escalation is spawn rate and block size instead,
   // so difficulty shifts from reflex to decision-making.
-  HARD_AT: 66,        // SECONDS elapsed where the speed cap lands and escalation starts
-  HARD_TO: 159,       // seconds where escalation is complete
+  HARD_TO: 159,       // seconds to full escalation, ramping from the first one
   // Light prisms thin out, but must stay under LIGHT/DRAIN = 3.0 or perfect play
   // goes energy-negative and the run becomes unsurvivable by arithmetic rather
   // than by skill. At 2.9 the surplus drops from +0.5 to +0.1 a lap: still
@@ -474,7 +484,7 @@ const burst = (x, y, n, spread, col) => {
 // Simulation. The economy still advances on DISTANCE, not wall time, so every
 // cost is charged per second, and so is everything it is spent on.
 // ---------------------------------------------------------------------------
-const HARD = () => min(1, max(0, (clock - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
+const HARD = () => min(1, clock / C.HARD_TO);
 
 const BSUM = C.BW.reduce((a, b) => a + b, 0);
 const pickBoost = () => {
@@ -578,7 +588,8 @@ const trace = () => {
 //   5 gate         - a full column. extra is the panel's y, fade counts it out.
 // ---------------------------------------------------------------------------
 const step = (dt) => {
-  const spd = C.SPEED * min(C.CAP, 1 + C.STEP * clock) * (bSlow > 0 ? C.SLOW_F : 1);
+  const raw = min(C.CAP2, min(C.CAP, 1 + C.STEP * clock) + max(0, clock - C.HARD_TO) * C.ENDL);
+  const spd = C.SPEED * raw * (bSlow > 0 ? C.SLOW_F : 1);
   const dd = spd * dt;
   dist += dd;
   clock += dt;
@@ -680,6 +691,7 @@ const step = (dt) => {
   }
 
   const h = HARD(), sx = W + os, lo = PAD() + os, hi = H - PAD() - os, sep = C.SEP * H;
+  const ds = min(1, C.CAP / raw);              // keeps the field's spacing fixed in SPACE
   // Half-extents each object wants kept clear. A gate owns its whole column, so
   // it reserves a corridor instead: nothing spawns beside it at any height.
   const ew = (o) => (o[2] === 5 ? C.GCLR * H : o[2] === 4 ? o[5] / 2 : o[2] === 1 ? os * C.PR : os * C.ORB);
@@ -697,17 +709,17 @@ const step = (dt) => {
       return;
     }
   };
-  while (clock >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1, random() < 0.5 ? 1 : -1); }
-  while (clock >= nR) { nR += C.SP_RB; put(2); }
-  while (clock >= nB) { nB += C.SP_BOOST; put(3, pickBoost()); }
+  while (clock >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h) * ds; put(1, random() < 0.5 ? 1 : -1); }
+  while (clock >= nR) { nR += C.SP_RB * ds; put(2); }
+  while (clock >= nB) { nB += C.SP_BOOST * ds; put(3, pickBoost()); }
   while (clock >= nO) {
-    nO += LERP(C.SP_OBST, C.SP_OBST_HI, h);
+    nO += LERP(C.SP_OBST, C.SP_OBST_HI, h) * ds;
     const sc = LERP(1, C.OBSC, h) * H;
     put(4, random() < LERP(C.SPIKE, C.SPIKE * 1.8, h) ? 1 : 0,
         LERP(C.OBW, C.OBW2, random()) * sc, LERP(C.OBH, C.OBH2, random()) * sc);
   }
   while (clock >= nG) {
-    nG += C.SP_GATE;
+    nG += C.SP_GATE * ds;
     const gy = lo + random() * (hi - lo);
     ents.push([sx, H / 2, 5, 0, gy, C.GATEW * H, H * 2, 0, 0]);
   }
