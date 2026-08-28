@@ -64,8 +64,10 @@ export const C = {
   GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
   IRIS: [58, 150, 255],        // blue eyes
   MANEN: 5,           // mane tufts
-  MANE0: 0.3,         // where the first sits along the neck, 0 = base, 1 = poll
-  MANE1: 1.2,         // and the last
+  MANE0: 0.08,        // where the first sits along the neck, 0 = base, 1 = poll
+  MANE1: 0.95,        // and the last. Both stay inside 0..1 on purpose: past 1 the
+                      // sweep extrapolates beyond the neck's end point and the
+                      // last tufts land on the head.
   MANEL: 0.1,         // how far each stands off the crest
   MANER: 0.026,       // tuft thickness - a maximum, clamped to the spacing
   MANEX: 0.01,        // sideways flop
@@ -618,6 +620,9 @@ export const dbg = () => ({ W, H, PX, yaw, pitch, ghosts, horns, hearts, kills, 
 export const look = (y, p) => { yaw = y; pitch = p; aim(); };
 export const place = (gs) => { ghosts = gs; };
 export const restart = reset;
+// Test and editor seams. Dropped from the app build, so they cost nothing.
+export const drawPuppet = () => puppet();
+export const setFire = (v) => { down = v; };
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);

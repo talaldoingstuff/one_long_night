@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>puppet editor</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060e;overflow:hidden;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#c8cee6}
+  canvas{display:block;position:fixed;inset:0}
+  #panel{position:fixed;top:0;right:0;bottom:0;width:330px;background:#0c0e18f2;border-left:1px solid #232a44;
+         overflow-y:auto;padding:10px 12px 40px;box-shadow:-8px 0 24px #0008;transition:transform .18s}
+  #panel.hid{transform:translateX(318px)}
+  #grip{position:fixed;top:0;right:330px;width:12px;height:100%;cursor:col-resize;background:#161c30;
+        border-right:1px solid #232a44;transition:right .18s;display:flex;align-items:center;justify-content:center;color:#6b7599}
+  #grip.hid{right:12px}
+  h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7f89b0;margin:16px 0 6px;
+     border-bottom:1px solid #232a44;padding-bottom:4px}
+  h2:first-child{margin-top:0}
+  .row{display:grid;grid-template-columns:74px 1fr 54px;gap:6px;align-items:center;margin:2px 0}
+  .row label{color:#8b93b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row input[type=range]{width:100%;accent-color:#ff3b6b}
+  .row .v{text-align:right;color:#e8ecf8;font-variant-numeric:tabular-nums}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  button{background:#1a2138;border:1px solid #2e3860;color:#c8cee6;
+         padding:5px 9px;border-radius:4px;cursor:pointer;font:inherit}
+  button:hover{background:#232c4a}
+  button.on{background:#ff3b6b;border-color:#ff3b6b;color:#12060c}
+  textarea{width:100%;height:150px;background:#070912;color:#9fb0d8;border:1px solid #232a44;
+           border-radius:4px;font:11px/1.45 ui-monospace,monospace;padding:6px;resize:vertical}
+  #hint{position:fixed;left:12px;bottom:10px;color:#59618a}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="grip">‹</div>
+<div id="panel"></div>
+<div id="hint">drag to look · click to fire · the preview is the game itself</div>
+
+<script type="module">
+// The editor drives the GAME, not a copy of it. It loads src/main.js, which takes
+// over #c and runs its own loop, then mutates the same C and PARTS the game reads
+// every frame. Nothing here can drift from what ships, because there is only one
+// implementation.
+const M = await import('/src/main.js');
+const { C, PARTS } = M;
+
+const $ = (id) => document.getElementById(id);
+const panel = $('panel');
+const ORIGC = JSON.parse(JSON.stringify(C));
+const ORIGP = JSON.parse(JSON.stringify(PARTS));
+
+const ctl = [];
+const h2 = (t) => { const e = document.createElement('h2'); e.textContent = t; panel.append(e); };
+const slider = (label, get, set, lo, hi, step, fmt) => {
+  const row = document.createElement('div');
+  row.className = 'row';
+  const l = document.createElement('label'); l.textContent = label;
+  const i = document.createElement('input');
+  i.type = 'range'; i.min = lo; i.max = hi; i.step = step;
+  const v = document.createElement('span'); v.className = 'v';
+  const sync = () => { i.value = get(); v.textContent = fmt ? fmt(get()) : (+get()).toFixed(3); };
+  i.oninput = () => { set(+i.value); sync(); dump(); };
+  row.append(l, i, v);
+  panel.append(row);
+  sync();
+  ctl.push(sync);
+  return { sync };
+};
+const btn = (label, onclick, host) => {
+  const b = document.createElement('button');
+  b.textContent = label; b.onclick = () => onclick(b);
+  (host || panel).append(b);
+  return b;
+};
+const btnRow = () => { const d = document.createElement('div'); d.className = 'btns'; panel.append(d); return d; };
+
+// --- preview -----------------------------------------------------------------
+h2('preview');
+{
+  const r = btnRow();
+  let auto = 0;
+  btn('auto fire', (b) => {
+    auto = !auto;
+    b.classList.toggle('on', !!auto);
+    M.setFire(auto ? 1 : 0);          // the same flag a held pointer sets
+  }, r);
+  // Re-assert it: a click in the preview ends with a pointerup, which clears the
+  // very flag this sets, and auto fire would stop with the button still lit.
+  setInterval(() => auto && M.setFire(1), 100);
+  let ghosts = 1;
+  btn('ghosts', (b) => {
+    ghosts = !ghosts;
+    b.classList.toggle('on', !ghosts);
+    b.textContent = ghosts ? 'ghosts' : 'ghosts off';
+    C.SPAWN = ghosts ? ORIGC.SPAWN : 1e9;
+    if (!ghosts) M.place([]);
+  }, r).classList.add('on');
+  $('grip').onclick = () => {
+    panel.classList.toggle('hid');
+    $('grip').classList.toggle('hid');
+    $('grip').textContent = panel.classList.contains('hid') ? '›' : '‹';
+  };
+  const r2 = btnRow();
+  btn('front on', () => M.look(0, 0), r2);
+  btn('restart', () => M.restart(), r2);
+  btn('reset all', () => {
+    Object.assign(C, JSON.parse(JSON.stringify(ORIGC)));
+    ORIGP.forEach((q, i) => q.forEach((v, j) => (PARTS[i][j] = v)));
+    ctl.forEach((s) => s());
+    dump();
+  }, r2);
+}
+
+// --- pose --------------------------------------------------------------------
+h2('pose in the frame');
+slider('right', () => C.PUP[0], (v) => (C.PUP[0] = v), -0.5, 2.5, 0.01);
+slider('down', () => C.PUP[1], (v) => (C.PUP[1] = v), -0.5, 2.5, 0.01);
+slider('forward', () => C.PUP[2], (v) => (C.PUP[2] = v), 0.2, 2.5, 0.01);
+slider('scale', () => C.PUPS, (v) => (C.PUPS = v), 0.3, 5, 0.02);
+slider('yaw', () => C.PUPA, (v) => (C.PUPA = v), -1.6, 1.6, 0.01,
+       (v) => (v * 57.3).toFixed(0) + '\u00b0');
+slider('pitch', () => C.PUPB, (v) => (C.PUPB = v), -1.6, 1.6, 0.01,
+       (v) => (v * 57.3).toFixed(0) + '\u00b0');
+
+// --- the parts ---------------------------------------------------------------
+// Every row is [ax,ay,az, bx,by,bz, w0,h0, w1,h1, material]: a box swept from one
+// point to another, with its own half-extents at each end.
+const NAMES = ['neck', 'head', 'horn', 'eye near', 'eye far'];
+const AX = ['x', 'up', 'fwd'];
+let mirror = true;
+const partRows = (i) => {
+  h2(NAMES[i]);
+  const q = PARTS[i];
+  const write = (j, v) => {
+    q[j] = v;
+    // The eyes are a pair; editing one and hand-matching the other is how they
+    // end up half a millimetre apart. Mirror about the sagittal plane instead.
+    if (mirror && (i === 3 || i === 4)) {
+      const o = PARTS[i === 3 ? 4 : 3], sag = PARTS[1][0];
+      o[j] = (j === 0 || j === 3) ? 2 * sag - v : v;
+    }
+  };
+  for (let k = 0; k < 3; k++) slider('base ' + AX[k], () => q[k], (v) => write(k, v), -0.4, 1.0, 0.002);
+  for (let k = 0; k < 3; k++) slider('tip ' + AX[k], () => q[3 + k], (v) => write(3 + k, v), -0.4, 1.0, 0.002);
+  slider('base wide', () => q[6], (v) => write(6, v), 0.001, 0.3, 0.001);
+  slider('base tall', () => q[7], (v) => write(7, v), 0.001, 0.3, 0.001);
+  slider('tip wide', () => q[8], (v) => write(8, v), 0.001, 0.3, 0.001);
+  slider('tip tall', () => q[9], (v) => write(9, v), 0.001, 0.3, 0.001);
+};
+partRows(0);
+partRows(1);
+partRows(2);
+h2('eyes');
+{
+  const r = btnRow();
+  btn('mirror', (b) => { mirror = !mirror; b.classList.toggle('on', mirror); }, r).classList.add('on');
+}
+partRows(3);
+partRows(4);
+
+// --- mane --------------------------------------------------------------------
+h2('mane');
+// MANE0 and MANE1 are positions ALONG the neck. Both stop at 1 on purpose: past
+// it the sweep extrapolates beyond the neck's end and the tufts land on the head.
+slider('tufts', () => C.MANEN, (v) => (C.MANEN = Math.round(v)), 0, 12, 1, (v) => String(v));
+slider('first at', () => C.MANE0, (v) => (C.MANE0 = v), 0, 1, 0.01);
+slider('last at', () => C.MANE1, (v) => (C.MANE1 = v), 0, 1, 0.01);
+slider('stand off', () => C.MANEL, (v) => (C.MANEL = v), 0, 0.35, 0.005);
+slider('thickness', () => C.MANER, (v) => (C.MANER = v), 0.002, 0.09, 0.001);
+slider('side flop', () => C.MANEX, (v) => (C.MANEX = v), -0.08, 0.08, 0.002);
+slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
+
+// --- colours -----------------------------------------------------------------
+h2('colour');
+const rgbRow = (label, arr) => {
+  for (const [k, ch] of [[0, 'r'], [1, 'g'], [2, 'b']]) {
+    slider(label + ' ' + ch, () => arr[k], (v) => (arr[k] = Math.round(v)), 0, 255, 1, (v) => String(v));
+  }
+};
+rgbRow('body', C.BODY);
+rgbRow('horn', C.GOLD);
+rgbRow('eye', C.IRIS);
+
+// --- output ------------------------------------------------------------------
+h2('paste back into C');
+const out = document.createElement('textarea');
+out.readOnly = true;
+panel.append(out);
+{
+  const r = btnRow();
+  btn('copy', () => navigator.clipboard && navigator.clipboard.writeText(out.value), r);
+}
+const f = (v) => (Math.round(v * 1e4) / 1e4).toString();
+const dump = () => {
+  out.value =
+    'export const PARTS = [\n' +
+    PARTS.map((q, i) => '  [' + q.map(f).join(', ') + '],').map((s, i) => s.padEnd(64) + '// ' + NAMES[i]).join('\n') +
+    '\n];\n\n// in C:\n' +
+    '  PUP: [' + C.PUP.map(f).join(', ') + '],\n' +
+    '  PUPS: ' + f(C.PUPS) + ',  PUPA: ' + f(C.PUPA) + ',  PUPB: ' + f(C.PUPB) + ',\n' +
+    '  MANEN: ' + C.MANEN + ',  MANE0: ' + f(C.MANE0) + ',  MANE1: ' + f(C.MANE1) + ',\n' +
+    '  MANEL: ' + f(C.MANEL) + ',  MANER: ' + f(C.MANER) + ',  MANEX: ' + f(C.MANEX) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
+    '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS + '],';
+};
+dump();
+</script>
+</body>
+</html>
