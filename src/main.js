@@ -11,27 +11,54 @@ export const C = {
   // collision, not by the bar emptying - an empty bar means you cannot open the
   // next gate, and it is the gate that kills you.
   //
-  // Still denominated in track units, so channelling costs the same at 1x as at
-  // the speed cap. DESIGN.md 7's argument outlives the genre again.
-  BAR: 10,            // bar capacity, units
+  // Denominated in SECONDS, and so is everything else. One bar is one second of
+  // the beam, which is legible in a way a per-unit cost never was: count the
+  // cells and you know how long you can hold the trigger.
+  //
+  // Mixing the two denominations is what broke twice. Charge per unit and demand
+  // per unit, and the run is speed-invariant but the numbers are unreadable.
+  // Charge per SECOND while spacing demand by DISTANCE, and income scales with
+  // speed while cost does not - the bar stops constraining anything at the 3x
+  // cap, exactly when the game should bite hardest. There is no third option
+  // that keeps both, so the whole run is on the clock now and speed is only a
+  // reaction-time knob.
+  //
+  // BEAMC is therefore the ceiling on how much shooting the game may ASK for:
+  // one second of beam per second is all a player can physically supply, so the
+  // block rate (SP_OBST_HI) cannot outrun it. That one line sets the late game.
+  BAR: 7,             // bar capacity, in bars. One bar = one second of channelling.
   DRAIN: 0,           // no passive drain. Raise to put a clock back.
-  BEAMC: 0.8,         // charge spent per unit while channelling
-  RGEN: 0.12,         // and trickled back per unit, always. A full bar from empty
-                      // takes ~83 units, so it recovers but never rescues.
-  RBFILL: 6,          // a rainbow sphere is worth this much charge
+  BEAMC: 1,           // bars spent per SECOND while channelling
+  RGEN: 0.1667,       // and trickled back per second, always: one bar every 6s.
+  RBFILL: 2,          // a rainbow sphere is worth two bars.
 
-  // --- Spawn spacing, in track units ----------------------------------------
-  SP_LIGHT: 3.5,      // reflector prisms
-  SP_RB: 6,           // rainbow spheres
-  SP_BOOST: 22,       // mystery spheres
-  SP_OBST: 2.6,       // obstacles
-  SP_GATE: 26,        // gates
+  // --- Spawn spacing, in SECONDS -------------------------------------------
+  // The whole game is denominated in time now: the beam costs per second, damage
+  // lands per second, and things arrive per second. Nothing silently changes
+  // value when the run speeds up, in either direction.
+  SP_LIGHT: 2.8,      // reflector prisms
+  SP_RB: 6.4,         // rainbow spheres
+  SP_BOOST: 17.6,     // mystery spheres
+  SP_OBST: 2.08,      // obstacles
+  SP_OBST_HI: 1.4,    // and how fast they come once escalation is complete. This
+                      // is THE difficulty knob now, and it did NOT move when the
+                      // opening was sped up 25%: clearing one late block already
+                      // takes 1.27s of beam, so anything under that is unclearable
+                      // by arithmetic rather than by skill. The opening moved
+                      // toward a fixed ceiling, which is what shortens the climb.
+  SP_GATE: 20.8,      // gates
   SPIKE: 0.3,         // fraction of obstacles that are spiked
 
   // --- Speed ----------------------------------------------------------------
   SPEED: 1,           // base units per second
-  STEP: 0.0333,       // LINEAR, per unit travelled. Never compound.
-  CAP: 3,             // 3x base
+  STEP: 0.00606,      // LINEAR, per SECOND elapsed. Never compound.
+  CAP: 1.4,           // Deliberately low, and it is a consequence, not a taste.
+                      // Spawns are spaced in seconds now, so an object crosses
+                      // the screen in VIEW/speed seconds: raise the cap and the
+                      // arrival rate stays put while each object clears faster,
+                      // which EMPTIES the late screen. Density has to come from
+                      // the interval instead, and the interval is itself capped
+                      // by the bar - see BEAMC. Raising CAP thins the late game.
 
   // --- The world (landscape, 2D play) --------------------------------------
   // Play is flat: the unicorn moves freely in screen x and y while the level
@@ -136,28 +163,40 @@ export const C = {
                       // also lifts the crossover above, so it earns twice.
   LOD: 26,            // below this on-screen size legs lose their lower segment
   // --- Obstacles, gates and the ray -----------------------------------------
-  OBW: 0.16,          // obstacle width range, fractions of screen height
-  OBW2: 0.34,
-  OBH: 0.12,          // and height range
-  OBH2: 0.42,
+  OBW: 0.12,          // obstacle width range, fractions of screen height
+  OBW2: 0.255,
+  OBH: 0.09,          // and height range
+  OBH2: 0.315,
+  OBSC: 1.25,         // and how much bigger they grow by the end. Size is the one
+                      // escalation lever the beam does not cap: a wider block is
+                      // harder to fly around but still takes HP hits to clear, so
+                      // it adds pressure without adding energy demand. With the
+                      // rate pinned at SP_OBST_HI this is what keeps the late run
+                      // climbing at all.
   GATEW: 0.07,        // gate column width
-  GATESQ: 0.11,       // the rainbow panel in it - the only way through
+  GATESQ: 0.11,       // panel HEIGHT; its width is the gate's, so it fills the column
   GFADE: 0.6,         // seconds a struck gate takes to clear
+  GTOL: 1.7,          // how forgiving the panel is: a graze past it counts
+  GCLR: 0.35,         // corridor a gate reserves either side, fraction of height
+  GLEAD: 2.6,         // and the run-up it holds clear before it, in track units
   BOUNCE: 4,          // how many times the ray may turn
+  PROT: 2.667,        // seconds for a prism's output to sweep a full circle
+  HITT: 0.5,          // seconds between hits, so 2 a second
+  FLASHT: 0.13,       // how long the white hit-flash takes to fade
+  MSGT: 1.1,          // how long a booster's name floats before it is gone
+  MSGR: 46,           // and how far it rises while it fades, in pixels
   HP: [2, 3],         // hits to break an obstacle: plain, spiked
-  // Damage is per SECOND, as specified - which does make the ray relatively
-  // weaker at the speed cap, since you cover 3x the ground while burning through
-  // the same slab. Everything else in the economy is per unit; if that asymmetry
-  // bites, this is the constant that fixes it.
-  DPS: 2,             // hits per second while the ray rests on something
-  RBS: 0.17,          // rainbow sphere radius, in object-size units
+  // Hits land on a timer, not continuously - discrete so each one can flash.
+  // Per SECOND, as specified, where the rest of the economy is per unit: at the
+  // speed cap you cover 3x the ground while burning through the same slab, so
+  // the ray is relatively weaker late. HITT is the constant that fixes it.
+  RBS: 0.172,         // rainbow sphere radius, matched to the mystery sphere
 
-  PR: 0.0825,         // prism radius across, in object-size units
+  PR: 0.103,          // prism radius across, in object-size units
   PRY: 2.6,           // and its vertical stretch. A regular octahedron reads as
                       // wide, because height foreshortens by PCY and width does
                       // not; stretching y is what makes it a standing crystal.
   ORB: 0.172,          // mystery sphere radius - just over the prism's width
-  PSPIN: 2.2,         // prism turns per unit of track
 
   // --- Feel and the beam ---------------------------------------------------
   GALLOP: 1.5,        // stride cycles per unit of track, so the gait tracks speed
@@ -175,28 +214,28 @@ export const C = {
   // Auto-activate on contact, no held slot. Pickups arrive as mystery spheres
   // marked with a question mark.
   //
-  // On denomination: DESIGN.md 8 writes the energy saver as "5s". Under 7's
-  // distance model that is worth three times as much at the speed cap as at
-  // base, which is exactly the speed-dependence the distance rule exists to
-  // remove. So the saver and the bad-luck window are measured in UNITS here.
-  // Time slow stays in seconds - 8 notes it buys pure reaction time and grants
-  // no energy, so it cannot unbalance the economy either way.
+  // Every booster window is in seconds, like everything else. This used to need
+  // a paragraph explaining why some were in units and some in seconds.
   BW: [2, 3, 2, 1],   // refill, slow, clear, spikes. Bad luck rarest.
   SLOW_S: 5,          // time slow: seconds
   SLOW_F: 0.55,       // speed multiplier while slowed
-  LUCK_U: 8,          // spiked-everything window, units of track
+  LUCK_S: 8,          // spiked-everything window, seconds
 
   // --- Difficulty past the speed cap (DESIGN.md 7) -------------------------
   // Speed stops at 3x. After that, escalate through dark-prism ratio and spawn
   // density instead, so difficulty shifts from reflex to decision-making.
-  HARD_AT: 60,        // units travelled where the speed cap lands and escalation starts
-  HARD_TO: 200,       // units where escalation is complete
+  HARD_AT: 66,        // SECONDS elapsed where the speed cap lands and escalation starts
+  HARD_TO: 159,       // seconds where escalation is complete
   // Light prisms thin out, but must stay under LIGHT/DRAIN = 3.0 or perfect play
   // goes energy-negative and the run becomes unsurvivable by arithmetic rather
   // than by skill. At 2.9 the surplus drops from +0.5 to +0.1 a lap: still
   // sustainable, with no margin left for a single mistake.
-  SP_LIGHT_HI: 2.9,
-  SP_BOOST_HI: 22,    // mystery spheres thin out as the run goes on
+  SP_LIGHT_HI: 2.1,
+  SP_RB_HI: 6.4,      // held FLAT: income per second must not drift over the run,
+                      // or the bar means something different late than it does
+                      // early. Escalation is the block rate's job, not the
+                      // sphere rate's.
+  SP_BOOST_HI: 17.6,  // mystery spheres hold their rate
 
   // --- Audio (DESIGN.md 9) -------------------------------------------------
   // Separate buses. One shared gain made SFX and music impossible to balance,
@@ -246,19 +285,23 @@ const PAD = () => C.PAD * H;
 // The array stays sorted far-to-near for free: spawns push at z=0, the near end.
 // ---------------------------------------------------------------------------
 let ents, parts, dist, energy, over, px, py, vx, vy, fire, flash,
-    bSlow, bLuck, nL, nR, nB, nO, nG, last, fly;
+    bSlow, bLuck, nL, nR, nB, nO, nG, last, fly, clock,
+    msg, msgT, msgC, msgX, msgY;                 // the floating booster name
 
 // Personal best, in namespaced localStorage (DESIGN.md 4). Never
 // localStorage.clear() - js13k entries share an origin. Private mode throws on
 // access, hence the guards.
-const BEST = 'rbwd.best';
+// mm:ss.mmm. The key changed with the denomination: a stored distance would
+// otherwise come back as a nonsense personal best.
+const MMSS = (t) => ('0' + (t / 60 | 0)).slice(-2) + ':' + ('0' + (t % 60).toFixed(3)).slice(-6);
+const BEST = 'rbwd.bt';
 let best = 0;
 try { best = +localStorage[BEST] || 0; } catch (e) {}
 
 const reset = () => {
   ents = []; parts = [];
-  dist = 0; energy = C.BAR; over = 0; flash = 0; fire = 0; fly = 1;
-  bSlow = bLuck = 0;
+  dist = 0; clock = 0; energy = C.BAR; over = 0; flash = 0; fire = 0; fly = 1;
+  bSlow = bLuck = msgT = 0;
   px = C.PX0 * W; py = H / 2; vx = vy = 0;
   SEG = [];
   nL = C.SP_LIGHT; nR = C.SP_RB; nB = C.SP_BOOST; nO = C.SP_OBST; nG = C.SP_GATE;
@@ -434,7 +477,7 @@ const burst = (x, y, n, spread, col) => {
 // the change of genre intact. Entities are [x, y, type, phase, boost].
 // type 1 = light prism, 2 = dark prism, 3 = mystery sphere.
 // ---------------------------------------------------------------------------
-const HARD = () => min(1, max(0, (dist - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
+const HARD = () => min(1, max(0, (clock - C.HARD_AT) / (C.HARD_TO - C.HARD_AT)));
 
 const BSUM = C.BW.reduce((a, b) => a + b, 0);
 const pickBoost = () => {
@@ -443,15 +486,21 @@ const pickBoost = () => {
   return i;
 };
 
+// Named, because a mystery sphere that just silently changes the run tells you
+// nothing about which of the four you got.
+const BN = ['FULL CHARGE', 'SLOW TIME', 'PATH CLEARED', 'BAD LUCK'];
+
 const applyBoost = (b, x, y) => {
   if (b === 0) energy = C.BAR;                            // refill the rainbow
   else if (b === 1) bSlow = C.SLOW_S;                     // slow time
   else if (b === 2) {                                     // clear the field
     for (const o of ents) if (o[2] === 4) o[2] = 0;
   } else {                                                // bad luck: spike everything
-    bLuck = C.LUCK_U;
+    bLuck = C.LUCK_S;
     for (const o of ents) if (o[2] === 4) o[4] = 1;
   }
+  msg = BN[b]; msgT = C.MSGT; msgX = x; msgY = y;
+  msgC = b === 3 ? '#ff9a9a' : '#fff';           // bad luck reads as a warning
   burst(x, y, 16, OS() * 5);
   sfx(S_BOOST);
 };
@@ -471,32 +520,44 @@ const segDist = (sx, sy, ex, ey, qx, qy) => {
   return hypot(qx - sx - t * vx, qy - sy - t * vy);
 };
 
-// The ray is always axis-aligned - it starts flat and only ever turns 90 degrees
-// - so a slab test collapses to two comparisons instead of a full ray-box
-// intersection.
+// A prism's output SWEEPS - a full circle every PROT seconds, each prism at its
+// own offset - so the ray leaves at any angle, not one of four. That costs the
+// axis-aligned shortcut the slab test used to enjoy: it is a real slab-method
+// ray-box intersection now.
 let BURN = 0;                          // whatever the ray is currently resting on
+const pang = (o) => (clock / C.PROT + o[3]) * 2 * PI;
+
+// Distance along a ray to an axis-aligned box grown by the beam's half-height,
+// or -1 for a miss.
+const rayBox = (x, y, ux, uy, cx, cy, ex, ey) => {
+  let t0 = -1e9, t1 = 1e9;
+  for (const [p, d, c, e] of [[x, ux, cx, ex], [y, uy, cy, ey]]) {
+    if (abs(d) < 1e-6) { if (abs(c - p) > e) return -1; continue; }
+    const a = (c - e - p) / d, b = (c + e - p) / d;
+    t0 = max(t0, min(a, b)); t1 = min(t1, max(a, b));
+  }
+  return t1 >= max(t0, 0) ? max(t0, 0) : -1;
+};
 
 const trace = () => {
   SEG = [];
   BURN = 0;
   if (!fire) return;
   const hh = C.BEAMH * H, pr = C.PR * OS();
-  let x = px + C.PSZ * H * C.BEAMX, y = py + C.BEAMY * H, ux = 1, uy = 0;
+  let x = px + C.PSZ * H * C.BEAMX, y = py + C.BEAMY * H, ux = 1, uy = 0, last2 = 0;
   for (let n = 0; n < C.BOUNCE; n++) {
     let hit = 0, bd = 1e9, solid = 0;
     for (const o of ents) {
       const t = o[2];
       if (t === 1) {                                        // reflector
+        if (o === last2) continue;                          // do not re-enter the one just left
         const rx = o[0] - x, ry = o[1] - y;
         const a2 = rx * ux + ry * uy, p2 = abs(ry * ux - rx * uy);
         if (a2 > pr && p2 < hh + pr && a2 < bd) { bd = a2; hit = o; solid = 0; }
       } else if ((t === 4 || t === 5) && !o[7]) {            // obstacle or gate
-        const cy = t === 5 ? H / 2 : o[1];
-        const a2 = (o[0] - x) * ux + (cy - y) * uy;
-        const p2 = abs((cy - y) * ux - (o[0] - x) * uy);
-        const hA = (o[5] / 2) * abs(ux) + (o[6] / 2) * abs(uy);
-        const hP = (o[6] / 2) * abs(ux) + (o[5] / 2) * abs(uy);
-        if (p2 < hP + hh && a2 - hA > 0 && a2 - hA < bd) { bd = a2 - hA; hit = o; solid = 1; }
+        const d2 = rayBox(x, y, ux, uy, o[0], t === 5 ? H / 2 : o[1],
+                          o[5] / 2 + hh, o[6] / 2 + hh);
+        if (d2 >= 0 && d2 < bd) { bd = d2; hit = o; solid = 1; }
       }
     }
     const far = hit ? bd : W + H;
@@ -504,8 +565,9 @@ const trace = () => {
     if (!hit) break;
     if (solid) { BURN = hit; break; }                       // stopped, and burning
     x += ux * bd; y += uy * bd;
-    const t2 = ux;                                          // turn the prism's way
-    ux = -uy * hit[4]; uy = t2 * hit[4];
+    const a3 = pang(hit);                                   // out along the prism's sweep
+    ux = cos(a3); uy = sin(a3);
+    last2 = hit;
   }
 };
 
@@ -519,14 +581,16 @@ const trace = () => {
 //   5 gate         - a full column. extra is the panel's y, fade counts it out.
 // ---------------------------------------------------------------------------
 const step = (dt) => {
-  const spd = C.SPEED * min(C.CAP, 1 + C.STEP * dist) * (bSlow > 0 ? C.SLOW_F : 1);
+  const spd = C.SPEED * min(C.CAP, 1 + C.STEP * clock) * (bSlow > 0 ? C.SLOW_F : 1);
   const dd = spd * dt;
   dist += dd;
+  clock += dt;
 
   fire = (KEYS[' '] || mouse) && energy > 0 ? 1 : 0;
-  energy = min(C.BAR, max(0, energy + dd * (C.RGEN - C.DRAIN - (fire ? C.BEAMC : 0))));
-  bLuck = max(0, bLuck - dd);
+  energy = min(C.BAR, max(0, energy + dt * (C.RGEN - C.DRAIN - (fire ? C.BEAMC : 0))));
+  bLuck = max(0, bLuck - dt);
   bSlow = max(0, bSlow - dt);
+  msgT = max(0, msgT - dt);
   flash = max(0, flash - dt * 3);
   music(dt);
 
@@ -542,22 +606,27 @@ const step = (dt) => {
   const dx = dd * PPU(), os = OS(), os2 = os, ps = C.PSZ * H;
   const prx = ps * C.PW, pry = ps * C.PH;
   for (const o of ents) o[0] -= dx;
+  msgX -= dx;                                    // the toast rides the world it popped in
 
   trace();
 
   // The ray burns through whatever it is resting on. Plain slabs take 2 hits,
   // spiked ones 3, at DPS a second - so cover has to be cleared, not dodged.
   if (BURN && BURN[2] === 4) {
-    BURN[8] -= C.DPS * dt;
-    if (BURN[8] <= 0) {
-      burst(BURN[0], BURN[1], 20, os2 * 5, '#ffe9a0');
-      sfx(S_BOOST);
-      BURN[2] = 0;
+    BURN[3] += dt;
+    if (BURN[3] >= C.HITT) {
+      BURN[3] -= C.HITT;
+      BURN[9] = C.FLASHT;                        // one white flash per landed hit
+      if (--BURN[8] <= 0) {
+        burst(BURN[0], BURN[1], 20, os2 * 5, '#ffe9a0');
+        sfx(S_BOOST);
+        BURN[2] = 0;
+      } else sfx(S_LIGHT);
     }
   }
 
   // Gates open where a ray segment reaches the panel.
-  const pr2 = C.GATESQ * H * 0.5 + C.BEAMH * H;
+  const pr2 = C.GATESQ * H * 0.5 * C.GTOL + C.BEAMH * H;
   for (const o of ents) {
     if (o[2] !== 5 || o[7]) continue;
     if (SEG.some((g) => segDist(g[0], g[1], g[2], g[3], o[0], o[4]) < pr2)) {
@@ -569,6 +638,7 @@ const step = (dt) => {
 
   for (let i = ents.length; i--;) {
     const o = ents[i], t = o[2];
+    if (o[9] > 0) o[9] = max(0, o[9] - dt);
     if (o[7]) { o[7] -= dt; if (o[7] <= 0) { ents.splice(i, 1); continue; } }
     if (o[0] < -W * 0.2) { ents.splice(i, 1); continue; }
     if (t === 1 || t === 0) continue;              // prisms never collide
@@ -577,11 +647,18 @@ const step = (dt) => {
       const hw = o[5] / 2 + prx, hy = o[6] / 2 + pry;
       const ex = px - o[0], ey = py - (t === 5 ? H / 2 : o[1]);
       if (abs(ex) < hw && abs(ey) < hy) {
-        // A gate you failed to open is fatal, as is anything spiked.
-        if (t === 5 || (o[4] || bLuck > 0)) { over = 1; flash = 1; }
+        // Only spikes kill on contact. A shut gate blocks like any other slab -
+        // it is being pinned against the left edge that finishes you.
+        if (t === 4 && (o[4] || bLuck > 0)) { over = 1; flash = 1; }
         else {
           const ox = hw - abs(ex), oy = hy - abs(ey);
-          if (ox < oy) px += ex > 0 ? ox : -ox; else py += ey > 0 ? oy : -oy;
+          // Push out along the shallower axis, then clamp. Being shoved into the
+          // left edge is the loss: separating the boxes first left them merely
+          // touching, so a later overlap test could never see the pin.
+          if (ox < oy) {
+            px += ex > 0 ? ox : -ox;
+            if (px < PAD()) { px = PAD(); over = 1; flash = 1; }
+          } else py = min(H - PAD(), max(PAD(), py + (ey > 0 ? oy : -oy)));
         }
       }
       continue;
@@ -596,15 +673,6 @@ const step = (dt) => {
     }
   }
 
-  // Shoved off the left edge is a loss: there is nowhere left to be pushed.
-  if (px <= PAD() + 1 && !over) {
-    for (const o of ents) {
-      if ((o[2] !== 4 && o[2] !== 5) || o[7]) continue;
-      const hw = o[5] / 2 + prx, hy = o[6] / 2 + pry;
-      if (abs(px - o[0]) < hw && abs(py - (o[2] === 5 ? H / 2 : o[1])) < hy) { over = 1; flash = 1; }
-    }
-  }
-
   for (let i = parts.length; i--;) {
     const p = parts[i];
     p[0] += p[2] * dt - dx;
@@ -614,35 +682,41 @@ const step = (dt) => {
   }
 
   const h = HARD(), sx = W + os, lo = PAD() + os, hi = H - PAD() - os, sep = C.SEP * H;
-  const ry = () => {
+  // Half-extents each object wants kept clear. A gate owns its whole column, so
+  // it reserves a corridor instead: nothing spawns beside it at any height.
+  const ew = (o) => (o[2] === 5 ? C.GCLR * H : o[2] === 4 ? o[5] / 2 : o[2] === 1 ? os * C.PR : os * C.ORB);
+  const eh = (o) => (o[2] === 5 ? H : o[2] === 4 ? o[6] / 2 : o[2] === 1 ? os * C.PR : os * C.ORB);
+  const gLead = clock >= nG - C.GLEAD;         // hold the run-up to a gate empty
+  const put = (t, b, w, hgt) => {
+    if (gLead) return;
+    const hw = t === 4 ? w / 2 : t === 1 ? os * C.PR : os * C.ORB;
+    const hh = t === 4 ? hgt / 2 : hw;
     for (let k = 0; k < 8; k++) {
       const y = lo + random() * (hi - lo);
-      if (!ents.some((o) => abs(o[0] - sx) < sep && abs(o[1] - y) < sep)) return y;
+      if (ents.some((o) => abs(o[0] - sx) < ew(o) + hw + sep &&
+                           abs((o[2] === 5 ? H / 2 : o[1]) - y) < eh(o) + hh + sep)) continue;
+      ents.push([sx, y, t, random(), b, w, hgt, 0, C.HP[b ? 1 : 0], 0]);
+      return;
     }
-    return -1;
   };
-  const put = (t, b, w, hgt) => {
-    const y = ry();
-    if (y > 0) ents.push([sx, y, t, random(), b, w, hgt, 0, C.HP[b ? 1 : 0]]);
-  };
-  while (dist >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1, random() < 0.5 ? 1 : -1); }
-  while (dist >= nR) { nR += C.SP_RB; put(2); }
-  while (dist >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); put(3, pickBoost()); }
-  while (dist >= nO) {
-    nO += LERP(C.SP_OBST, C.SP_OBST * 0.6, h);
+  while (clock >= nL) { nL += LERP(C.SP_LIGHT, C.SP_LIGHT_HI, h); put(1, random() < 0.5 ? 1 : -1); }
+  while (clock >= nR) { nR += LERP(C.SP_RB, C.SP_RB_HI, h); put(2); }
+  while (clock >= nB) { nB += LERP(C.SP_BOOST, C.SP_BOOST_HI, h); put(3, pickBoost()); }
+  while (clock >= nO) {
+    nO += LERP(C.SP_OBST, C.SP_OBST_HI, h);
+    const sc = LERP(1, C.OBSC, h) * H;
     put(4, random() < LERP(C.SPIKE, C.SPIKE * 1.8, h) ? 1 : 0,
-        LERP(C.OBW, C.OBW2, random()) * H, LERP(C.OBH, C.OBH2, random()) * H);
+        LERP(C.OBW, C.OBW2, random()) * sc, LERP(C.OBH, C.OBH2, random()) * sc);
   }
-  while (dist >= nG) {
+  while (clock >= nG) {
     nG += C.SP_GATE;
     const gy = lo + random() * (hi - lo);
-    ents.push([sx, H / 2, 5, 0, gy, C.GATEW * H, H * 2, 0, 0]);
+    ents.push([sx, H / 2, 5, 0, gy, C.GATEW * H, H * 2, 0, 0, 0]);
   }
 
   if (over) {
     seq(S_OVER);
-    const sc = dist | 0;
-    if (sc > best) { best = sc; try { localStorage[BEST] = best; } catch (e) {} }
+    if (clock > best) { best = clock; try { localStorage[BEST] = best; } catch (e) {} }
   }
 };
 
@@ -855,10 +929,11 @@ const orb = (cx, cy, s) => {
   g.fillStyle = '#fff';
   g.font = 'bold ' + s * 0.26 + 'px monospace';
   g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText('?', cx, cy);
+  // textBaseline 'middle' centres the EM BOX, and '?' has no descender, so its
+  // ink ends up sitting low in the sphere. Centre the glyph's own box instead.
+  const m = g.measureText('?');
+  g.fillText('?', cx, cy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
   g.textAlign = 'left';
-  g.textBaseline = 'alphabetic';
 };
 
 // The ray, drawn a band at a time along every traced segment. One continuous
@@ -894,38 +969,102 @@ const beam = () => {
 // An obstacle: a slab with a lit top and a shaded right face, so it reads as
 // solid rather than as a flat rectangle. Spiked ones grow teeth.
 const OBC = [[92, 100, 128], [150, 60, 74]];
-const slab = (o) => {
-  const w = o[5], h = o[6], x = o[0] - w / 2, y = o[1] - h / 2;
-  const c = OBC[o[4] || bLuck > 0 ? 1 : 0], e = h * 0.16;
-  // Brighten as it burns, so a slab about to break says so.
-  const k = 1 + 0.7 * (1 - o[8] / C.HP[o[4] ? 1 : 0]);
-  g.fillStyle = shade(c, 0.62 * k); g.fillRect(x, y, w, h);
-  g.fillStyle = shade(c, 1 * k);    g.fillRect(x, y, w, e);
-  g.fillStyle = shade(c, 0.42); g.fillRect(x + w - e, y + e, e, h - e);
-  if (o[4] || bLuck > 0) {
-    g.fillStyle = shade(c, 1.25);
-    const n = max(2, w / (h * 0.18) | 0), s2 = w / n;
-    for (let i = 0; i < n; i++) {
+const GATEC = [34, 72, 46];                       // dark green
+
+// A plated block: frame plates with nail heads, two plates crossed inside, and
+// teeth on every edge when it is spiked. Obstacles and gates share it, so they
+// read as the same material.
+const plated = (x, y, w, h, c, spiked, fl) => {
+  const pl = min(w, h) * 0.17, sz = min(w, h) * 0.15;
+  g.fillStyle = shade(c, 0.5);
+  g.fillRect(x, y, w, h);
+
+  g.fillStyle = shade(c, 0.72);                   // the X, corner to corner
+  const bar = (ax, ay, bx, by) => {
+    const dx = bx - ax, dy = by - ay, L = hypot(dx, dy) || 1;
+    const nx = (-dy / L) * pl * 0.5, ny = (dx / L) * pl * 0.5;
+    g.beginPath();
+    g.moveTo(ax + nx, ay + ny); g.lineTo(bx + nx, by + ny);
+    g.lineTo(bx - nx, by - ny); g.lineTo(ax - nx, ay - ny);
+    g.fill();
+  };
+  bar(x + pl, y + pl, x + w - pl, y + h - pl);
+  bar(x + w - pl, y + pl, x + pl, y + h - pl);
+
+  g.fillStyle = shade(c, 1);                      // frame plates over the X ends
+  g.fillRect(x, y, w, pl); g.fillRect(x, y + h - pl, w, pl);
+  g.fillStyle = shade(c, 0.82);
+  g.fillRect(x, y, pl, h); g.fillRect(x + w - pl, y, pl, h);
+
+  g.fillStyle = shade(c, 1.45);                   // nail heads
+  const nr = max(0.6, pl * 0.2);
+  const nails = (ax, ay, dx, dy, len) => {
+    const n = max(1, (len / (pl * 2.6)) | 0);
+    for (let i = 0; i <= n; i++) {
       g.beginPath();
-      g.moveTo(x + i * s2, y); g.lineTo(x + i * s2 + s2 / 2, y - h * 0.16); g.lineTo(x + (i + 1) * s2, y);
+      g.arc(ax + dx * (i / n) * len, ay + dy * (i / n) * len, nr, 0, 7);
       g.fill();
     }
+  };
+  nails(x + pl / 2, y + pl / 2, 1, 0, w - pl);
+  nails(x + pl / 2, y + h - pl / 2, 1, 0, w - pl);
+  nails(x + pl / 2, y + pl / 2, 0, 1, h - pl);
+  nails(x + w - pl / 2, y + pl / 2, 0, 1, h - pl);
+
+  if (spiked) {
+    // Every edge gets the same tooth size and the same spacing rule, so the top
+    // row cannot end up a different shape from the other three.
+    g.fillStyle = shade(c, 1.25);
+    const edge = (ex, ey, dx, dy, len) => {
+      const n = max(2, round(len / (sz * 2))), st = len / n;
+      for (let i = 0; i < n; i++) {
+        g.beginPath();
+        g.moveTo(ex + dx * i * st, ey + dy * i * st);
+        g.lineTo(ex + dx * (i + 0.5) * st + dy * sz, ey + dy * (i + 0.5) * st - dx * sz);
+        g.lineTo(ex + dx * (i + 1) * st, ey + dy * (i + 1) * st);
+        g.fill();
+      }
+    };
+    edge(x, y, 1, 0, w);
+    edge(x + w, y, 0, 1, h);
+    edge(x + w, y + h, -1, 0, w);
+    edge(x, y + h, 0, -1, h);
+  }
+  if (fl > 0) {                                   // one white flash per landed hit
+    g.globalAlpha = fl / C.FLASHT;
+    g.fillStyle = '#fff';
+    g.fillRect(x, y, w, h);
+    g.globalAlpha = 1;
   }
 };
 
-// A gate is a full column with one rainbow panel. The panel is the only way
-// through: hit it with the ray and the column clears.
-const gate = (o) => {
-  const w = o[5], f = o[7] ? o[7] / C.GFADE : 1;
-  g.globalAlpha = f;
-  g.fillStyle = shade([70, 78, 110], 0.6);
-  g.fillRect(o[0] - w / 2, 0, w, H);
-  g.fillStyle = shade([70, 78, 110], 0.95);
-  g.fillRect(o[0] - w / 2, 0, w * 0.22, H);
-  const q = C.GATESQ * H;
+const slab = (o) => {
+  const w = o[5], h = o[6], sp = o[4] || bLuck > 0;
+  plated(o[0] - w / 2, o[1] - h / 2, w, h, OBC[sp ? 1 : 0], sp, o[9]);
+};
+
+// The rainbow sphere: concentric bands, no question mark. It was being drawn by
+// orb() - same shape, same size, same '?' - so it was invisible as a distinct
+// pickup even though it was there all along.
+const rsphere = (cx, cy, s) => {
+  const r = s * C.RBS;
   for (let i = 0; i < 6; i++) {
-    g.fillStyle = shade(RBV[i], o[7] ? 1.3 : 0.85);
-    g.fillRect(o[0] - q / 2, o[4] - q / 2 + (i * q) / 6, q, q / 6 + 1);
+    g.fillStyle = shade(RBV[i], 0.8 + 0.25 * sin(clock * 4 - i));
+    g.beginPath(); g.arc(cx, cy, r * (1 - i / 6.5), 0, 7); g.fill();
+  }
+};
+
+// A gate is a column of the same plated blocks, in dark green, with one rainbow
+// panel set into it. Stacking keeps the block proportions rather than stretching
+// one plate the whole height of the screen.
+const gate = (o) => {
+  const w = o[5], q = C.GATESQ * H;
+  g.globalAlpha = o[7] ? o[7] / C.GFADE : 1;
+  const n = max(3, (H / (w * 1.7)) | 0), sh = H / n;
+  for (let i = 0; i < n; i++) plated(o[0] - w / 2, i * sh, w, sh, GATEC, 0, 0);
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = shade(RBV[i], o[7] ? 1.4 : 0.9);
+    g.fillRect(o[0] - w / 2, o[4] - q / 2 + (i * q) / 6, w, q / 6 + 1);
   }
   g.globalAlpha = 1;
 };
@@ -943,18 +1082,36 @@ const hud = () => {
   const bw = W - 24;
   g.fillStyle = '#000';
   g.fillRect(12, 12, bw, 14);
-  const fw = bw * energy / C.BAR;
-  for (let i = 0; i < 6; i++) {
-    const x0 = bw / 6 * i;
-    if (x0 >= fw) break;
-    g.fillStyle = RB[i];
-    g.fillRect(12 + x0, 12, min(bw / 6, fw - x0), 14);
+  const cw = bw / C.BAR;                  // one cell per bar, so it is countable
+  for (let i = 0; i < C.BAR; i++) {
+    const f = min(1, energy - i);
+    if (f <= 0) break;
+    g.fillStyle = RB[i % 6];
+    g.fillRect(13 + cw * i, 12, cw * f - 2, 14);
+  }
+  // The bar says what it is, in the colours it is made of. Letters are placed one
+  // at a time: that buys the wide tracking and the per-letter colour at once.
+  g.font = '11px monospace';
+  const LBL = 'RAINBOW ENERGY';
+  for (let i = 0; i < LBL.length; i++) {
+    g.fillStyle = RB[i % 6];
+    g.fillText(LBL[i], 13 + i * 11, 40);
   }
   g.fillStyle = '#fff';
   g.font = '16px monospace';
-  g.fillText('DISTANCE ' + (dist | 0), 12, 48);
-  g.fillText('CHARGE ' + energy.toFixed(1), 12, 88);
-  if (best) { g.fillStyle = '#8a93b8'; g.fillText('BEST ' + best, 12, 68); }
+  g.fillText('TIME ' + MMSS(clock), 12, 68);
+  if (best) { g.fillStyle = '#8a93b8'; g.fillText('BEST ' + MMSS(best), 12, 88); }
+
+  if (msgT > 0) {                                // the booster you just picked up
+    const f = msgT / C.MSGT;
+    g.globalAlpha = min(1, f * 2.5);
+    g.fillStyle = msgC;
+    g.font = 'bold 22px monospace';
+    g.textAlign = 'center';
+    g.fillText(msg, msgX, msgY - (1 - f) * C.MSGR);
+    g.textAlign = 'left';
+    g.globalAlpha = 1;
+  }
 
   let bx = W - 12;
   const chip = (t, span, col) => {
@@ -964,7 +1121,7 @@ const hud = () => {
     g.fillStyle = col;     g.fillRect(bx, 38, 34 * min(1, t / span), 6);
   };
   chip(bSlow, C.SLOW_S, '#4af');
-  chip(bLuck, C.LUCK_U, '#a4f');
+  chip(bLuck, C.LUCK_S, '#a4f');
 
   if (flash > 0) {
     g.globalAlpha = flash * 0.25;
@@ -977,10 +1134,11 @@ const hud = () => {
     g.fillRect(0, H / 2 - 50, W, 100);
     g.fillStyle = '#fff';
     g.font = '28px monospace';
-    g.fillText((dist | 0) + ' DISTANCE', 20, H / 2 - 8);
+    const won = clock >= best && clock >= 1;
+    g.fillText(MMSS(clock), 20, H / 2 - 8);
     g.font = '16px monospace';
-    g.fillStyle = (dist | 0) >= best && dist >= 1 ? '#ffd60a' : '#8a93b8';
-    g.fillText((dist | 0) >= best && dist >= 1 ? 'NEW BEST' : 'BEST ' + best, 20, H / 2 + 14);
+    g.fillStyle = won ? '#ffd60a' : '#8a93b8';
+    g.fillText(won ? 'NEW BEST' : 'BEST ' + MMSS(best), 20, H / 2 + 14);
     g.fillStyle = '#fff';
     g.fillText('press any key or click to run again', 20, H / 2 + 36);
   }
@@ -996,8 +1154,8 @@ const render = () => {
   }
   if (fire) beam();
   for (const o of ents) {
-    if (o[2] === 1) prism(o[0], o[1], s, dist * C.PSPIN + o[3] * 7, 0);
-    else if (o[2] === 2) { g.fillStyle = RB[(dist * 6 | 0) % 6]; orb(o[0], o[1], s * C.RBS / C.ORB); }
+    if (o[2] === 1) prism(o[0], o[1], s, pang(o), 0);
+    else if (o[2] === 2) rsphere(o[0], o[1], s);
     else if (o[2] === 3) orb(o[0], o[1], s);
   }
   // The player: a unicorn in the flying pose, facing the way it travels.
