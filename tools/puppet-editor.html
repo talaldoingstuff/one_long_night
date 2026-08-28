@@ -199,19 +199,18 @@ partRows(2);
 h2('mane');
 // MANE0 and MANE1 are positions ALONG the neck. Both stop at 1 on purpose: past
 // it the sweep extrapolates beyond the neck's end and the tufts land on the head.
-// One position for the whole mane, and one spread. Two sliders that had to move
-// together is what made positioning it awkward.
-slider('tufts', () => C.MANEN, (v) => (C.MANEN = Math.round(v)), 0, 12, 1, (v) => String(v));
+// The mane is welded to the top face of the neck, so there is nothing here that
+// can put it somewhere else - only how much of the neck it covers, and what the
+// tufts look like.
+slider('tufts', () => C.MANEN, (v) => (C.MANEN = Math.round(v)), 0, 16, 1, (v) => String(v));
 slider('position', () => C.MANEC, (v) => (C.MANEC = v), 0, 1, 0.01);
 slider('covers', () => C.MANEW, (v) => (C.MANEW = v), 0, 1, 0.01);
-slider('stand off', () => C.MANEL, (v) => (C.MANEL = v), 0, 0.35, 0.005);
+slider('height', () => C.MANEH, (v) => (C.MANEH = v), 0, 0.3, 0.002);
+slider('sweep back', () => C.MANEB, (v) => (C.MANEB = v), -0.1, 0.2, 0.002);
 slider('thickness', () => C.MANER, (v) => (C.MANER = v), 0.002, 0.09, 0.001);
 slider('gap', () => C.MANEG, (v) => (C.MANEG = v), 0.1, 0.5, 0.01,
-       (v) => (200 * v).toFixed(0) + '% of slot');
-slider('side flop', () => C.MANEX, (v) => (C.MANEX = v), -0.08, 0.08, 0.002);
+       (v) => (100 * 2 * v).toFixed(0) + '% of slot');
 slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
-slider('lift', () => C.MANEO[0], (v) => (C.MANEO[0] = v), -0.2, 0.2, 0.002);
-slider('sideways', () => C.MANEO[1], (v) => (C.MANEO[1] = v), -0.15, 0.15, 0.002);
 
 // --- colours -----------------------------------------------------------------
 h2('colour');
@@ -242,12 +241,11 @@ const dump = () => {
     '  PUP: [' + C.PUP.map(f).join(', ') + '],\n' +
     '  PUPS: ' + f(C.PUPS) + ',  PUPA: ' + f(C.PUPA) + ',  PUPB: ' + f(C.PUPB) + ',\n' +
     '  MANEN: ' + C.MANEN + ',  MANEC: ' + f(C.MANEC) + ',  MANEW: ' + f(C.MANEW) + ',\n' +
-    '  MANEL: ' + f(C.MANEL) + ',  MANER: ' + f(C.MANER) + ',  MANEG: ' + f(C.MANEG) +
-      ',  MANEX: ' + f(C.MANEX) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
+    '  MANEH: ' + f(C.MANEH) + ',  MANEB: ' + f(C.MANEB) + ',  MANER: ' + f(C.MANER) +
+      ',  MANEG: ' + f(C.MANEG) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
     '  EYES: [' + C.EYES.map(f).join(', ') + '],\n' +
     '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  HEADS: ' + f(C.HEADS) +
       ',  HEADR: [' + C.HEADR.map(f).join(', ') + '],\n' +
-    '  MANEO: [' + C.MANEO.map(f).join(', ') + '],\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS + '],';
 };
 dump();

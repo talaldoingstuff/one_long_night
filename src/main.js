@@ -55,12 +55,13 @@ export const C = {
   // frame so there is no hole to see into, the silhouette has to reach the right
   // side, and half the screen height has to be VISIBLE - measuring the whole
   // bounding box once scored a buried puppet at 60% tall.
-  PUP: [1.4, 0.85, 0.7],       // camera-space placement, bottom-right
+  PUP: [1.4, 0.7, 0.7],        // camera-space placement, bottom-right
   PUPS: 2.3,          // scale applied to the model's own units
-  PUPA: -0.15,        // yaw
-  PUPB: -0.28,        // pitch. The pose is not free: it has to leave the horn
-                      // pointing where the shot goes, and the neck's opening
-                      // below the frame. The editor reads both out live.
+  PUPA: 0,            // yaw
+  PUPB: -0.205,       // pitch. The pose is yours to set from the view a player
+                      // sees; the servo below takes care of the aim, so nothing
+                      // here has to be traded against it. The editor reads out
+                      // where the neck's opening lands, as a warning, not a rule.
 
   // Group placement. The table is one row per part, but on a real animal the
   // head, its horn and its eyes move together - nudging the head row alone
@@ -82,8 +83,6 @@ export const C = {
                       // up, how far along the head, how far out as a multiple of
                       // the head's own half-width there, radius, and how far the
                       // disc stands proud
-  MANEO: [0, 0],      // and the whole mane against the crest: lift, sideways.
-                      // There is no "along" here because MANEC is exactly that.
   BODY: [246, 245, 252],       // the unicorn is white
   GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
   IRIS: [58, 150, 255],        // blue eyes
@@ -91,17 +90,19 @@ export const C = {
   // much of the neck it covers. It used to be a first position and a last one,
   // which meant moving the mane took two sliders that had to be moved by the same
   // amount in the same direction, and any slip re-spread it instead.
-  MANEN: 5,           // tufts
+  // The mane sits ON the top face of the neck and nowhere else. The old one was
+  // swept from a point 60% of the way out from the neck's axis - inside the neck,
+  // not on it - along a crest direction computed from the raw table row rather
+  // than the posed one. Rebuilt: every tuft is rooted exactly on the surface the
+  // neck actually has, at the width it actually has there.
+  MANEN: 7,           // tufts
   MANEC: 0.53,        // where the middle of the mane sits, 0 = base, 1 = poll
-  MANEW: 0.53,        // and how much of the neck it covers. Kept inside 0..1: past
-                      // the ends the sweep extrapolates off the neck entirely.
-  MANEL: 0.1,         // how far each tuft stands off the crest
-  MANER: 0.015,       // tuft thickness - a maximum, clamped to leave a gap
-  MANEG: 0.34,        // and that clamp, as a fraction of a tuft's own slot. It was
-                      // 0.48, which is a HALF-width of half a slot - so every tuft
-                      // was 96% as wide as its slot and the five merged into one
-                      // slab. That is what read as the mane being clumped.
-  MANEX: 0.01,        // sideways flop
+  MANEW: 0.62,        // and how much of the neck it covers
+  MANEH: 0.075,       // how far each tuft rises off the surface
+  MANEB: 0.03,        // and how far it sweeps back while it does. A mane lies
+                      // back along the neck; straight up reads as a fin.
+  MANER: 0.016,       // tuft thickness - a maximum, clamped to leave a gap
+  MANEG: 0.34,        // that clamp, as a fraction of a tuft's own slot
   MANEP: 0.02,        // tip thickness as a fraction of the root. Low is pointy.
 
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
@@ -532,6 +533,34 @@ const track = () => {
   }
 };
 
+// The mane: a row of tufts standing on the neck's top face.
+//
+// Rooted on the surface, not near it. swept() builds its cross-section from u,
+// the lateral axis, and v = p x u - so for a neck in the sagittal plane v IS the
+// direction straight out of its top face, and the row's own half-height at that
+// point is exactly how far out the surface is. Reading both off the posed neck
+// means the mane follows it: retune the neck, lean it, scale it, and the mane
+// stays welded to the top of it.
+const mane = () => {
+  const nk = eff(0);
+  const dx = nk[3] - nk[0], dy = nk[4] - nk[1], dz = nk[5] - nk[2];
+  const L = hypot(dx, dy, dz) || 1;
+  const py = dy / L, pz = dz / L;
+  const pL = hypot(dy, dz) || 1;
+  const uy = dz / pL, uz = -dy / pL;             // straight up out of the top face
+  const span = C.MANEN > 1 ? (C.MANEW / (C.MANEN - 1)) * L : 1;
+  const r = min(C.MANER, span * C.MANEG);
+  for (let i = 0; i < C.MANEN; i++) {
+    const t = C.MANEC + (C.MANEN < 2 ? 0 : C.MANEW * (i / (C.MANEN - 1) - 0.5));
+    const h = nk[7] + (nk[9] - nk[7]) * t;       // the neck's half-height here
+    const ax = nk[0] + dx * t, ay = nk[1] + dy * t, az = nk[2] + dz * t;
+    const ry = ay + uy * h, rz = az + uz * h;    // the root, on the surface
+    swept(T, ax, ry, rz,
+          ax, ry + uy * C.MANEH - py * C.MANEB, rz + uz * C.MANEH - pz * C.MANEB,
+          r, r, r * C.MANEP, r * C.MANEP, RBV[1 + (i % 5)]);
+  }
+};
+
 const puppet = () => {
   for (let i = 0; i < PARTS.length; i++) {
     const q = eff(i);
@@ -539,29 +568,7 @@ const puppet = () => {
   }
   eyes();
 
-  // Mane, swept along the neck. Reading the neck out of PARTS means moving the
-  // neck carries the mane with it, which placing tufts by hand never did.
-  const nk = PARTS[0];
-  const ny = nk[4] - nk[1], nz = nk[5] - nk[2], nL = hypot(ny, nz) || 1;
-  const vy = nz / nL, vz = -ny / nL;                // up the crest
-  // MANER is the tuft's maximum thickness, not its actual one: a tuft can never
-  // be wider than the gap it has, or the mane merges into one lump.
-  const gap = C.MANEN > 1 ? (C.MANEW / (C.MANEN - 1)) * nL : 1;
-  const mr = min(C.MANER, gap * C.MANEG);
-  for (let i = 0; i < C.MANEN; i++) {
-    const t = C.MANEC + (C.MANEN < 2 ? 0 : C.MANEW * (i / (C.MANEN - 1) - 0.5));
-    // One lateral line for every tuft. Lerping the neck's own x made the mane fan
-    // sideways whenever the neck leaned, instead of running straight.
-    const ax = (nk[0] + nk[3]) / 2;
-    const ay = nk[1] + (nk[4] - nk[1]) * t, az = nk[2] + (nk[5] - nk[2]) * t;
-    const h = nk[7] + (nk[9] - nk[7]) * t, o = h * 0.6, e = h + C.MANEL;
-    // MANEO shifts the whole mane against the crest it rides: out from the neck,
-    // along it, and sideways off the centreline.
-    const ox = ax + C.MANEO[1], oy = C.MANEO[0] * vy, oz = C.MANEO[0] * vz;
-    swept(T, ox, ay + o * vy + oy, az + o * vz + oz,
-          ox - C.MANEX, ay + e * vy + oy, az + e * vz + oz,
-          mr, mr, mr * C.MANEP, mr * C.MANEP, RBV[1 + (i % 5)]);
-  }
+  mane();
   flush(0);
 };
 
