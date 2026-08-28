@@ -137,10 +137,10 @@ h2('preview');
 
 // --- pose --------------------------------------------------------------------
 h2('pose in the frame');
-slider('right', () => C.PUP[0], (v) => (C.PUP[0] = v), -0.5, 2.5, 0.01);
-slider('down', () => C.PUP[1], (v) => (C.PUP[1] = v), -0.5, 2.5, 0.01);
-slider('forward', () => C.PUP[2], (v) => (C.PUP[2] = v), 0.2, 2.5, 0.01);
-slider('scale', () => C.PUPS, (v) => (C.PUPS = v), 0.3, 5, 0.02);
+slider('right', () => C.PUP[0], (v) => (C.PUP[0] = v), -1.5, 3, 0.01);
+slider('down', () => C.PUP[1], (v) => (C.PUP[1] = v), -1, 3, 0.01);
+slider('back', () => C.PUP[2], (v) => (C.PUP[2] = v), 0.2, 5, 0.01);
+slider('scale', () => C.PUPS, (v) => (C.PUPS = v), 0.3, 8, 0.02);
 slider('yaw', () => C.PUPA, (v) => (C.PUPA = v), -1.6, 1.6, 0.01,
        (v) => (v * 57.3).toFixed(0) + '\u00b0');
 slider('pitch', () => C.PUPB, (v) => (C.PUPB = v), -1.6, 1.6, 0.01,
@@ -208,11 +208,11 @@ slider('gap', () => C.MANEG, (v) => (C.MANEG = v), 0.1, 0.5, 0.01,
        (v) => (100 * 2 * v).toFixed(0) + '% of slot');
 slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
 
-// DESIGN.md 6 hangs this on a casting arm. There is no arm - the unicorn casts -
-// so it runs on the mane, which is the rainbow the unicorn has.
-h2('cooldown readout');
+// DESIGN.md 6 hung this on a casting arm. There is no arm - the unicorn casts -
+// so it runs on the mane, the rainbow the unicorn already has.
+h2('mane as the cooldown');
 let cd = 0;
-slider('cooldown', () => cd, (v) => { cd = v; M.setBind(v * C.BINDCD); }, 0, 1, 0.02,
+slider('drain it', () => cd, (v) => { cd = v; M.setBind(v * C.BINDCD); }, 0, 1, 0.02,
        (v) => (v === 0 ? 'ready' : (100 * (1 - v)).toFixed(0) + '% charged'));
 slider('washes to', () => C.SAT0, (v) => (C.SAT0 = v), 0, 1, 0.02,
        (v) => (100 * v).toFixed(0) + '% colour');
@@ -274,7 +274,7 @@ const dump = () => {
     '  RECOIL: ' + f(C.RECOIL) + ',  RECT: ' + f(C.RECT) + ',  FIRE: ' + f(C.FIRE) + ',\n' +
     '  BLINKD: ' + f(C.BLINKD) + ',  BLINK0: ' + f(C.BLINK0) + ',  BLINK1: ' + f(C.BLINK1) +
       ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
-      ',  SAT0: ' + f(C.SAT0) + ',  BINDCD: ' + f(C.BINDCD) + ',\n' +
+    '  SAT0: ' + f(C.SAT0) + ',  BINDCD: ' + f(C.BINDCD) + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
       '],';
 };
