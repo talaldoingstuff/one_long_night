@@ -46,7 +46,7 @@ spent.
 
 ### Where it stands
 
-**8,144 bytes**, 3,356 free against the 11,500 ceiling. Everything below is built:
+**8,169 bytes**, 3,331 free against the 11,500 ceiling. Everything below is built:
 canvas and loop, keyboard and mouse, the box/cone solid generator and its
 painter's-algorithm renderer, the unicorn and its flight rig, the rainbow beam
 with prism reflection, plated blocks and gates, the spawner and its separation
@@ -246,10 +246,10 @@ filling it. One line sets the late game.
 | Rainbow sphere | +2 bars | every 6.4s, flat for the whole run |
 | Reload lockout | 0.5 bars | run dry and the beam stays out until this is back |
 | Beam damage | 1 hit / 0.5s | 2 hits a plain block, 3 a spiked one |
-| Speed | 1 to 1.4x | over 66s, linear, per second |
-| Blocks | every 2.08s to 1.4s | 30% to 54% spiked, 1.0x to 1.25x size |
+| Speed | 1 to 1.4x | over 66s, then on to 2.2x over the next 8 minutes |
+| Blocks | every 2.08s to 1.4s | 30% to 54% spiked, 1.0x to 1.32x size |
 | Prisms | every 2.8s to 2.1s | |
-| Escalation | 66s to 159s | begins where the speed cap lands |
+| Escalation | 0s to 159s | ramps from the first second, not from the cap |
 
 ### Why these numbers
 
@@ -265,6 +265,42 @@ costs 0.91/s against 0.48/s of income, so you cannot. You choose which fights to
 take. That is the decision-making late game, and it is now arithmetic rather than
 an aspiration.
 
+### The curve, and the two holes that were in it
+
+Escalation used to wait for the speed cap, on the reasoning that thickening the
+field while still accelerating asks two things of the player at once. Measured,
+that was backwards. Spawns are spaced in SECONDS, so a rising speed clears
+objects off the screen faster while they arrive at the same rate: over the first
+66s the field **thinned** from 2.4 blocks on screen to 1.7, and covered area fell
+from 5.1% to 3.6%. The opening got emptier, and the screen was at its emptiest at
+the exact moment before escalation began. `HARD()` now ramps from the first
+second, and `OBSC` is 1.32 rather than a round number because that is the point
+where growing blocks exactly cancel the screen that rising speed empties.
+
+The second hole was at the other end: every number froze at `HARD_TO`, so 159s
+and 600s were identical and a good run ended only when the player slipped. Past
+the ramp, speed keeps creeping toward `CAP2` and **the spawner divides every
+interval by the speed**, so the field stays spatially identical - same density,
+same gaps, 353px between blocks at four minutes and at fifteen - and the only
+thing that changes is how long you get to read it.
+
+`CAP2` is set by the economy rather than by taste. Income is
+`RGEN + RBFILL * speed / SP_RB`, which reaches the 1 bar/s the beam costs at
+about 2.6x; past that the bar would stop constraining anything, which is the same
+inversion that forced the move to a single denomination in the first place. It
+stops at 2.2x, where income tops out at 0.66.
+
+| t | speed | reaction window | blocks on screen | cover | forced duty |
+|---|---|---|---|---|---|
+| 0s | 1.00x | 5.0s | 2.4 | 5.1% | 55% |
+| 66s | 1.40x | 3.6s | 2.0 | 5.4% | 67% |
+| 159s | 1.40x | 3.6s | 2.6 | 9.4% | 91% |
+| 400s | 1.79x | 2.8s | 2.6 | 9.4% | 116% |
+| 660s | 2.20x | 2.3s | 2.6 | 9.4% | 143% |
+
+Covered area never falls and the reaction window never widens - both checked
+across 1,200 simulated seconds rather than eyeballed.
+
 ### Escalation is spawn rate and block size, not speed
 
 Speed stops at 1.4x because of the argument above. Blocks get more frequent
@@ -273,9 +309,9 @@ the one lever `BEAMC` does not cap: a wider block is harder to fly around but
 still takes the same number of hits, so it adds pressure without adding energy
 demand. Blocks cover 5.1% of the screen early and 8.4% late.
 
-Checked, not assumed: a full-size block at its worst height still leaves 117px of
+Checked, not assumed: a full-size block at its worst height still leaves 111px of
 slot for an 82px unicorn, and two of them can never share a column - the
-separation rule would need them 277px apart inside a 210px band of spawn heights.
+separation rule would need them 288px apart inside a 210px band of spawn heights.
 
 ### Spawn separation
 
@@ -334,7 +370,7 @@ Sessions, not calendar days - the schedule below is order, not dates.
 6. **Done** - the economy: one denomination, the difficulty curve against it,
    spawn separation, the time gauge
 7. **Done** - environment: sky, three parallax ranges, outlined HUD text
-8. **Next** - whatever the remaining 3,356 bytes are best spent on
+8. **Next** - whatever the remaining 3,331 bytes are best spent on
 9. Then - Firefox pass, console-error hunt, README, submit
 10. Finally - publish to Wavedash on the frozen build
 
