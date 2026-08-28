@@ -86,14 +86,10 @@ panel.append(chk);
 const tick = () => {
   const r = M.poseCheck();
   const aimOK = r.aim < 2, capOK = r.cap > 0;
-  // The puppet aims itself, so the horn's angle is always near zero. What is
-  // worth watching while you tune is how far it has to TURN from this resting
-  // pose to get there: a pose that already points where it shoots needs none.
-  const turnOK = r.turn < r.lim * 0.6;
+  // The puppet is posed, not aimed, so this is how far the horn points from the
+  // line a shot takes. It is a look, not a rule: shots leave from the tip and go
+  // where you are pointing either way.
   chk.innerHTML =
-    '<b>aim off the resting pose</b><span class="' + (turnOK ? 'good' : 'bad') + '">' +
-      r.turn.toFixed(1) + '\u00b0 of ' + r.lim.toFixed(0) + '\u00b0' +
-      (turnOK ? '' : '  the pose is fighting the aim') + '</span><br>' +
     '<b>horn vs where it shoots</b><span class="' + (aimOK ? 'good' : 'bad') + '">' +
       r.aim.toFixed(1) + '\u00b0</span><br>' +
     '<b>neck opening</b><span class="' + (capOK ? 'good' : 'bad') + '">' +
