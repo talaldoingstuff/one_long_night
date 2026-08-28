@@ -46,14 +46,21 @@ spent.
 
 ### Where it stands
 
-**7,898 bytes**, 3,602 free against the 11,500 ceiling. Everything below is built:
+**8,144 bytes**, 3,356 free against the 11,500 ceiling. Everything below is built:
 canvas and loop, keyboard and mouse, the box/cone solid generator and its
 painter's-algorithm renderer, the unicorn and its flight rig, the rainbow beam
 with prism reflection, plated blocks and gates, the spawner and its separation
 rules, four boosters, the energy bar and HUD, particles, ZzFX with three sounds,
-and generative music.
+generative music, and the backdrop.
 
-The environment pass is the last system with no bytes spent on it.
+### The backdrop
+
+A daylight sky ramp with three mountain ranges parallaxing behind the field, at
+0.10, 0.24 and 0.48 of the world's own scroll. Each range is a ground line with
+overlapping triangular peaks on a fixed lattice, so a peak keeps its height as it
+travels. Distance reads as paleness: the layers fade toward a warm grey rather
+than toward the sky, because fading brown toward blue desaturates it through grey
+and stops it being a mountain.
 
 ---
 
@@ -326,10 +333,10 @@ Sessions, not calendar days - the schedule below is order, not dates.
 5. **Done** - obstacles, gates, the reflecting ray, and what the beam is *for*
 6. **Done** - the economy: one denomination, the difficulty curve against it,
    spawn separation, the time gauge
-7. **Next** - environment pass (background, parallax, whatever the 3,602 spare
-   bytes will carry)
-8. Then - Firefox pass, console-error hunt, README, submit
-9. Finally - publish to Wavedash on the frozen build
+7. **Done** - environment: sky, three parallax ranges, outlined HUD text
+8. **Next** - whatever the remaining 3,356 bytes are best spent on
+9. Then - Firefox pass, console-error hunt, README, submit
+10. Finally - publish to Wavedash on the frozen build
 
 ### Still outstanding
 

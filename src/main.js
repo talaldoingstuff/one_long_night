@@ -162,7 +162,6 @@ export const C = {
   YAW: 90,
   STANCE: 0.175,       // half the distance between the left and right legs. Wider
                       // also lifts the crossover above, so it earns twice.
-  LOD: 26,            // below this on-screen size legs lose their lower segment
   // --- Obstacles, gates and the ray -----------------------------------------
   OBW: 0.12,          // obstacle width range, fractions of screen height
   OBW2: 0.255,
@@ -188,6 +187,15 @@ export const C = {
                       // says "the ray is on this", and a steady beat reads better
                       // than a blip whose rhythm changes with what you are shooting.
   FLASHA: 0.72,       // and how white the top of each flash gets
+  // --- Environment ---------------------------------------------------------
+  // Three ridge layers, back to front: [base y, peak height, peak spacing,
+  // scroll fraction, haze]. All four of the first numbers are fractions - of
+  // screen height, height, width, and the world's own scroll. Haze is how far
+  // the brown is mixed toward the sky, so distance reads as colour, not just as
+  // speed: the back layer barely separates from the air behind it.
+  MT: [[0.48, 0.13, 0.23, 0.10, 0.74],
+       [0.66, 0.17, 0.17, 0.24, 0.44],
+       [0.86, 0.23, 0.13, 0.48, 0.12]],
   MSGT: 1.1,          // how long a booster's name floats before it is gone
   MSGR: 46,           // and how far it rises while it fades, in pixels
   HP: [2, 3],         // hits to break an obstacle: plain, spiked
@@ -212,15 +220,6 @@ export const C = {
   // that has to be full when the next gate arrives.
   BEAMH: 0.026,        // beam half-height, fraction of screen height
   BEAMY: 0.014,        // where it leaves, relative to the unicorn centre
-  BEAMX: 0,       // and how far BEHIND it starts, in unicorn-size units, so
-                      // the beam emerges from behind the body rather than at it
-
-  // --- Boosters (DESIGN.md 8) ----------------------------------------------
-  // Auto-activate on contact, no held slot. Pickups arrive as mystery spheres
-  // marked with a question mark.
-  //
-  // Every booster window is in seconds, like everything else. This used to need
-  // a paragraph explaining why some were in units and some in seconds.
   BW: [2, 3, 2, 1],   // refill, slow, clear, spikes. Bad luck rarest.
   SLOW_S: 5,          // time slow: seconds
   SLOW_F: 0.55,       // speed multiplier while slowed
@@ -263,9 +262,9 @@ const resize = () => {
   g.setTransform(d, 0, 0, d, 0, 0);
   // Landscape sky, built once per resize rather than per frame.
   sky = g.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#070a1c');
-  sky.addColorStop(0.55, '#131a3c');
-  sky.addColorStop(1, '#0a0d1e');
+  sky.addColorStop(0, '#d3eafc');
+  sky.addColorStop(0.55, '#89c0e9');
+  sky.addColorStop(1, '#2f6db2');
 };
 
 // ---------------------------------------------------------------------------
@@ -542,7 +541,7 @@ const trace = () => {
   BURN = 0;
   if (!fire) return;
   const hh = C.BEAMH * H, pr = C.PR * OS();
-  let x = px + C.PSZ * H * C.BEAMX, y = py + C.BEAMY * H, ux = 1, uy = 0, last2 = 0;
+  let x = px, y = py + C.BEAMY * H, ux = 1, uy = 0, last2 = 0;
   for (let n = 0; n < C.BOUNCE; n++) {
     let hit = 0, bd = 1e9, solid = 0;
     for (const o of ents) {
@@ -804,10 +803,9 @@ const flush = () => {
 // mane, so conversion has somewhere to go - the unicorn gains a rainbow mane
 // and a gold horn long enough to break the body silhouette.
 // ---------------------------------------------------------------------------
-const BODY = [[176, 145, 110], [246, 245, 252]];   // horse light brown, unicorn white
-const MANE = [104, 84, 72];   // the wild horse's one piece of colour, muted so
+const bd = [246, 245, 252];                        // the unicorn is white
                               // the unicorn's rainbow mane is a clear step up
-const GOLD = [255, 214, 10], EYE = [22, 17, 28], EYEU = [58, 150, 255];   // horse dark, unicorn blue
+const GOLD = [255, 214, 10], EYE = [58, 150, 255];        // horn gold, eyes blue
 
 // [side, hind]. The gait pattern itself lives in C: PHH offsets the hind pair
 // from the front, PHS splits left from right. 0.5 / 0.12 is a transverse gallop;
@@ -821,25 +819,24 @@ const LEGS = [[-1, 0], [-1, 1], [1, 0], [1, 1]];
 // head nod at each end. mat: 0 body, 7 horn, otherwise RBV[mat-1] on a unicorn
 // and the muted mane colour on a horse. flags: 1 = full detail only, 2 = unicorn only.
 const PARTS = [
-  [0, .06, -.27, 0, .12, -.55, .04, .045, .014, .015, 6, 0, 0, 0],           // tail
-  [0, 0, -.3, 0, 0, .28, .15, .16, .16, .17, 0, 0, 0, 0],                    // barrel
-  [.025, .105, .2, .075, .2737, .365, .1, .11, .075, .085, 0, 0, 1, 0],      // neck
-  [.1, .345, .345, .1, .2546, .5834, .085, .099, .055, .061, 0, 1, 1, 0],    // head
-  [.1, .3927, .4239, .1, .6829, .5077, .03, .03, .002, .002, 7, 1, 1, 2],    // horn
-  [.148, .3319, .4239, .156, .3187, .4724, .02, .02, .013, .013, 8, 1, 1, 1],   // eye near
-  [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 8, 1, 1, 1],   // eye far
+  [0, .06, -.27, 0, .12, -.55, .04, .045, .014, .015, 6, 0, 0],           // tail
+  [0, 0, -.3, 0, 0, .28, .15, .16, .16, .17, 0, 0, 0],                    // barrel
+  [.025, .105, .2, .075, .2737, .365, .1, .11, .075, .085, 0, 0, 1],      // neck
+  [.1, .345, .345, .1, .2546, .5834, .085, .099, .055, .061, 0, 1, 1],    // head
+  [.1, .3927, .4239, .1, .6829, .5077, .03, .03, .002, .002, 7, 1, 1],    // horn
+  [.148, .3319, .4239, .156, .3187, .4724, .02, .02, .013, .013, 8, 1, 1],   // eye near
+  [.052, .3319, .4239, .044, .3187, .4724, .02, .02, .013, .013, 8, 1, 1],   // eye far
 ];
 
-const horse = (cx, gy, s, ph, u) => {
+const horse = (cx, gy, s, ph) => {
   const A = PI + C.YAW * PI / 180;
   CO = cos(A); SI = sin(A); SX = cx; SY = gy; SS = s * C.ASC;
-  const th = ph * 2 * PI, bd = BODY[u], R = C.LEGR;
+  const th = ph * 2 * PI, R = C.LEGR;
   // The unicorn only ever flies, so there is one rig, not a blend between a
   // gallop and a flight pose. The gallop constants and the blend they fed went
   // with it - nothing had set fly to anything but 1 since the genre changed.
   const by = 0.56 + sin(th * C.FBOBR) * C.FBOB;
   const hb = sin(th * C.FNODR + 1) * C.FNOD;
-  const fine = s > C.LOD;
 
   for (const [side, hind] of LEGS) {                // four legs, two segments each
     const L = C.LEGL;
@@ -856,7 +853,7 @@ const horse = (cx, gy, s, ph, u) => {
     const x = side * C.STANCE, hy = by + C.LEGY;
     const kz = lz + sin(a) * L, ky = hy - cos(a) * L;
     solid(x, hy, lz, x, ky, kz, R[0], R[1], R[2], R[3], bd);
-    if (fine) solid(x, ky, kz, x, ky - cos(a + b) * L, kz + sin(a + b) * L, R[2], R[3], R[4], R[5], bd);
+    solid(x, ky, kz, x, ky - cos(a + b) * L, kz + sin(a + b) * L, R[2], R[3], R[4], R[5], bd);
   }
   // Mane, swept along the neck. Reading the neck out of PARTS means moving the
   // neck carries the mane with it, which placing tufts by hand never did.
@@ -878,15 +875,14 @@ const horse = (cx, gy, s, ph, u) => {
     solid(ax, by + ay + o * vy + hb * t, az + o * vz,
           ax - C.MANEX, by + ay + e * vy + hb * t, az + e * vz,
           mr, mr, mr * C.MANEP, mr * C.MANEP,
-          u ? RBV[1 + i % 5] : MANE);
+          RBV[1 + i % 5]);
   }
 
   // Order does not matter here: flush() sorts every face by depth.
   for (const q of PARTS) {
-    if ((q[13] & 1 && !fine) || (q[13] & 2 && !u)) continue;
     const m = q[10];
     solid(q[0], by + q[1] + hb * q[11], q[2], q[3], by + q[4] + hb * q[12], q[5],
-          q[6], q[7], q[8], q[9], m ? (m === 7 ? GOLD : m === 8 ? (u ? EYEU : EYE) : u ? RBV[m - 1] : MANE) : bd);
+          q[6], q[7], q[8], q[9], m ? (m === 7 ? GOLD : m === 8 ? EYE : RBV[m - 1]) : bd);
   }
   flush();
 };
@@ -1032,11 +1028,16 @@ const plated = (x, y, w, h, c, spiked, fl) => {
   };
   if (spiked) { g.fillStyle = shade(c, 1.25); teeth(); }
   if (fl > 0) {                                   // the ray is resting on this
-    g.globalAlpha = fl;
+    // Restore the caller's alpha rather than assuming 1. A gate stacks several
+    // of these inside one fade, so resetting to 1 here left the top segment
+    // faded and every segment below it fully opaque - and the flash itself has
+    // to be scaled by the fade too, or it stays bright on a vanishing gate.
+    const a = g.globalAlpha;
+    g.globalAlpha = a * fl;
     g.fillStyle = '#fff';
     g.fillRect(x, y, w, h);
     if (spiked) teeth();
-    g.globalAlpha = 1;
+    g.globalAlpha = a;
   }
 };
 
@@ -1083,8 +1084,51 @@ const drawParts = () => {
   g.globalAlpha = 1;
 };
 
+// Ridges. Peaks sit on a fixed lattice so a given peak keeps its height as it
+// scrolls - drawing from a per-frame random would boil the whole range.
+// Wrapped into [0,1). Taking the plain fractional part keeps the SIGN, so half
+// the lattice came out negative - which inverted those peaks into notches cut
+// downward out of the ground line and collapsed their width to almost nothing.
+// That, not the noise, was what made the ranges look like scattered triangles.
+const HSH = (i) => { const v = sin(i * 12.9898) * 43758.5 % 1; return v < 0 ? v + 1 : v; };
+// Fading toward the SKY is what atmospheric perspective actually does, but it
+// desaturates brown through grey: at 0.74 the back ridge came out blue-grey and
+// stopped being a brown mountain at all. Fading toward a pale WARM grey keeps
+// every layer brown and lets distance read as paleness instead.
+const MTC = [124, 88, 62], HAZE = [178, 160, 150];
+
+const ridges = () => {
+  for (let L = 0; L < 3; L++) {
+    const [by, amp, sp, spd, hz] = C.MT[L];
+    const step = sp * W, base = by * H, off = dist * PPU() * spd;
+    g.fillStyle = shade(MTC.map((v, k) => v + (HAZE[k] - v) * hz), 1);
+    g.fillRect(0, base, W, H - base);           // the range's own ground
+    // Peaks rise from that one line and overlap each other, which reads as a
+    // range. Alternating a random high point with a random low one - the first
+    // attempt - just made a row of unrelated triangles.
+    const i0 = (off / step | 0) - 1;
+    for (let i = i0; (i - i0) * step < W + step * 3; i++) {
+      const x = i * step - off, hh = HSH(i + L * 17), wh = HSH(i + L * 53);
+      const w = step * (0.7 + 0.7 * wh);
+      g.beginPath();
+      g.moveTo(x - w, base);
+      g.lineTo(x + w * (wh - 0.5) * 0.7, base - amp * H * (0.4 + 0.6 * hh));
+      g.lineTo(x + w, base);
+      g.fill();
+    }
+  }
+};
+
+// Outlined, because the sky and the ridges behind the HUD are now light enough
+// to swallow white text. The game-over panel has its own dark backing and does
+// not need it.
+const TXT = (v, x, y) => { g.strokeText(v, x, y); g.fillText(v, x, y); };
+
 const hud = () => {
-  const bw = W - 24;
+  const bw = (W - 24) / 2;
+  g.strokeStyle = '#000';
+  g.lineWidth = 3;
+  g.lineJoin = 'round';
   g.fillStyle = '#000';
   g.fillRect(12, 12, bw, 14);
   const cw = bw / C.BAR;                  // one cell per bar, so it is countable
@@ -1096,16 +1140,15 @@ const hud = () => {
   }
   // The bar says what it is, in the colours it is made of. Letters are placed one
   // at a time: that buys the wide tracking and the per-letter colour at once.
-  g.font = '11px monospace';
+  g.font = '16px monospace';
   const LBL = 'RAINBOW ENERGY';
   for (let i = 0; i < LBL.length; i++) {
     g.fillStyle = RB[i % 6];
-    g.fillText(LBL[i], 13 + i * 11, 40);
+    TXT(LBL[i], 13 + i * 16, 44);
   }
   g.fillStyle = '#fff';
-  g.font = '16px monospace';
-  g.fillText('TIME ' + MMSS(clock), 12, 68);
-  if (best) { g.fillStyle = '#8a93b8'; g.fillText('BEST ' + MMSS(best), 12, 88); }
+  TXT('TIME ' + MMSS(clock), 12, 72);
+  if (best) { g.fillStyle = '#8a93b8'; TXT('BEST ' + MMSS(best), 12, 92); }
 
   if (msgT > 0) {                                // the booster you just picked up
     const f = msgT / C.MSGT;
@@ -1113,7 +1156,7 @@ const hud = () => {
     g.fillStyle = msgC;
     g.font = 'bold 22px monospace';
     g.textAlign = 'center';
-    g.fillText(msg, msgX, msgY - (1 - f) * C.MSGR);
+    TXT(msg, msgX, msgY - (1 - f) * C.MSGR);
     g.textAlign = 'left';
     g.globalAlpha = 1;
   }
@@ -1152,6 +1195,7 @@ const hud = () => {
 const render = () => {
   g.fillStyle = sky;
   g.fillRect(0, 0, W, H);
+  ridges();
   const s = OS();
   for (const o of ents) {
     if (o[2] === 4) slab(o);
@@ -1164,7 +1208,7 @@ const render = () => {
     else if (o[2] === 3) orb(o[0], o[1], s);
   }
   // The player: a unicorn in the flying pose, facing the way it travels.
-  horse(px, py + C.PSZ * H * 0.45, C.PSZ * H, dist * C.GALLOP, 1);
+  horse(px, py + C.PSZ * H * 0.45, C.PSZ * H, dist * C.GALLOP);
   drawParts();
   hud();
 };

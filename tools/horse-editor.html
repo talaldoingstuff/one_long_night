@@ -130,7 +130,7 @@ const ORIGC = { YAW: C.YAW, STANCE: C.STANCE, ASC: C.ASC, LEGL: C.LEGL, LEGY: C.
                 MANEP: C.MANEP,
                 LEGR: [...C.LEGR] };
 
-let sel = 1, ph = 0, paused = false, last = 0, showU = 1;
+let sel = 1, ph = 0, paused = false, last = 0;
 
 // --- previews ---------------------------------------------------------------
 const W = 420;
@@ -140,7 +140,7 @@ const W = 420;
 const PLAYED = C.PSZ * 500;
 const SIZES = [['as played', PLAYED], ['2x', PLAYED * 2], ['4x', PLAYED * 4]];
 
-const mkCell = (host, s, u, zoom, name) => {
+const mkCell = (host, s, zoom, name) => {
   const cell = document.createElement('div');
   cell.className = 'cell';
   const cv = document.createElement('canvas');
@@ -150,10 +150,10 @@ const mkCell = (host, s, u, zoom, name) => {
   cap.className = 'cap';
   cell.append(cv, cap);
   host.append(cell);
-  return { ctx: cv.getContext('2d'), s, u, zoom, cap, w, h, name };
+  return { ctx: cv.getContext('2d'), s, zoom, cap, w, h, name };
 };
-const realCells = SIZES.flatMap(([n, s]) => [0, 1].map((u) => mkCell($('real'), s, u, 1, n)));
-const zoomCells = [0, 1].map((u) => mkCell($('zoom'), PLAYED, u, 6, 'as played'));
+const realCells = SIZES.map(([n, s]) => mkCell($('real'), s, 1, n));
+const zoomCells = [mkCell($('zoom'), PLAYED, 6, 'as played')];
 
 // the same projection the renderer uses, for the selection marker only
 const mark = (c, part) => {
@@ -184,7 +184,7 @@ const drawCell = (c, marker) => {
   ctx.moveTo(0, h - 10 * zoom + .5); ctx.lineTo(w, h - 10 * zoom + .5);
   ctx.stroke();
   M.setCtx(ctx);
-  M.horse(w / 2, h - 10 * zoom, c.s * zoom, ph, c.u);
+  M.horse(w / 2, h - 10 * zoom, c.s * zoom, ph);
   if (marker) mark(c, PARTS[sel]);
 };
 
@@ -210,7 +210,6 @@ const G = $('glob');
 globCtl.push(slider(G, 'scale', () => C.ASC, (v) => (C.ASC = v), 0.2, 2.5, 0.005));
 globCtl.push(slider(G, 'yaw °', () => C.YAW, (v) => (C.YAW = v), 0, 90, 1, (v) => v + '°'));
 globCtl.push(slider(G, 'stance', () => C.STANCE, (v) => (C.STANCE = v), 0.04, 0.4, 0.005));
-globCtl.push(slider(G, 'detail cutoff', () => C.LOD, (v) => (C.LOD = v), 0, 60, 1, (v) => v + 'px'));
 globCtl.push(slider(G, 'outline width', () => C.OUTL, (v) => (C.OUTL = v), 0, 0.04, 0.0005,
   (v) => (v === 0 ? 'off' : v.toFixed(4))));
 globCtl.push(slider(G, 'outline alpha', () => C.OUTA, (v) => (C.OUTA = v), 0, 1, 0.02));
@@ -429,9 +428,9 @@ const tick = (t) => {
   if (maneSync++ % 6 === 0) maneCtl.forEach((c) => c.sync());   // keeps 'capped' honest
   for (const c of realCells) {
     drawCell(c, false);
-    c.cap.innerHTML = `${c.name} · ${c.u ? 'unicorn' : 'horse'}<br><b>s=${c.s.toFixed(0)}px</b>`;
+    c.cap.innerHTML = `${c.name}<br><b>s=${c.s.toFixed(0)}px</b>`;
   }
-  for (const c of zoomCells) { drawCell(c, true); c.cap.textContent = c.u ? 'unicorn · 6×' : 'horse · 6×'; }
+  for (const c of zoomCells) { drawCell(c, true); c.cap.textContent = '6×'; }
 };
 raf(tick);
 
@@ -446,7 +445,7 @@ $('exp').onclick = () => {
   $('out').textContent =
     `const PARTS = [\n${rows}\n];\n\n` +
     `// in C:\n` +
-    `  YAW: ${f(C.YAW)},  STANCE: ${f(C.STANCE)},  ASC: ${f(C.ASC)},  LOD: ${f(C.LOD)},\n` +
+    `  YAW: ${f(C.YAW)},  STANCE: ${f(C.STANCE)},  ASC: ${f(C.ASC)},\n` +
     `  LEGL: ${f(C.LEGL)},  LEGY: ${f(C.LEGY)},  FOLD: ${f(C.FOLD)},\n` +
     `  OUTL: ${f(C.OUTL)},  OUTA: ${f(C.OUTA)},  GALLOP: ${f(C.GALLOP)},\n` +
     `  FHZ: ${f(C.FHZ)},  HHZ: ${f(C.HHZ)},  HFOLD: ${f(C.HFOLD)},\n` +

@@ -50,7 +50,6 @@
   <div class="row"><label>yaw (degrees)</label><input type="range" id="yaw" min="0" max="90" step="1" value="30"><span class="val" id="yawv"></span></div>
   <div class="row"><label>gallop speed</label><input type="range" id="spd" min="0" max="3" step="0.05" value="1"><span class="val" id="spdv"></span></div>
   <div class="row"><label>stance</label><input type="range" id="st" min="0.05" max="0.3" step="0.005" value="0.15"><span class="val" id="stv"></span></div>
-  <div class="row"><label>detail cutoff</label><input type="range" id="lod" min="0" max="60" step="1" value="26"><span class="val" id="lodv"></span></div>
   <div class="row"><button id="pause">pause</button> <button id="step">step one frame</button> <span class="val" id="fq"></span></div>
 </div>
 
@@ -85,8 +84,7 @@ const SIZES = [
 
 const build = (host, zoom) => {
   host.innerHTML = '';
-  return SIZES.flatMap(([name, s]) =>
-    [0, 1].map((u) => {
+  return SIZES.map(([name, s]) => {
       const cell = document.createElement('div');
       cell.className = 'cell';
       const cv = document.createElement('canvas');
@@ -97,8 +95,8 @@ const build = (host, zoom) => {
       cap.className = 'cap';
       cell.append(cv, cap);
       host.append(cell);
-      return { cv, ctx: cv.getContext('2d'), s, u, name, zoom, cap, w, h };
-    }));
+      return { cv, ctx: cv.getContext('2d'), s, name, zoom, cap, w, h };
+  });
 };
 
 let cells = [], zoomCells = [];
@@ -111,7 +109,7 @@ rebuild();
 let ph = 0, paused = false, last = 0;
 
 const drawInto = (c) => {
-  const { ctx, s, u, zoom, w, h } = c;
+  const { ctx, s, zoom, w, h } = c;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = '#161d38';
@@ -122,7 +120,7 @@ const drawInto = (c) => {
   ctx.moveTo(0, h - 8 * zoom + 0.5); ctx.lineTo(w, h - 8 * zoom + 0.5); ctx.stroke();
   // draw through the game's own renderer, onto this cell's context
   M.setCtx(ctx);
-  M.horse(w / 2, h - 8 * zoom, s * zoom, ph, u);
+  M.horse(w / 2, h - 8 * zoom, s * zoom, ph);
 };
 
 const tick = (t) => {
@@ -132,17 +130,15 @@ const tick = (t) => {
   if (!paused) ph += dt * (+$('spd').value) * 2.4;
   C.YAW = +$('yaw').value;
   C.STANCE = +$('st').value;
-  C.LOD = +$('lod').value;
   $('yawv').textContent = $('yaw').value + '°';
   $('spdv').textContent = (+$('spd').value).toFixed(2) + 'x';
   $('stv').textContent = (+$('st').value).toFixed(3);
-  $('lodv').textContent = $('lod').value + 'px';
   for (const c of [...cells, ...zoomCells]) {
     drawInto(c);
     if (c.zoom === 1) {
-      c.cap.innerHTML = `${c.name} · ${c.u ? 'unicorn' : 'horse'}<br><b>s=${c.s.toFixed(0)}px</b>`;
+      c.cap.innerHTML = `${c.name}<br><b>s=${c.s.toFixed(0)}px</b>`;
     } else {
-      c.cap.innerHTML = `${c.name} · ${c.u ? 'unicorn' : 'horse'} · 4x`;
+      c.cap.innerHTML = `${c.name} · 4x`;
     }
   }
 };
