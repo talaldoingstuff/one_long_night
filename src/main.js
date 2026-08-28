@@ -57,8 +57,11 @@ export const C = {
   // bounding box once scored a buried puppet at 60% tall.
   PUP: [0.96, 0.98, 0.7],      // camera-space placement
   PUPS: 2.7,          // scale applied to the model's own units
-  PUPA: 0,            // yaw
-  PUPB: -0.18,        // pitch. The pose is yours to set from the view a player
+  PUPA: -0.092,       // yaw. Solved, not chosen: this is the value that puts the
+                      // horn's line through the middle of the screen.
+  PUPB: -0.2945,      // pitch, solved with it - yaw only moves the crosshair
+                      // sideways, and it was 59px high. The pose is otherwise
+                      // yours to set from the view a player
                       // sees; the servo below takes care of the aim, so nothing
                       // here has to be traded against it. The editor reads out
                       // where the neck's opening lands, as a warning, not a rule.
