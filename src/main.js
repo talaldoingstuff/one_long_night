@@ -105,6 +105,30 @@ export const C = {
   MANEG: 0.31,        // that clamp, as a fraction of a tuft's own slot
   MANEP: 0.04,        // tip thickness as a fraction of the root. Low is pointy.
 
+  // --- The casting arm (DESIGN.md 6) ----------------------------------------
+  // Bottom-left, opposite the puppet. Placed in camera space like the puppet -
+  // it is worn, not stood in the world - but parametrised as an ARM rather than a
+  // model: an elbow, a direction, a length and two radii. There is no part table
+  // here because there is nothing to pose; a forearm is a tapered tube.
+  CAST: [-0.62, 0.78, 0.62],   // the elbow, camera space
+  CASTL: 0.78,        // forearm length, metres
+  CASTA: 0.34,        // where it points: yaw in toward the middle of the screen
+  CASTB: 0.62,        // and pitch up
+  CASTR: [0.115, 0.085],       // radius at the elbow and at the wrist
+  SLEEVE: [54, 48, 72],        // the arm under the bands
+  BANDN: 5,           // rainbow bands wrapped round it
+  BANDW: 0.055,       // how long each band is along the arm
+  BANDO: 1.18,        // and how far it stands proud of the arm, as a multiple
+  PALM: [0.13, 0.045, 0.16],   // the open hand: across, thick, along
+  PALMA: 0.5,         // cocked back from the forearm, radians
+
+  // The rainbow IS the cooldown readout (DESIGN.md 6): fully coloured means the
+  // bind is ready, washed out means it is recharging. One multiplier on the band
+  // colours, so there is no bar to draw.
+  SAT0: 0.12,         // how much colour is left at the moment of casting
+  BINDCD: 3,          // seconds to recharge. The bind itself is step 5; this is
+                      // the clock its readout runs on.
+
   // --- Animation (DESIGN.md 6) ----------------------------------------------
   RECOIL: 0.3,        // metres the puppet kicks back along its OWN axis on firing.
                       // Measured on screen: 0.1 moves the horn tip 5px, 0.3 moves
@@ -373,13 +397,13 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB;
+    rec, blink, nextB, bindT;
 
 const reset = () => {
   ghosts = []; horns = [];
   hearts = C.HEARTS; kills = 0; over = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
-  rec = 0; blink = 0; nextB = C.BLINK0;
+  rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -574,6 +598,44 @@ const mane = () => {
   }
 };
 
+// Wash a colour toward its own brightness. At k = 1 it is itself; at 0 it is the
+// grey it would be in a photograph. This is the whole cooldown readout.
+const wash = (c, k) => {
+  const l = (c[0] + c[1] + c[2]) / 3;
+  return [l + (c[0] - l) * k, l + (c[1] - l) * k, l + (c[2] - l) * k];
+};
+
+// The casting arm. Built straight in camera space: unlike the puppet there is no
+// model to map from, only an elbow and a direction.
+const arm = () => {
+  const ca = cos(C.CASTA), sa = sin(C.CASTA), cb = cos(C.CASTB), sb = sin(C.CASTB);
+  const px = sa * cb, py = -sb, pz = ca * cb;    // along the forearm, elbow to wrist
+  const e = C.CAST, L = C.CASTL;
+  const w = [e[0] + px * L, e[1] + py * L, e[2] + pz * L];
+  const r0 = C.CASTR[0], r1 = C.CASTR[1];
+  swept(ID, e[0], e[1], e[2], w[0], w[1], w[2], r0, r0, r1, r1, C.SLEEVE);
+
+  // Bands round it, evenly spaced, each a short fat slice of the same tube. The
+  // colour is washed by how far the bind has recharged.
+  const k = C.SAT0 + (1 - C.SAT0) * (1 - bindT / C.BINDCD);
+  for (let i = 0; i < C.BANDN; i++) {
+    const t = (i + 0.5) / C.BANDN;
+    const r = (r0 + (r1 - r0) * t) * C.BANDO, h = C.BANDW / 2;
+    const cx = e[0] + px * L * t, cy = e[1] + py * L * t, cz = e[2] + pz * L * t;
+    swept(ID, cx - px * h, cy - py * h, cz - pz * h,
+          cx + px * h, cy + py * h, cz + pz * h,
+          r, r, r, r, wash(RBV[i % 6], k));
+  }
+
+  // The open palm: a slab at the wrist, cocked back off the forearm so it reads
+  // as a hand held up rather than a continuation of the arm.
+  const c2 = cos(C.PALMA), s2 = sin(C.PALMA);
+  const qx = px * c2 + 0 * s2, qy = py * c2 - pz * s2, qz = pz * c2 + py * s2;
+  const P = C.PALM;
+  swept(ID, w[0], w[1], w[2], w[0] + qx * P[2], w[1] + qy * P[2], w[2] + qz * P[2],
+        P[0], P[1], P[0] * 0.85, P[1], C.SLEEVE);
+};
+
 const puppet = () => {
   for (let i = 0; i < PARTS.length; i++) {
     const q = eff(i);
@@ -655,6 +717,7 @@ const step = (dt) => {
   if (over) return;
   fireT = max(0, fireT - dt);
   rec = max(0, rec - dt / C.RECT);
+  bindT = max(0, bindT - dt);                     // the casting arm's recharge
   blink = max(0, blink - dt);
   nextB -= dt;
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
@@ -791,7 +854,9 @@ const render = () => {
   }
   flush();
 
-  puppet();                                       // viewmodel last, on top
+  arm();                                          // viewmodel last, on top
+  flush(0);
+  puppet();
   hud();
 };
 
@@ -831,7 +896,8 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB });
+export const anim = () => ({ rec, blink, nextB, bindT });
+export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);
