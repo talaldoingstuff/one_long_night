@@ -1544,16 +1544,19 @@ const cardScreen = () => {
   g.textAlign = 'center';
   g.fillStyle = css(C.GOLD, 1);
   type(C.CARDT * 1.15);
-  g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - ch / 2 - cw * 0.16);
+  g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - ch / 2 - cw * 0.32);
+  g.fillStyle = '#fff';
+  type(C.CARDT * 0.85);
+  g.fillText('Pick a Power Up', W / 2, H / 2 - ch / 2 - cw * 0.13);
 
-  for (let n = 0; n < offer.length; n++) cardFace(offer[n], n + 1, ...cardBox(offer.length, n));
+  for (let n = 0; n < offer.length; n++) cardFace(offer[n], ...cardBox(offer.length, n));
   g.textAlign = 'left';
 };
 
 // One card. Split out so the editor can lay every one of them out side by side
 // without a run in progress - which is the only way to see that two of them look
 // alike.
-const cardFace = (i, key, x, y, w, h) => {
+const cardFace = (i, x, y, w, h) => {
   const mx = x + w / 2;
   const type = (f) => { g.font = (w * f | 0) + 'px monospace'; };
   {
@@ -1591,9 +1594,6 @@ const cardFace = (i, key, x, y, w, h) => {
       type(C.CARDU);
       g.fillText(C.CARDS[i][6], mx, y + h * 0.94);
     }
-    g.fillStyle = '#8b93b8';
-    type(C.CARDL);
-    g.fillText('' + key, mx, y + h + w * 0.14);
   }
   g.textAlign = 'left';
 };

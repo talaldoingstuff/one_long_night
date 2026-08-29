@@ -93,7 +93,7 @@ const draw = () => {
   sc.fillRect(0, 0, sheet.width, sheet.height);
   for (let n = 0; n < IDS.length; n++) {
     stc.clearRect(0, 0, GW, GH);
-    M.drawCard(IDS[n], n + 1, 4, 4, cw, ch);
+    M.drawCard(IDS[n], 4, 4, cw, ch);
     sc.drawImage(stage, 0, 0, cw + 8, ch + 40, n * (cw + 18) + 10, 10, cw + 8, ch + 40);
   }
 
