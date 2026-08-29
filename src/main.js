@@ -254,6 +254,9 @@ export const C = {
   XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
   XHW: 3.5,           // and its thickness
   XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
+  XHO: 'rgba(0,0,0,0.85)',   // a dark halo under it, because the target outline is
+  XHOW: 2,            // gold too - without this the crosshair disappears into the
+                      // one thing it most needs to be legible against. px each side
   ASSISTR: 1.6,       // aim assist reaches this many of a ghost's radii - wider
                       // than the pick, so it pulls you onto things you are only
                       // near, and stops the moment you are on one
@@ -1248,15 +1251,23 @@ const hud = () => {
   g.textAlign = 'left';
 
   const a = proj(aimAt());                        // crosshair, on the horn's line
-  g.strokeStyle = css(C.GOLD, C.XHA);             // the horn's own colour
-  g.lineWidth = C.XHW;
   const c = min(W, H) * C.XHR;
   g.beginPath();
   for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
     g.moveTo(a[0] + dx * c, a[1] + dy * c);
     g.lineTo(a[0] + dx * c * 2.2, a[1] + dy * c * 2.2);
   }
+  // The same path twice: a wider dark pass, then the gold over it. Round caps, so
+  // the halo wraps the ends of each arm rather than stopping flush with them and
+  // leaving the tips to blend into whatever is behind.
+  g.lineCap = 'round';
+  g.strokeStyle = C.XHO;
+  g.lineWidth = C.XHW + C.XHOW * 2;
   g.stroke();
+  g.strokeStyle = css(C.GOLD, C.XHA);             // the horn's own colour
+  g.lineWidth = C.XHW;
+  g.stroke();
+  g.lineCap = 'butt';                             // it is a shared context
 };
 
 // Nothing of the run is left on screen: no ghosts, no puppet, no HUD. Three lines
