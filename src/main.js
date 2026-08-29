@@ -218,11 +218,12 @@ export const C = {
   GBOB: 0.09,         // bob amplitude
   GBOBR: 1.7,         // bob rate
   GCONTACT: 1.1,      // metres. Closer than this and it reaches you.
-  GSPT: 5,            // outline segments per hem tooth. A multiple of the tooth
-                      // count, so tips and notches land on real vertices instead
-                      // of being rounded off by where the sampling happened to
-                      // fall - which is the difference between spikes and lumps.
-  SPIKE: 0.42,        // how deep a notch cuts, as a fraction of the radius
+  GW: 0.82,           // half-width as a fraction of the radius: a shade taller
+                      // than wide, like the reference
+  GDOME: 12,          // segments in the dome. It is a real arc, not a modulated
+                      // circle, so this only controls how round it looks
+  SPIKE: 0.3,         // how far a notch cuts up from the tips, as a fraction of
+                      // the radius
   SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
@@ -240,6 +241,13 @@ export const C = {
   SPLIT: 3,           // the Splitter's row: dies into two Drifters
   WARDEN: 4,          // the Warden's row: the bind cannot hold it
   SPLITD: 0.5,        // how far apart the two children appear, metres
+
+  // --- Waves (DESIGN.md 8) ----------------------------------------------------
+  // One formula, so the whole difficulty curve is tuned from one place. Wave 1 is
+  // BUD0, and every wave after adds BUDG.
+  BUD0: 6,            // wave 1's threat budget: six Drifters, at a cost of 1 each
+  BUDG: 3,            // and what each later wave adds
+  WAVEGAP: 2,         // seconds of quiet between a cleared wave and the next
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
@@ -485,11 +493,12 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave;
+    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT;
 
 const reset = () => {
   ghosts = []; horns = [];
-  hearts = C.HEARTS; kills = 0; over = 0; wave = 1;
+  hearts = C.HEARTS; kills = 0; over = 0;
+  wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
@@ -846,6 +855,20 @@ const spawn = (k) => {
   born(cos(a) * C.ARENA, sin(a) * C.ARENA, k);
 };
 
+const budgetFor = (w) => C.BUD0 + C.BUDG * (w - 1);
+
+// DESIGN.md 8: the spawner buys randomly from what is currently unlocked until
+// the budget is spent. The wave number gates the LIST, never the amount - so a
+// late wave with a big budget still buys Drifters, it just buys more of
+// everything. Returns -1 when there is nothing left it can afford, which is what
+// "spent" means when the cheapest thing still costs something.
+const buy = () => {
+  const list = [];
+  for (let k = 0; k < C.TYPES.length; k++)
+    if (C.TYPES[k][4] <= wave && C.TYPES[k][3] <= budget) list.push(k);
+  return list.length ? list[random() * list.length | 0] : -1;
+};
+
 const ghostAt = (o) => {
   const t = TY(o);
   const c = cam([o[0], o[1] + sin(clock * C.GBOBR + o[6]) * C.GBOB, o[2]]);
@@ -863,24 +886,32 @@ const drawGhost = (o, target) => {
   const hit = o[5] > 0;
   g.globalAlpha = min(1, k * 0.85);
   g.fillStyle = hit ? '#fff' : 'rgb(' + t[9] + ')';
-  const seg = t[8] * C.GSPT;
+  // A dome with teeth, built as an outline rather than as a modulated circle.
+  // Deforming a circle can only ever make a lumpy circle: the dome and the teeth
+  // are different KINDS of edge, so they are drawn as different edges.
+  //
+  //   arc across the top, straight down each side, zigzag along the bottom.
+  //
+  // The wobble stays, but only on the dome - it is what keeps the thing amorphous
+  // (DESIGN.md 7) while the hem stays crisp.
+  const r = v.r * (1 + t[6] * sin(clock * 2.2 + o[6]));
+  const w = r * C.GW;
+  const dy = v.py - r + w;                        // the dome's centre
+  const hy = v.py + r;                            // the tooth tips
+  const ny = hy - r * C.SPIKE;                    // and the notches between them
   g.beginPath();
-  for (let i = 0; i <= seg; i++) {
-    const a = (i / seg) * 2 * PI;
-    // The hem is the BOTTOM. This was max(0, sin(a)) against a y of
-    // py - sin(a)*rr, which put the skirt on the crown: both the wobble and the
-    // widening were happening above the eyes.
-    const hem = max(0, -sin(a));
-    // Triangular teeth rather than a sine. DESIGN.md 7 says "sine-deformed wavy
-    // hem" and screenshots/ghost.png shows sharp points; the reference is the
-    // user's own and wins, but the disagreement is real and this is where it is.
-    // Weighted by hem, so the sides stay a smooth dome and only the skirt has
-    // points - which is also what the reference shows.
-    const tri = abs((i / C.GSPT % 1) * 2 - 1);
-    const wob = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
-    const rr = v.r * wob * (1 + 0.16 * hem) * (1 - hem * C.SPIKE * (1 - tri));
-    g.lineTo(v.px + cos(a) * rr * 0.86, v.py - sin(a) * rr);
+  for (let i = 0; i <= C.GDOME; i++) {
+    // PI to 2PI, so it runs left, over the top, to right. y is down, so sin is
+    // negative across that span and the arc is the upper half.
+    const a = PI * (1 + i / C.GDOME);
+    const q = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
+    g.lineTo(v.px + cos(a) * w * q, dy + sin(a) * w * q);
   }
+  // Down the right side to the first tip, then t[8] tips and the notches between
+  // them, ending on the left side. closePath takes it back up to the dome.
+  const n = 2 * (t[8] - 1);
+  for (let i = 0; i <= n; i++)
+    g.lineTo(v.px + w - (i / n) * 2 * w, i % 2 ? ny : hy);
   g.closePath();
   // Round, large and set wide and high, per the reference. They were ellipses
   // stretched 1.5x vertically, which read as a squint rather than a void.
@@ -949,10 +980,17 @@ const step = (dt) => {
   if (auto && !fireT) fire();                     // it fires on its own, at FIRE
 
   spawnT -= dt;
-  // Step 8 replaces this with the wave's threat budget and the unlock column.
-  // Until then it spawns every type evenly, so all five are visible and playable
-  // rather than five rows of data nothing reaches.
-  if (spawnT <= 0) { spawnT = C.SPAWN; spawn(random() * C.TYPES.length | 0); }
+  if (spawnT <= 0) {
+    const k = buy();
+    if (k >= 0) { spawnT = C.SPAWN; budget -= C.TYPES[k][3]; spawn(k); }
+  }
+  // A wave is over when its budget is spent AND the field is clear - so the
+  // Splitter's free children, which nothing paid for, still have to be dealt with
+  // before the next wave starts.
+  if (budget <= 0 && !ghosts.length && !waveT) waveT = C.WAVEGAP;
+  if (waveT && !(waveT = max(0, waveT - dt))) {
+    wave++; budget = budgetFor(wave); spawnT = 0;
+  }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -1393,10 +1431,13 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, wave,
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
+                             wave, budget, waveT,
                              bindR: bindR() });
 export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
+// test seam: start a run at a given wave, to reach an unlock without playing to it
+export const setWave = (w) => { wave = w; budget = budgetFor(w); waveT = 0; spawnT = 0; };
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);
