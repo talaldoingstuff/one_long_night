@@ -263,7 +263,7 @@ export const C = {
   TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
                       // anywhere near it
-  TGTW: 4,            // the target outline, px. It traces the ghost's own
+  TGTW: 6,            // the target outline, px. It traces the ghost's own
                       // silhouette rather than circling it, so what is lit up is
                       // the thing you are about to shoot and not a hoop near it
 
