@@ -135,6 +135,7 @@ export const C = {
   BINDA: 0.55,        // the brightest a band gets
   RIMW: 0.35,         // width of the circle marking where the wave will end, metres
   RIMA: 0.85,         // and its brightness at the moment it fires
+  RIMC: [34, 201, 255],        // cyan - the rainbow's own, so it stays in palette
   BINDWAV: 2.2,       // wave crests across the radius
   BINDPUL: 0.9,       // crests per second, travelling outward
   // And the cast is a wall of it, sweeping out to the radius it caught.
@@ -627,6 +628,15 @@ const T = (x, y, z) => {
           C.PUP[2] + c2 * cb + b * sb - k * ca * cb];
 };
 
+// Charging, the eyes and the horn run the rainbow. It eases in over the charge,
+// so the colour arriving in them is also the clock: full rainbow is the moment it
+// goes. Both share it, because they are the two things on the puppet the player
+// is already looking at - the horn is where the crosshair sits.
+const charged = (base) => {
+  const k = charging ? min(1, bindC / C.BINDCHG) : 0;
+  return k ? mix(base, RBV[(clock * C.EYERB | 0) % 6], k) : base;
+};
+
 // The head lies in the sagittal plane, so its own lateral axis is exactly x and
 // an eye is a shallow disc pushed out along it.
 const eyes = () => {
@@ -643,11 +653,7 @@ const eyes = () => {
   // A blink is the eye's own height going to almost nothing and back. Shaped with
   // a sine so it closes and opens rather than switching.
   const bk = blink > 0 ? 1 - (1 - C.BLINKS) * sin(PI * blink / C.BLINKD) : 1;
-  // Charging, the eyes run the rainbow. It eases in as the charge crosses the
-  // smallest cast that would actually catch anything, so the colour arriving in
-  // them is also the signal that letting go is now worth something.
-  const cg = charging ? min(1, bindC / C.BINDCHG) : 0;
-  const ic = cg ? mix(C.IRIS, RBV[(clock * C.EYERB | 0) % 6], cg) : C.IRIS;
+  const ic = charged(C.IRIS);
   for (const sx of [1, -1]) {
     const o = hw * C.EYES[2] * C.HEADS + d / 2;
     cone(frame([ax + sx * fl[0] * o, ay + sx * fl[1] * o, az + sx * fl[2] * o],
@@ -705,7 +711,9 @@ const puppet = () => {
   for (let i = 0; i < PARTS.length; i++) {
     const q = eff(i);
     OUT = i < 2;                                 // neck and head carry the outline
-    swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9], MAT[q[10]], i ? C.HEADR[2] : 0);
+    // The horn is the last part, and the only one that takes the charge colour.
+    swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9],
+          i === 2 ? charged(C.GOLD) : MAT[q[10]], i ? C.HEADR[2] : 0);
   }
   OUT = 0;
   eyes();
@@ -948,11 +956,11 @@ const bow = (f) => {
 // whole readout of when it will go.
 const rim = (r, k) => {
   const w = C.RIMW / 2;
+  g.fillStyle = css(C.RIMC, C.RIMA * (0.35 + 0.65 * k));
   for (let i = 0; i < C.BINDSEG; i++) {
     const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
     const q = [gpt(a0, r - w, 0), gpt(a1, r - w, 0), gpt(a1, r + w, 0), gpt(a0, r + w, 0)];
     if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
-    g.fillStyle = css(bow(i / C.BINDSEG), C.RIMA * (0.35 + 0.65 * k));
     g.beginPath();
     for (const t of q) g.lineTo(t[0], t[1]);
     g.fill();

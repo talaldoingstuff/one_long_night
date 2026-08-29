@@ -297,6 +297,7 @@ const rgbRow = (label, arr) => {
 rgbRow('body', C.BODY);
 rgbRow('horn', C.GOLD);
 rgbRow('eye', C.IRIS);
+rgbRow('rim hint', C.RIMC);
 
 // --- output ------------------------------------------------------------------
 h2('paste back into C');
@@ -333,6 +334,7 @@ const dump = () => {
     '  BINDSEG: ' + C.BINDSEG + ',  WALLDUR: ' + f(C.WALLDUR) +
       ',  WALLH: ' + f(C.WALLH) + ',  WALLREP: ' + C.WALLREP + ',\n' +
     '  WALLA: ' + f(C.WALLA) + ',  EYERB: ' + C.EYERB + ',\n' +
+    '  RIMC: [' + C.RIMC + '],\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
       '],';
 };
