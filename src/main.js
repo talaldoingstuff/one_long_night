@@ -271,13 +271,13 @@ export const C = {
   // beside the guaranteed fire rate - the gates were staggered so hard that wave
   // 1 had a pool of one.
   CARDS: [
-    [8, 1,  -1, 0, 20,   'FIRE RATE',     'shots a second'],
-    [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'damage a horn'],
-    [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'metres'],
-    [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'seconds'],
-    [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'seconds'],
-    [2, 3,  -1, 0, 10,   'EXTRA HEART',   'hearts'],
-    [2, 1,   5, 1, 10,   'HEAL',          'a wave'],
+    [8, 1,  -1, 0, 20,   'FIRE RATE',     'Shots A Second'],
+    [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'Damage A Horn'],
+    [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'Metres'],
+    [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'Seconds'],
+    [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'Seconds'],
+    [2, 3,  -1, 0, 10,   'EXTRA HEART',   'Hearts'],
+    [2, 1,   5, 1, 10,   'HEAL',          'A Wave'],
   ],
   // Extra heart's second level waits longer than its first.
   HEART2: 9,          // the wave extra heart level 2 opens on
@@ -1462,8 +1462,8 @@ const cardIcon = (i, x, y, r) => {
       heartAt(x, y + r * 0.12, r);
       g.strokeStyle = '#fff';
       g.beginPath();
-      g.moveTo(x - r * 0.4, y + r * 0.06); g.lineTo(x + r * 0.4, y + r * 0.06);
-      g.moveTo(x, y - r * 0.34); g.lineTo(x, y + r * 0.46);
+      g.moveTo(x - r * 0.38, y + r * 0.21); g.lineTo(x + r * 0.38, y + r * 0.21);
+      g.moveTo(x, y - r * 0.17); g.lineTo(x, y + r * 0.59);
       g.stroke();
     } else if (i < 0) {                           // RECOVERY: all of it back
       g.fillStyle = css(C.HEALC, 1);
@@ -1495,13 +1495,6 @@ const cardIcon = (i, x, y, r) => {
       grd.addColorStop(1, css(C.GOLD, 1));
       g.fillStyle = grd;
       hornAt(x, y + r * 0.18, r * 0.92);
-      g.strokeStyle = '#fff';
-      g.beginPath();
-      for (const a of [-1.15, -PI / 2, -0.42]) {
-        g.moveTo(x + cos(a) * r * 0.62, y - r * 0.74 + sin(a) * r * 0.62);
-        g.lineTo(x + cos(a) * r * 1.05, y - r * 0.74 + sin(a) * r * 1.05);
-      }
-      g.stroke();
     }
     g.lineCap = 'butt';
     return;
@@ -1586,8 +1579,8 @@ const cardFace = (i, key, x, y, w, h) => {
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';
       type(C.CARDU);
-      g.fillText('FULLY RECOVER', mx, y + h * 0.83);
-      g.fillText('HEALTH', mx, y + h * 0.94);
+      g.fillText('Fully Recover', mx, y + h * 0.83);
+      g.fillText('Health', mx, y + h * 0.94);
     } else {
       const dp = i > 4 ? 0 : 2;
       g.fillStyle = '#cfd6f5';
