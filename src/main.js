@@ -222,6 +222,19 @@ export const C = {
   GFLASH: 0.11,       // seconds of white on a hit
 
   // --- Player (DESIGN.md 10) -------------------------------------------------
+  // --- Minimap (DESIGN.md 11) ------------------------------------------------
+  MAPR: 0.115,        // dish radius as a fraction of screen height. 11 caps the
+                      // whole thing at roughly a quarter of H and says not to
+                      // shrink it for tidiness; 0.23H across sits just under.
+  MAPPAD: 14,         // pixels in from the top-left corner
+  MAPZ: 1.06,         // how far past the spawn ring the dish reaches, so a ghost
+                      // arriving sits inside the rim rather than on it
+  MAPBLIP: 0.07,      // blip radius, as a fraction of the dish
+  MAPBG: 'rgba(6,8,16,0.72)',
+  MAPEDGE: 'rgba(139,147,184,0.5)',
+  MAPCONE: 'rgba(255,255,255,0.09)',
+  MAPDOT: '#e8ecff',
+
   HEARTS: 3,
   DMGCAP: 3,          // no single contact may take more than this
   IFRAME: 0.6,        // seconds of grace after a hit, so a clump cannot chain
@@ -867,6 +880,71 @@ const step = (dt) => {
   }
 };
 
+// The minimap. DESIGN.md 11 calls it a primary display rather than decoration,
+// and it earns that: with threats on every bearing and no way to move, something
+// may only ever be perceivable here.
+//
+// Heading-up, not north-up. 11 asks for a view cone, a player dot and blips at
+// true bearing, and heading-up gives all three while making a bearing readable
+// without arithmetic - a blip left of the dot is a threat on your left, and you
+// drag that way. North-up would leave the player subtracting two angles under
+// pressure. The cone still earns its place either way: it is exactly the slice of
+// the map that is on screen, so a blip outside it is the one that reaches you
+// without ever being seen.
+const minimap = () => {
+  const r = C.MAPR * H, ox = C.MAPPAD + r, oy = C.MAPPAD + r;
+  const reach = C.ARENA * C.MAPZ, k = r / reach;
+  const dish = (rad) => { g.beginPath(); g.arc(ox, oy, rad, 0, 2 * PI); };
+
+  dish(r);
+  g.fillStyle = C.MAPBG;
+  g.fill();
+
+  // The cone is the real one: its half-angle comes from the same W, PX and F the
+  // projection uses, so it stays honest if any of them change.
+  g.beginPath();
+  g.moveTo(ox, oy);
+  g.arc(ox, oy, r, -PI / 2 - atan2(W / 2, PX * C.F), -PI / 2 + atan2(W / 2, PX * C.F));
+  g.fillStyle = C.MAPCONE;
+  g.fill();
+
+  // The bind, as the circle it actually is - which is the whole reason 6 says the
+  // map is where it reads. On the floor you see an arc sweeping away from you; a
+  // ring around a dot is the shape you are actually casting.
+  if (charging) {
+    dish(bindR() * k);
+    g.fillStyle = css(RBV[2], 0.22);
+    g.fill();
+    dish(C.BINDR * k);
+    g.strokeStyle = css(C.RIMC, 0.8);
+    g.lineWidth = 1.5;
+    g.stroke();
+  }
+
+  for (const o of ghosts) {
+    // Yaw only. cam() would do this but would also apply pitch, and looking up
+    // must not squash the map.
+    const bx = o[0] * cy - o[2] * sy, bz = o[0] * sy + o[2] * cy;
+    // Clamped to the rim rather than dropped, so a ghost that has not finished
+    // arriving is still a bearing you can react to.
+    const d = hypot(bx, bz), c = min(1, reach / (d || 1)) * k;
+    g.beginPath();
+    g.arc(ox + bx * c, oy - bz * c, C.MAPBLIP * r, 0, 2 * PI);
+    g.fillStyle = o[8] > 0 ? css(C.RIMC, 1) : 'rgb(' + C.DRIFTER[6] + ')';
+    g.fill();
+  }
+
+  g.beginPath();
+  g.arc(ox, oy, C.MAPBLIP * r * 0.8, 0, 2 * PI);
+  g.fillStyle = C.MAPDOT;
+  g.fill();
+
+  dish(r);
+  g.strokeStyle = C.MAPEDGE;
+  g.lineWidth = 1.5;
+  g.stroke();
+};
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -884,9 +962,11 @@ const hud = () => {
     g.lineTo(x + u, y + u * 0.38);
     g.fill();
   }
+  if (!over) minimap();
   g.fillStyle = '#8b93b8';
   g.font = (u * 0.62 | 0) + 'px monospace';
-  g.fillText('KILLS ' + kills, 16, 16 + u * 0.62);
+  // Under the dish, which now owns the corner it used to sit in.
+  g.fillText('KILLS ' + kills, C.MAPPAD, C.MAPPAD * 2 + C.MAPR * H * 2 + u * 0.62);
 
   if (!over) {                                    // crosshair, on the horn's line
     const a = proj(aimAt());
