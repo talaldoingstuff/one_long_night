@@ -124,6 +124,14 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
+  ARM: 1,             // seconds of holding still before the charge begins. The
+                      // start of every press is free for turning, so a drag never
+                      // charges by accident.
+  ARMPX: 8,           // pixels from where the press landed that make it a turn and
+                      // nothing else. Measured as distance from that point, not
+                      // distance travelled: a hand shaking in place covers a lot
+                      // of the second but goes nowhere, and only going somewhere
+                      // means you meant to turn.
   BINDSEG: 44,        // segments in a drawn circle
   EYE: 1.6,           // how high the eye is above the ground the ring lies on
   // The charge is the rainbow lying on the ground, pulsing outward.
@@ -443,7 +451,7 @@ const reset = () => {
 // restarts a finished run; and the whole hold gesture is left for the bind at
 // step 5, which no longer has to share the button with a shot.
 // ---------------------------------------------------------------------------
-let down = 0, lx = 0, ly = 0, auto = 1;
+let down = 0, lx = 0, ly = 0, auto = 1, armT = -1, ax = 0, ay = 0;
 
 // Where the puppet is pointing: the straight line from the base of the horn to
 // its tip, carried on out into the world. The crosshair sits on it and the shots
@@ -496,6 +504,7 @@ const cast = () => {
   const r = C.BINDR;
   charging = 0;
   bindC = 0;
+  armT = -1;                                     // one press, one cast
   bindT = C.BINDCD;
   wallT = C.WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   for (const o of ghosts) {
@@ -527,27 +536,35 @@ const fire = () => {
   nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0);
 };
 
-// One pointer carries aiming and binding at once, and nothing separates them:
-// holding charges, moving turns, and doing both together does both. A threshold
-// used to cancel the charge on a drag, back when letting go early cast a smaller
-// ring and an accidental one was worth guarding against. Now that only the
-// trigger fires anything, an abort is just releasing early - so turning while you
-// charge costs nothing, and is the normal way to play.
+// One pointer has to carry turning and binding both, and the two are told apart
+// by WHEN you move, not whether you do.
+//
+// The first ARM seconds of a press are an arming window. Move more than ARMPX in
+// it and the press is a turn and only ever a turn - which is what a player who
+// just wants to look around does, so looking around never charges. Hold still
+// through it and the bind starts, and from that moment moving is free again: you
+// can turn all you like while it charges, which is the whole point of a bind
+// centred on you.
+//
+// armT is the clock, and -1 means this press is disqualified.
 const onDown = (e) => {
   down = 1; lx = e.clientX; ly = e.clientY;
   if (over) { reset(); return; }
-  if (bindT <= 0) charging = 1;
+  armT = 0; ax = e.clientX; ay = e.clientY;
 };
 const onMove = (e) => {
   if (!down) return;
-  yaw += (e.clientX - lx) * C.TURN;
-  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - (e.clientY - ly) * C.TURN));
+  const dx = e.clientX - lx, dy = e.clientY - ly;
+  // Only while arming. Once it is charging, this is just aiming.
+  if (!charging && hypot(e.clientX - ax, e.clientY - ay) > C.ARMPX) armT = -1;
+  yaw += dx * C.TURN;
+  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - dy * C.TURN));
   lx = e.clientX; ly = e.clientY;
   aim();
 };
 // Letting go early abandons the charge rather than casting a smaller one: the
 // trigger is the only thing that fires it.
-const onUp = () => { down = 0; charging = 0; bindC = 0; };
+const onUp = () => { down = 0; charging = 0; bindC = 0; armT = -1; };
 
 // ---------------------------------------------------------------------------
 // The puppet (DESIGN.md 6). The recovered head-and-neck mesh, placed in CAMERA
@@ -796,6 +813,13 @@ const step = (dt) => {
   // It lets go by itself at BINDCHG. Waiting for the player to release would let
   // them hold a full ring indefinitely and pick their moment for free.
   if (charging && (bindC += dt) >= C.BINDCHG) cast();
+  // Arming runs after that, so the frame which finishes arming does not also
+  // charge - the charge starts from zero on the next one.
+  if (armT >= 0 && !charging) {
+    armT += dt;
+    // Held through a cooldown, it begins the moment the bind is ready again.
+    if (armT >= C.ARM && bindT <= 0) charging = 1;
+  }
   blink = max(0, blink - dt);
   nextB -= dt;
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
@@ -953,9 +977,9 @@ const bow = (f) => {
 // rather than one more band of the floor - and it brightens as the trigger comes
 // up, so the floor flooding out to meet a ring that is getting louder is the
 // whole readout of when it will go.
-const rim = (r, k) => {
+const rim = (r, a) => {
   const w = C.RIMW / 2;
-  g.fillStyle = css(C.RIMC, C.RIMA * (0.35 + 0.65 * k));
+  g.fillStyle = css(C.RIMC, a);
   for (let i = 0; i < C.BINDSEG; i++) {
     const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
     const q = [gpt(a0, r - w, 0), gpt(a1, r - w, 0), gpt(a1, r + w, 0), gpt(a0, r + w, 0)];
@@ -1015,12 +1039,15 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
-  // The charge lies on the floor, under everything standing on it. The rim sits
-  // out at BINDR the whole time, so where the wave will reach is known before it
-  // goes, not discovered when it arrives.
+  // The rim fades in across the arming second and then brightens across the
+  // charge - one continuous ramp, so the second of holding before anything else
+  // happens is not a second of nothing happening. The floor only joins once the
+  // bind is actually running, which is what separates armed from arming.
   if (charging) {
     groundBow(bindR());
-    rim(C.BINDR, bindC / C.BINDCHG);
+    rim(C.BINDR, C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG));
+  } else if (armT > 0) {
+    rim(C.BINDR, C.RIMA * 0.35 * min(1, armT / C.ARM));
   }
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();
@@ -1093,7 +1120,7 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR,
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
                              bindR: bindR() });
 export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
