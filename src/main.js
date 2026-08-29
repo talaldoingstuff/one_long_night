@@ -425,12 +425,21 @@ export const C = {
     [90,  430, 0.340, 0.055, 0],   // 3  the rainbow going off
     [880, 1330, 0.120, 0.026, 0],  // 4  something caught in it
     [170, 50,  0.240, 0.080, 2],   // 5  being hit
-    [520, 780, 0.070, 0.038, 3],   // 6  taking a card
+    [520, 780, 0.070, 0.038, 3],   // 6  a click: taking a card, and any press after it
     [320, 275, 0.100, 0.028, 0],   // 7  something arriving, panned to its bearing
     [230, 185, 0.100, 0.045, 2],   // 8  a Warden shrugging the rainbow off
     [440, 660, 0.100, 0.042, 3],   // 9  a wave cleared
+    [300, 60,  0.900, 0.070, 3],   // 10 the run ending
   ],
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
+
+  // The charge is a tick that speeds up and rises as the ring grows, rather than
+  // one long sweep: a charge can be cancelled, and a series of ticks simply stops
+  // where a sustained note would have to be faded out and cleaned up. It also
+  // says how far along you are, which is the thing you actually need to know.
+  _CHG: [300, 900, 0.035, 0.022, 0],   // pitch at the start of the charge, at the end, length, volume, wave
+  _CHGUP: 1.5,        // and each tick lifts by this much across its own length
+  _CHGGAP: [0.3, 0.07],  // seconds between ticks, at the start and at the end
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
@@ -800,7 +809,7 @@ const fire = () => {
 const onDown = (e) => {
   audio();
   down = 1; lx = e.clientX; ly = e.clientY;
-  if (over) { reset(); return; }
+  if (over) { sfx(6); reset(); return; }
   if (picking) {                                  // a card, if the pointer is on one
     for (let n = 0; n < offer.length; n++) {
       const [x, y, w, h] = cardBox(offer.length, n);
@@ -1360,6 +1369,11 @@ const step = (dt) => {
   assist(dt);
   // It lets go by itself at BINDCHG. Waiting for the player to release would let
   // them hold a full ring indefinitely and pick their moment for free.
+  // Ticking is driven off bindC rather than kept in step with it: the else clears
+  // the timer, so every way a charge can end - cast, release, death - re-arms the
+  // first tick of the next one without any of them having to know about sound.
+  if (charging) { if ((chgT -= dt) <= 0) chgT = chargeTick(min(1, bindC / C._BINDCHG)); }
+  else chgT = 0;
   if (charging && (bindC += dt) >= C._BINDCHG) cast();
   // Arming runs after that, so the frame which finishes arming does not also
   // charge - the charge starts from zero on the next one.
@@ -1426,7 +1440,7 @@ const step = (dt) => {
         hearts -= min(C._DMGCAP, TY(o)[2]);
         inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
         sfx(5);
-        if (hearts <= 0) { hearts = 0; over = 1; }
+        if (hearts <= 0) { hearts = 0; over = 1; sfx(10); }
       }
       continue;
     }
@@ -1520,7 +1534,7 @@ const minimap = () => {
 // The context is built on the first press rather than at load: a browser blocks
 // one made outside a gesture, and complains about it in the console, which
 // DESIGN.md 2 says has to stay empty.
-let A, muted = 0, mT = 0, mI = 0;
+let A, muted = 0, mT = 0, mI = 0, chgT = 0;
 const audio = () => {
   if (!A) A = new AudioContext();
   if (A.state === 'suspended') A.resume();
@@ -1547,6 +1561,14 @@ const tone = (f0, f1, dur, vol, wave, pan) => {
 const sfx = (i, pan) => {
   const q = C._SFX[i];
   tone(q[0], q[1], q[2], q[3], C._OSC[q[4]], pan);
+};
+
+// One tick of the charge, k being how far through it is. Returns how long to wait
+// for the next, so the accelerating part is the return value rather than state.
+const chargeTick = (k) => {
+  const q = C._CHG, f = q[0] + (q[1] - q[0]) * k;
+  tone(f, f * C._CHGUP, q[2], q[3], C._OSC[q[4]]);
+  return C._CHGGAP[0] + (C._CHGGAP[1] - C._CHGGAP[0]) * k;
 };
 
 // One note every couple of seconds, from a pentatonic that never resolves, with a
@@ -2167,6 +2189,12 @@ export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 export const drawCard = cardFace;               // editor: every card, side by side
 export const cardGlyph = cardIcon;
+// The audio editor drives these directly, so what it tunes is what plays.
+export const startAudio = audio;
+export const playSfx = sfx;
+export const playCharge = chargeTick;
+export const stepMusic = musicStep;
+export const setMuted = (v) => { muted = v; };
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);
