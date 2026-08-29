@@ -113,8 +113,22 @@ export const C = {
   // draw anywhere. DESIGN.md put that on a casting arm; with the arm gone and
   // the unicorn casting instead, the rainbow it runs on is the MANE.
   SAT0: 0.12,         // how much colour is left at the moment of casting
-  BINDCD: 3,          // seconds to recharge. The bind itself is step 5; this is
-                      // the clock its readout runs on.
+
+  // --- The bind (DESIGN.md 6) ------------------------------------------------
+  // Centred on the player, not in front of them. Hold to charge, release to cast
+  // at whatever radius you have grown.
+  BINDCD: 3,          // seconds to recharge from empty. An upgrade card.
+  BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
+  BINDDUR: 2.5,       // how long a caught ghost is held. A card.
+  BINDGROW: 7,        // metres of radius per second of holding
+  BINDMIN: 1.5,       // below this a cast does nothing and is not spent
+  BINDSEG: 44,        // segments in the drawn ring
+  EYE: 1.6,           // how high the eye is above the ground the ring lies on
+  DRAGPX: 6,          // pointer travel that makes it a drag rather than a hold.
+                      // One pointer has to carry aiming and binding both, and
+                      // this is the only thing that separates them.
+  RING: 'rgba(255,255,255,0.75)',
+  RINGMAX: 'rgba(255,255,255,0.28)',
 
   // --- Outline ---------------------------------------------------------------
   // A dark edge on the neck and head only. They are one colour meeting one
@@ -398,13 +412,13 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT;
+    rec, blink, nextB, bindT, bindR, charging;
 
 const reset = () => {
   ghosts = []; horns = [];
   hearts = C.HEARTS; kills = 0; over = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
-  rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0;
+  rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindR = 0; charging = 0;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -451,6 +465,27 @@ const aimAt = () => {
   return [o[0] + u[0] * r, o[1] + u[1] * r, o[2] + u[2] * r];
 };
 
+// DESIGN.md 6's balance rule: cooldown scales with r squared, not r. Area grows
+// quadratically, so a linear price makes the biggest bind always the best one and
+// there is never a reason to cast a small quick one.
+const bindCost = (r) => ((r / C.BINDR) ** 2) * C.BINDCD;
+// And the inverse: the largest radius the charge left will pay for. This is what
+// the dashed ring shows.
+const bindMax = () => C.BINDR * (max(0, C.BINDCD - bindT) / C.BINDCD) ** 0.5;
+
+const cast = () => {
+  const r = min(bindR, bindMax());
+  charging = 0;
+  bindR = 0;
+  if (r < C.BINDMIN) return;                     // too small to do anything, so it costs nothing
+  bindT = min(C.BINDCD, bindT + bindCost(r));
+  for (const o of ghosts) {
+    // Distance on the ground, not through the air: the ring is a circle on the
+    // floor and a ghost's float height must not decide whether it is inside.
+    if (hypot(o[0], o[2]) <= r) o[8] = C.BINDDUR;
+  }
+};
+
 const fire = () => {
   if (over || fireT > 0) return;
   fireT = C.FIRE;
@@ -473,18 +508,23 @@ const fire = () => {
   nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0);
 };
 
+let travel = 0;
 const onDown = (e) => {
-  down = 1; lx = e.clientX; ly = e.clientY;
-  if (over) reset();
+  down = 1; lx = e.clientX; ly = e.clientY; travel = 0;
+  if (over) { reset(); return; }
+  charging = 1;                                  // until it turns out to be a drag
 };
 const onMove = (e) => {
   if (!down) return;
-  yaw += (e.clientX - lx) * C.TURN;
-  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - (e.clientY - ly) * C.TURN));
+  const dx = e.clientX - lx, dy = e.clientY - ly;
+  travel += hypot(dx, dy);
+  if (travel > C.DRAGPX) { charging = 0; bindR = 0; }   // it is a drag, not a hold
+  yaw += dx * C.TURN;
+  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - dy * C.TURN));
   lx = e.clientX; ly = e.clientY;
   aim();
 };
-const onUp = () => { down = 0; };
+const onUp = () => { down = 0; if (charging) cast(); };
 
 // ---------------------------------------------------------------------------
 // The puppet (DESIGN.md 6). The recovered head-and-neck mesh, placed in CAMERA
@@ -656,7 +696,7 @@ const puppet = () => {
 const spawn = () => {
   const a = random() * 2 * PI;
   ghosts.push([cos(a) * C.ARENA, C.GY, sin(a) * C.ARENA,
-               C.DRIFTER[0], C.DRIFTER[0], 0, random() * 9, 0]);
+               C.DRIFTER[0], C.DRIFTER[0], 0, random() * 9, 0, 0]);
 };
 
 const ghostAt = (o) => {
@@ -713,7 +753,8 @@ const step = (dt) => {
   if (over) return;
   fireT = max(0, fireT - dt);
   rec = max(0, rec - dt / C.RECT);
-  bindT = max(0, bindT - dt);                     // the casting arm's recharge
+  bindT = max(0, bindT - dt);
+  if (charging) bindR = min(bindMax(), bindR + C.BINDGROW * dt);
   blink = max(0, blink - dt);
   nextB -= dt;
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
@@ -742,6 +783,7 @@ const step = (dt) => {
   for (let i = ghosts.length; i--;) {
     const o = ghosts[i];
     o[5] = max(0, o[5] - dt);
+    if (o[8] > 0) { o[8] -= dt; continue; }      // held: it neither moves nor reaches you
     const d = hypot(o[0], o[2]) || 1;
     if (d < C.GCONTACT) {                         // reached you: hits and is gone
       ghosts.splice(i, 1);
@@ -815,6 +857,31 @@ const underCrosshair = () => {
   return best;
 };
 
+// The bind ring, on the ground, centred on the player.
+//
+// DESIGN.md 6 suggests concentric ellipses with their centre below the viewport.
+// That is the trick for when you have no projection; there is one here, so the
+// real circle is projected instead - which then behaves correctly under pitch and
+// yaw for free, and the near half falls behind the camera by itself rather than
+// having to be clipped away.
+const ring = (r, style, dash) => {
+  if (r < 0.05) return;
+  g.strokeStyle = style;
+  g.lineWidth = 2;
+  let up = 0;
+  g.beginPath();
+  for (let i = 0; i <= C.BINDSEG; i++) {
+    const a = (i / C.BINDSEG) * 2 * PI;
+    const c = cam([cos(a) * r, C.EYE, sin(a) * r]);
+    if (c[2] < C.NEAR) { up = 0; continue; }     // behind the eye: lift the pen
+    const p = proj(c);
+    if (up && !(dash && i % 2)) g.lineTo(p[0], p[1]);
+    else g.moveTo(p[0], p[1]);
+    up = 1;
+  }
+  g.stroke();
+};
+
 const render = () => {
   // Sky, ground, and the horizon between them. Every horizontal direction shares
   // the same vanishing height, so the horizon is one straight line whose only
@@ -835,6 +902,12 @@ const render = () => {
   // A horn in flight is a cone, apex forward, built in the world and put through
   // the same pipeline as everything else. It was a swept box tapered to a point,
   // which is a pyramid; a horn is round.
+  // Solid: what you have charged. Dashed: the most the charge left would pay for.
+  if (charging || bindR > 0) {
+    ring(bindMax(), C.RINGMAX, 1);
+    ring(bindR, C.RING, 0);
+  }
+
   for (const h of horns) {
     const L = hypot(h[3], h[4], h[5]) || 1;
     const px = h[3] / L, py = h[4] / L, pz = h[5] / L;
@@ -899,7 +972,8 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT });
+export const anim = () => ({ rec, blink, nextB, bindT, bindR, charging });
+export const bindInfo = () => ({ cost: bindCost, max: bindMax(), cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 
 addEventListener('resize', resize);
