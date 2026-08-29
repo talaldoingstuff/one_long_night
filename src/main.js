@@ -124,7 +124,7 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
-  ARM: 1,             // seconds of holding still before the charge begins. The
+  ARM: 0.3,           // seconds of holding still before the charge begins. The
                       // start of every press is free for turning, so a drag never
                       // charges by accident.
   ARMPX: 8,           // pixels from where the press landed that make it a turn and
