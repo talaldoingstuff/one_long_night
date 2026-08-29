@@ -240,8 +240,8 @@ export const C = {
   HUDU: 0.036,        // the unit everything in the HUD is sized off, a fraction
                       // of the smaller screen dimension
   HEARTS2: 2,         // hearts drawn at this multiple of it
-  WAVEF: 1.35,        // the wave counter, as a multiple of the unit
-  KILLF: 0.62,        // the kill count, and READY, which matches it
+  WAVEF: 1.6875,      // the wave counter, as a multiple of the unit
+  KILLF: 0.775,       // the kill count, and READY, which matches it
   BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
                       // so it runs out past the left of the three that are there
   BARH: 0.3,          // its height, as a fraction of a heart's
