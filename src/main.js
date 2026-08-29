@@ -251,7 +251,7 @@ export const C = {
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
-  TGTW: 2.5,          // the target outline, px. It traces the ghost's own
+  TGTW: 4,            // the target outline, px. It traces the ghost's own
                       // silhouette rather than circling it, so what is lit up is
                       // the thing you are about to shoot and not a hoop near it
 
@@ -284,6 +284,10 @@ export const C = {
 
   HEARTS: 3,
   DMGCAP: 3,          // no single contact may take more than this
+  SHAKEA: 7,          // px the whole view kicks by at full shake
+  HURTD: 0.28,        // seconds of red over the screen when something reaches you
+  HURTA: 0.42,        // and how red it gets at the moment of the hit
+  HURTC: [255, 40, 60],
   IFRAME: 0.6,        // seconds of grace after a hit, so a clump cannot chain
   SPAWN: 1.5,         // seconds between spawns. Step 8 replaces this with waves.
 };
@@ -496,13 +500,13 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT;
+    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT;
 
 const reset = () => {
   ghosts = []; horns = [];
   hearts = C.HEARTS; kills = 0; over = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
-  fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
+  fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
   yaw = 0; pitch = 0; aim();
@@ -985,6 +989,7 @@ const step = (dt) => {
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
   inv = max(0, inv - dt);
   shake = max(0, shake - dt * 4);
+  hurtT = max(0, hurtT - dt);
   if (auto && !fireT) fire();                     // it fires on its own, at FIRE
 
   spawnT -= dt;
@@ -1036,7 +1041,7 @@ const step = (dt) => {
       ghosts.splice(i, 1);
       if (!inv) {
         hearts -= min(C.DMGCAP, TY(o)[2]);
-        inv = C.IFRAME; shake = 1;
+        inv = C.IFRAME; shake = 1; hurtT = C.HURTD;
         if (hearts <= 0) { hearts = 0; over = 1; }
       }
       continue;
@@ -1210,7 +1215,9 @@ const overScreen = (u) => {
   g.textAlign = 'center';
   g.fillStyle = css(C.GOLD, 1);
   g.font = (u * 2 | 0) + 'px monospace';
-  g.fillText('WAVES SURVIVED ' + wave, W / 2, H / 2 - u * 1.6);
+  // The wave you died ON is not one you survived: reaching wave 2 and dying there
+  // is one wave cleared, and dying in wave 1 is none.
+  g.fillText('WAVES SURVIVED ' + (wave - 1), W / 2, H / 2 - u * 1.6);
   g.fillStyle = '#fff';
   g.font = (u * 1.2 | 0) + 'px monospace';
   g.fillText('KILLS ' + kills, W / 2, H / 2);
@@ -1343,16 +1350,23 @@ const render = () => {
   // no ghosts, no puppet. Everything below assumes a run in progress.
   if (over) return hud();
 
+  // Being hit kicks the whole view, not just the horizon line. It was a jitter
+  // applied to hy alone, which moved the join between sky and ground while every
+  // ghost standing on it held perfectly still.
+  const m = C.SHAKEA;
+  g.save();
+  if (shake) g.translate((random() - 0.5) * shake * m, (random() - 0.5) * shake * m);
+
   // Sky, ground, and the horizon between them. Every horizontal direction shares
   // the same vanishing height, so the horizon is one straight line whose only
-  // input is pitch.
-  const hy = H / 2 + tan(pitch) * C.F * PX + (shake ? (random() - 0.5) * shake * 14 : 0);
+  // input is pitch. Overdrawn by the kick, so the shake cannot expose an edge.
+  const hy = H / 2 + tan(pitch) * C.F * PX;
   g.fillStyle = C.SKY;
-  g.fillRect(0, 0, W, H);
+  g.fillRect(-m, -m, W + 2 * m, H + 2 * m);
   g.fillStyle = C.GND;
-  g.fillRect(0, hy, W, H - hy);
+  g.fillRect(-m, hy, W + 2 * m, H - hy + m);
   g.fillStyle = C.HORIZ;
-  g.fillRect(0, hy - 1, W, 2);
+  g.fillRect(-m, hy - 1, W + 2 * m, 2);
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
@@ -1393,6 +1407,14 @@ const render = () => {
   flush();
 
   puppet();                                       // viewmodel last, on top
+  g.restore();
+
+  // The screen goes red for HURTD. Over the world and under the HUD, and outside
+  // the shake - a flash that moved with the kick would read as an object.
+  if (hurtT > 0) {
+    g.fillStyle = css(C.HURTC, C.HURTA * hurtT / C.HURTD);
+    g.fillRect(0, 0, W, H);
+  }
   hud();
 };
 
@@ -1440,7 +1462,7 @@ export const poseCheck = () => {
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
-                             wave, budget, waveT,
+                             wave, budget, waveT, hurtT, shake,
                              bindR: bindR() });
 export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
