@@ -232,10 +232,11 @@ export const C = {
   SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
-  //   frequency, wisps, colour, eye shape, horn
+  //   frequency, wisps, colour, eye shape, horn, mouth
   // Eye shape 0 is a plain round void; 1 is the scared one - a dome over a lower
   // edge that curves up INTO the eye. Horn is how far a spike stands above the
-  // dome, as a fraction of the half width, and 0 is no horn at all.
+  // dome, as a fraction of the half width, and 0 is no horn at all. Mouth is its
+  // half width as a fraction of the ghost's radius, and 0 is no mouth.
   // Cost and the unlock wave belong to step 8's threat budget and are carried
   // here because they are properties of the type, not of the spawner.
   GSPEED: 1,          // metres a second at speed 1.0x
@@ -245,12 +246,14 @@ export const C = {
   //
   // Unlocks are the difficulty spikes: 5, 10, 20, 30.
   TYPES: [
-    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0],    // Drifter, pale white
-    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55],  // Darter, sharp cyan
-    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 0, 0],      // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0],     // Splitter, sickly green
-    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0],    // Warden, pale gold
+    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0],       // Drifter, pale white
+    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22],  // Darter, sharp cyan
+    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 0, 0, 0],         // Hulk, angry red
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0, 0],        // Splitter, sickly green
+    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0],       // Warden, pale gold
   ],
+  MOUTHH: 1.2,        // a mouth is this much taller than it is wide
+  MOUTHY: 0.3,        // and sits this far below the middle, in ghost radii
   EYEH: 1.7,          // a scared eye is stretched this much taller than it is wide
   EYEBOW: 1,          // and its lower edge is that height scaled by 1 - EYEBOW, so
                       // 1 is a straight lid, under 1 rounds it out and over 1
@@ -1072,6 +1075,22 @@ const ghostAt = (o) => {
   return { c, s, px: c[0] * s * PX + W / 2, py: c[1] * s * PX + H / 2, r: t[5] * s * PX, t };
 };
 
+// A dome with a straight lower edge, wound as a hole in the body. The Darter's
+// two eyes and its mouth are this same shape at three sizes, which is what makes
+// them read as one face rather than as three unrelated cutouts. bow is the eye's
+// EYEBOW: 1 is the straight edge, under 1 rounds it out, over 1 curves it up in.
+const domeHole = (cx, cy, hw, hh, bow) => {
+  g.moveTo(cx - hw, cy);
+  for (let i = 1; i <= 8; i++) {
+    const a = PI * (1 + i / 8);
+    g.lineTo(cx + cos(a) * hw, cy + sin(a) * hh);
+  }
+  for (let i = 1; i < 8; i++) {
+    const u = i / 8;
+    g.lineTo(cx + hw * (1 - 2 * u), cy + hh * (1 - bow) * sin(PI * u));
+  }
+};
+
 const drawGhost = (o, target) => {
   const v = ghostAt(o);
   if (!v) return;
@@ -1147,19 +1166,9 @@ const drawGhost = (o, target) => {
   for (const ex of [-0.34, 0.34]) {                // eye voids, wound as holes
     const cx = v.px + ex * v.r;
     if (t[10]) {
-      // Scared: a dome over the top, and a lower edge that curves UP into the
-      // eye instead of closing it round. The pupil is left wide and the lid
-      // comes at it from below, which is the whole expression.
-      const eh = er * C.EYEH;
-      g.moveTo(cx - er, ey);
-      for (let i = 1; i <= 8; i++) {              // the dome, tall
-        const a = PI * (1 + i / 8);
-        g.lineTo(cx + cos(a) * er, ey + sin(a) * eh);
-      }
-      for (let i = 1; i < 8; i++) {               // and the lid, pushing up under it
-        const u = i / 8;
-        g.lineTo(cx + er * (1 - 2 * u), ey + eh * (1 - C.EYEBOW) * sin(PI * u));
-      }
+      // Scared: a tall dome cut off square along the bottom. The eye is left wide
+      // open and the lid comes at it straight, which is the whole expression.
+      domeHole(cx, ey, er, er * C.EYEH, C.EYEBOW);
     } else {
       g.moveTo(cx + er, ey);
       for (let i = 0; i <= 9; i++) {
@@ -1168,6 +1177,8 @@ const drawGhost = (o, target) => {
       }
     }
   }
+  // The mouth, the same shape again, open under them.
+  if (t[12]) domeHole(v.px, v.py + v.r * C.MOUTHY, v.r * t[12], v.r * t[12] * C.MOUTHH, C.EYEBOW);
   g.fill('evenodd');
   // The bind arriving and failing: a ring of the Warden's own colour pushing out
   // past it and fading. Under lighter, so it reads as light coming off it.
