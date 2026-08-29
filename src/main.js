@@ -223,12 +223,8 @@ export const C = {
 
   // --- Player (DESIGN.md 10) -------------------------------------------------
   // --- Minimap (DESIGN.md 11) ------------------------------------------------
-  MAPR: 0.138,        // dish radius as a fraction of screen height. 11 caps the
-                      // whole thing at roughly a quarter of H; this is 0.276H
-                      // across, so it is over that by a tenth. Deliberate - the
-                      // cap is the only direction 11 leaves open ("do not shrink
-                      // it for tidiness"), and a primary display being slightly
-                      // too big is the harmless way to miss.
+  MAPR: 0.1104,       // dish radius as a fraction of screen height. 0.221H
+                      // across, back inside 11's roughly a quarter of H cap.
   MAPPAD: 14,         // pixels in from the top-left corner
   MAPZ: 1.06,         // how far past the spawn ring the dish reaches, so a ghost
                       // arriving sits inside the rim rather than on it
@@ -244,8 +240,8 @@ export const C = {
   HUDU: 0.036,        // the unit everything in the HUD is sized off, a fraction
                       // of the smaller screen dimension
   HEARTS2: 2,         // hearts drawn at this multiple of it
-  WAVEF: 2.7,         // the wave counter, as a multiple of the unit
-  KILLF: 1.24,        // and the kill count
+  WAVEF: 1.35,        // the wave counter, as a multiple of the unit
+  KILLF: 0.62,        // the kill count, and READY, which matches it
   BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
                       // so it runs out past the left of the three that are there
   BARH: 0.3,          // its height, as a fraction of a heart's
@@ -979,6 +975,7 @@ const minimap = () => {
 // ---------------------------------------------------------------------------
 const hud = () => {
   const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
+  if (over) return overScreen(u);
   for (let i = 0; i < C.HEARTS; i++) {            // hearts, top-right
     g.fillStyle = i < hearts ? '#ff3b6b' : '#2a2136';
     g.beginPath();
@@ -1014,15 +1011,17 @@ const hud = () => {
     g.fillRect(bx + a, by, b - a, bh);
   }
 
-  if (!over) minimap();
+  minimap();
 
   // READY under the bar, in the bind's own cyan - the colour the rim and the
   // held blips already use, so it says which thing is ready without a word more.
+  // Right-aligned to the same edge the bar and the hearts end on, so the whole
+  // corner reads as one column.
   if (!charging && bindT <= 0) {
     g.fillStyle = css(C.RIMC, 1);
-    g.textAlign = 'center';
-    g.font = (bh * 1.15 | 0) + 'px monospace';
-    g.fillText('READY', bx + bw / 2, by + bh * 2.3);
+    g.textAlign = 'right';
+    g.font = (u * C.KILLF | 0) + 'px monospace';
+    g.fillText('READY', W - 16, by + bh + u * C.KILLF * 1.3);
   }
 
   // Wave above, kills below it, both on the centre line. The wave takes the
@@ -1037,27 +1036,35 @@ const hud = () => {
   g.fillText('KILLS ' + kills, W / 2, 18 + u * (C.WAVEF + C.KILLF * 1.15));
   g.textAlign = 'left';
 
-  if (!over) {                                    // crosshair, on the horn's line
-    const a = proj(aimAt());
-    g.strokeStyle = '#ffffff88';
-    g.lineWidth = 1.5;
-    const c = min(W, H) * 0.012;
-    g.beginPath();
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      g.moveTo(a[0] + dx * c, a[1] + dy * c);
-      g.lineTo(a[0] + dx * c * 2.2, a[1] + dy * c * 2.2);
-    }
-    g.stroke();
-  } else {
-    g.fillStyle = '#000b';
-    g.fillRect(0, H / 2 - u * 2.2, W, u * 4.4);
-    g.fillStyle = '#fff';
-    g.font = (u * 1.5 | 0) + 'px monospace';
-    g.fillText(kills + ' KILLS', 24, H / 2);
-    g.font = (u * 0.7 | 0) + 'px monospace';
-    g.fillStyle = '#8b93b8';
-    g.fillText('click to go again', 24, H / 2 + u * 1.4);
+  const a = proj(aimAt());                        // crosshair, on the horn's line
+  g.strokeStyle = '#ffffff88';
+  g.lineWidth = 1.5;
+  const c = min(W, H) * 0.012;
+  g.beginPath();
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    g.moveTo(a[0] + dx * c, a[1] + dy * c);
+    g.lineTo(a[0] + dx * c * 2.2, a[1] + dy * c * 2.2);
   }
+  g.stroke();
+};
+
+// Nothing of the run is left on screen: no ghosts, no puppet, no HUD. Three lines
+// stacked down the middle, and the score is waves rather than kills because
+// DESIGN.md 10 scores it that way and kills are only the tiebreaker.
+const overScreen = (u) => {
+  g.fillStyle = '#000c';
+  g.fillRect(0, 0, W, H);
+  g.textAlign = 'center';
+  g.fillStyle = css(C.GOLD, 1);
+  g.font = (u * 2 | 0) + 'px monospace';
+  g.fillText('WAVES SURVIVED ' + wave, W / 2, H / 2 - u * 1.6);
+  g.fillStyle = '#fff';
+  g.font = (u * 1.2 | 0) + 'px monospace';
+  g.fillText('KILLS ' + kills, W / 2, H / 2);
+  g.fillStyle = '#8b93b8';
+  g.font = (u * 0.8 | 0) + 'px monospace';
+  g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 1.8);
+  g.textAlign = 'left';
 };
 
 // The one ghost nearest the middle of the screen, so the player can tell what
@@ -1179,6 +1186,10 @@ const bindWall = () => {
 };
 
 const render = () => {
+  // On the over screen there is nothing to draw but the screen itself - no sky,
+  // no ghosts, no puppet. Everything below assumes a run in progress.
+  if (over) return hud();
+
   // Sky, ground, and the horizon between them. Every horizontal direction shares
   // the same vanishing height, so the horizon is one straight line whose only
   // input is pitch.
