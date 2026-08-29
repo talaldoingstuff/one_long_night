@@ -1,9 +1,9 @@
 // js13kGames 2026 - stationary first-person roguelike wave shooter.
 //
-// Build order (DESIGN.md 15) steps 1-3. Step 2 was the renderer; step 3 is the
-// core loop, ugly: camera yaw, ghosts spawning and closing, the puppet firing
-// horns, collision, hearts, death, restart. No bind, no minimap, no ghost types,
-// no waves, no upgrade cards, no audio - those are steps 5 to 9.
+// Build order (DESIGN.md 15) steps 1-9: the renderer, the core loop, the rainbow
+// bind, the minimap and HUD, the five ghost types, the waves and their threat
+// budget, the upgrade cards, and the sound. What is left is step 10, the ship
+// pass, and the particles.
 //
 // CONVENTIONS, fixed here once because everything downstream depends on them:
 //
@@ -409,6 +409,39 @@ export const C = {
                       // toward white instead of just blinking between the two.
   _BARBG: 'rgba(255,255,255,0.1)',
 
+  // --- Audio (DESIGN.md 13) ---------------------------------------------------
+  // 13 asks for ZzFX. This is the same idea a size smaller: ZzFX renders a sample
+  // buffer per sound, and every sound here is one swept oscillator under an
+  // envelope, which the audio graph already does for free. Parameter arrays, no
+  // sample data, and no render loop.
+  //
+  // Row: from, to, seconds, volume, wave. A sound is a pitch falling or rising
+  // through a shape - that is all a short sound is.
+  _OSC: ['sine', 'square', 'sawtooth', 'triangle'],
+  _SFX: [
+    [620, 300, 0.045, 0.030, 1],   // 0  a shot leaving the horn
+    [420, 150, 0.050, 0.045, 1],   // 1  one landing
+    [300, 90,  0.160, 0.055, 3],   // 2  something dying
+    [90,  430, 0.340, 0.055, 0],   // 3  the rainbow going off
+    [880, 1330, 0.120, 0.026, 0],  // 4  something caught in it
+    [170, 50,  0.240, 0.080, 2],   // 5  being hit
+    [520, 780, 0.070, 0.038, 3],   // 6  taking a card
+    [320, 275, 0.100, 0.028, 0],   // 7  something arriving, panned to its bearing
+    [230, 185, 0.100, 0.045, 2],   // 8  a Warden shrugging the rainbow off
+    [440, 660, 0.100, 0.042, 3],   // 9  a wave cleared
+  ],
+  _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
+
+  // Music, and the brief was subtle: it is one note every couple of seconds from
+  // a minor pentatonic, quiet and low, with a root underneath it every fourth.
+  // Nothing repeats exactly, and there is no melody to get tired of.
+  _MUSV: 0.020,       // how loud a note is - under a shot, and it never rises
+  _MUSGAP: 2.4,       // seconds between notes, give or take a third
+  _MUSDUR: 1.9,       // and how long one rings
+  _MUSROOT: 131,      // C3. The key climbs a semitone every few waves
+  _MUSSCALE: [0, 3, 5, 7, 10],
+  _MUSPAN: 0.5,       // notes drift across the stereo field by this much
+
   _HEARTS: 3,
   _DMGCAP: 3,          // no single contact may take more than this
   _SHAKEA: 7,          // px the whole view kicks by at full shake
@@ -712,6 +745,8 @@ const cast = () => {
   armT = -1;                                     // one press, one cast
   bindT = sCd();
   wallT = C._WALLDUR; wallR = r;                  // the wall sweeps to what it caught
+  sfx(3);
+  let got = 0, shrugged = 0;
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
@@ -720,13 +755,18 @@ const cast = () => {
     // the rule is learned by watching rather than by being told. A negative hold
     // is that: same slot, so nothing else has to know about it, and it cannot be
     // mistaken for being held because held is strictly positive.
-    o[8] = o[7] === C._WARDEN ? -C._SHRUGD : sDur();
+    if (o[7] === C._WARDEN) { o[8] = -C._SHRUGD; shrugged = 1; } else { o[8] = sDur(); got = 1; }
   }
+  // One sound each however many it caught - a chime per ghost would be a chord
+  // nobody asked for.
+  if (got) sfx(4);
+  if (shrugged) sfx(8);
 };
 
 const fire = () => {
   if (over || fireT > 0) return;
   fireT = sFire();
+  sfx(0);
   // From where the horn tip is SEEN to be, toward whatever is under the
   // crosshair. The puppet is posed, not aimed - so the shot's direction is the
   // player's, while its origin is the horn's.
@@ -758,6 +798,7 @@ const fire = () => {
 //
 // armT is the clock, and -1 means this press is disqualified.
 const onDown = (e) => {
+  audio();
   down = 1; lx = e.clientX; ly = e.clientY;
   if (over) { reset(); return; }
   if (picking) {                                  // a card, if the pointer is on one
@@ -804,6 +845,9 @@ const TURNK = {
 // machinery the pointer uses, already written and already tested.
 const onKey = (e) => {
   const d = e.type === 'keydown';
+  if (d) audio();
+  // M mutes, and is the one key that works whether or not it is held
+  if (d && e.code === 'KeyM') { muted ^= 1; return; }
   if (d && KEYS[e.code]) return;                 // ignore the OS repeating it
   // 1, 2, 3 take a card, so a run never needs the mouse
   if (d && picking && e.code.slice(0, 5) === 'Digit') {
@@ -1011,6 +1055,12 @@ const born = (x, z, k) =>
 const spawn = (k) => {
   const a = random() * 2 * PI;
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
+  // DESIGN.md 13 calls this required: with threats on every bearing and no way to
+  // move, being hit by something you never had a chance to perceive is the main
+  // way this design can feel unfair. Panned by where it actually is, so a spawn
+  // behind your left shoulder arrives in your left ear.
+  const c = cam([cos(a) * C._ARENA, 0, sin(a) * C._ARENA]);
+  sfx(7, c[0] / (hypot(c[0], c[2]) || 1));
 };
 
 const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
@@ -1074,6 +1124,7 @@ const take = (i) => {
   if (i < 0) hearts = maxhp;                      // Recovery
   else if (++lv[i] && i === 5) { maxhp++; hearts++; }
   picking = 0;
+  sfx(6);
   wave++;
   // Healed between waves (DESIGN.md 9), and SEEN to be: the hearts about to come
   // back pulse white for HEALP before settling to red, so the wave does not just
@@ -1287,6 +1338,7 @@ const drawGhost = (o, target) => {
 // ---------------------------------------------------------------------------
 const step = (dt) => {
   clock += dt;
+  musicStep(dt);                                  // it plays on through the card screen
   if (picking) return;                            // the run is held while you choose
   // These two outlive the run. The blow that kills you is the one you most need
   // to feel, and it was the only one nobody ever saw: they were set on the same
@@ -1332,7 +1384,7 @@ const step = (dt) => {
   // Splitter's free children, which nothing paid for, still have to be dealt with
   // before the next wave starts.
   if (budget <= 0 && !ghosts.length && !waveT) waveT = C._WAVEGAP;
-  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; }
+  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; sfx(9); }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -1344,8 +1396,10 @@ const step = (dt) => {
       if (hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) > C._HHIT + TY(o)[5]) continue;
       o[3] -= sDmg(); o[5] = C._GFLASH;
       horns.splice(i, 1);
+      sfx(1);
       if (o[3] <= 0) {
         ghosts.splice(j, 1); kills++;
+        sfx(2);
         // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a
         // wide bind worth having - you can hold the children before they scatter.
         // Placed across the line to the player, so both keep the range the parent
@@ -1371,6 +1425,7 @@ const step = (dt) => {
       if (!inv) {
         hearts -= min(C._DMGCAP, TY(o)[2]);
         inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
+        sfx(5);
         if (hearts <= 0) { hearts = 0; over = 1; }
       }
       continue;
@@ -1457,6 +1512,54 @@ const minimap = () => {
   g.strokeStyle = C._MAPEDGE;
   g.lineWidth = C._MAPEW;
   g.stroke();
+};
+
+// ---------------------------------------------------------------------------
+// Sound
+// ---------------------------------------------------------------------------
+// The context is built on the first press rather than at load: a browser blocks
+// one made outside a gesture, and complains about it in the console, which
+// DESIGN.md 2 says has to stay empty.
+let A, muted = 0, mT = 0, mI = 0;
+const audio = () => {
+  if (!A) A = new AudioContext();
+  if (A.state === 'suspended') A.resume();
+};
+
+const tone = (f0, f1, dur, vol, wave, pan) => {
+  if (!A || muted) return;
+  const t0 = A.currentTime;
+  const o = A.createOscillator(), v = A.createGain(), p = A.createStereoPanner();
+  o.type = wave;
+  o.frequency.setValueAtTime(f0, t0);
+  o.frequency.exponentialRampToValueAtTime(max(1, f1), t0 + dur);
+  // Ramped up and down rather than switched: a gain that starts at full clicks,
+  // and exponentialRamp cannot reach zero, so it lands just above it.
+  v.gain.setValueAtTime(0, t0);
+  v.gain.linearRampToValueAtTime(vol, t0 + C._ATK);
+  v.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+  p.pan.value = pan || 0;
+  o.connect(v).connect(p).connect(A.destination);
+  o.start(t0);
+  o.stop(t0 + dur + 0.02);
+};
+
+const sfx = (i, pan) => {
+  const q = C._SFX[i];
+  tone(q[0], q[1], q[2], q[3], C._OSC[q[4]], pan);
+};
+
+// One note every couple of seconds, from a pentatonic that never resolves, with a
+// root under every fourth. The key climbs as the waves do, which is the only
+// thing that escalates - it never gets louder or busier.
+const musicStep = (dt) => {
+  if (!A || muted || (mT -= dt) > 0) return;
+  mT = C._MUSGAP * (0.7 + random() * 0.6);
+  const root = C._MUSROOT * 2 ** ((wave / 3 | 0) % 12 / 12);
+  const n = C._MUSSCALE[random() * C._MUSSCALE.length | 0] + (random() < 0.3 ? 12 : 0);
+  const f = root * 2 ** (n / 12);
+  tone(f, f, C._MUSDUR, C._MUSV, 'sine', (random() - 0.5) * C._MUSPAN);
+  if (!(mI++ % 4)) tone(root / 2, root / 2, C._MUSDUR * 1.6, C._MUSV * 0.7, 'triangle', 0);
 };
 
 // ---------------------------------------------------------------------------
