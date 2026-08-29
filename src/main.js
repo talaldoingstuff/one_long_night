@@ -233,10 +233,12 @@ export const C = {
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
   //   frequency, wisps, colour, eye shape, horn, mouth, eye tilt, mouth curve,
-  //   mouth height, mouth drop
+  //   mouth height, mouth drop, horn spread
   // Eye shape 0 is a plain round void; 1 is the scared one - a dome over a lower
   // edge that curves up INTO the eye. Horn is how far a spike stands above the
-  // dome, as a fraction of the half width, and 0 is no horn at all. Mouth is its
+  // dome, as a fraction of the half width, and 0 is no horn at all. Horn spread
+  // is where those horns sit: 0 puts ONE at the crown, and anything above puts
+  // TWO that far either side of it, out toward the shoulders. Mouth is its
   // half width as a fraction of the ghost's radius, and 0 is no mouth.
   //
   // Eye tilt shears the eye so its outer end rides up and its inner end drops -
@@ -259,11 +261,11 @@ export const C = {
   //
   // Unlocks are the difficulty spikes: 5, 10, 20, 30.
   TYPES: [
-    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12],       // Drifter, pale white
-    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12],  // Darter, sharp cyan
-    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 1, 0, 0.3, 0.55, 1.6, -1.2, 0.45], // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0, 0, 0, 1, 1.2, 0.12],        // Splitter, sickly green
-    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1, 1.2, 0.12],       // Warden, pale gold
+    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Drifter, pale white
+    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0],   // Darter, sharp cyan
+    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5], // Hulk, angry red
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0, 0, 0, 1, 1.2, 0.12, 0],         // Splitter, sickly green
+    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Warden, pale gold
   ],
   EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
                       // ghost radii. It hangs down from there, so this is not the
@@ -1146,10 +1148,13 @@ const drawGhost = (o, target) => {
     // negative across that span and the arc is the upper half.
     const a = PI * (1 + i / C.GDOME);
     const q = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
-    // A horn is the apex pushed further out, so it is part of the outline rather
-    // than a shape sitting on top of one - it wobbles with the body, and the
-    // target and bound outlines trace it without knowing it is there.
-    const k = t[11] && i === (C.GDOME >> 1) ? 1 + t[11] : 1;
+    // A horn is a point of the dome pushed further out, so it is part of the
+    // outline rather than a shape sitting on top of one - it wobbles with the
+    // body, and the target and bound outlines trace it without knowing it is
+    // there. Spread 0 pushes the crown; anything else pushes two points that far
+    // either side of it, which puts them out on the shoulders.
+    const mid = C.GDOME >> 1, sp = round(t[17] * mid);
+    const k = t[11] && (sp ? i === mid - sp || i === mid + sp : i === mid) ? 1 + t[11] : 1;
     bp.push([v.px + cos(a) * w * q, dy + sin(a) * w * q * k]);
   }
   // Down the right side to the first tip, then t[8] tips and the notches between

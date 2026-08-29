@@ -45,7 +45,8 @@ const { C } = M;
 
 const NAMES = ['Drifter', 'Darter', 'Hulk', 'Splitter', 'Warden'];
 const HP = 0, SPEED = 1, DMG = 2, COST = 3, WAVE = 4, RAD = 5, WOB = 6, FREQ = 7, WISP = 8,
-      COL = 9, EYE = 10, HORN = 11, MOUTH = 12, TILT = 13, MBOW = 14, MH = 15, MY = 16;
+      COL = 9, EYE = 10, HORN = 11, MOUTH = 12, TILT = 13, MBOW = 14, MH = 15, MY = 16,
+      HSPREAD = 17;
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
@@ -157,6 +158,8 @@ slider('top edge', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 2, 0.05,
        (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved in' : 'flat'));
 slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
+slider('horns apart', () => T()[HSPREAD], (v) => (T()[HSPREAD] = v), 0, 1, 0.05,
+       (v) => (+v ? 'two, ' + (+v).toFixed(2) + ' apart' : 'one, centred'));
 slider('mouth', () => T()[MOUTH], (v) => (T()[MOUTH] = v), 0, 0.6, 0.01,
        (v) => (+v ? (+v).toFixed(2) + ' of radius' : 'none'));
 slider('mouth tall', () => T()[MH], (v) => (T()[MH] = v), -3, 3, 0.05,
@@ -204,7 +207,7 @@ function dump() {
                  t[RAD].toFixed(2), f(t[WOB]), t[FREQ], t[WISP]].join(', ') +
       ', [' + t[COL].join(', ') + '], ' + t[EYE] + ', ' + f(t[HORN]) +
       ', ' + f(t[MOUTH]) + ', ' + f(t[TILT]) + ', ' + f(t[MBOW]) +
-      ', ' + f(t[MH]) + ', ' + f(t[MY]) + '],' +
+      ', ' + f(t[MH]) + ', ' + f(t[MY]) + ', ' + f(t[HSPREAD]) + '],' +
       '  // ' + NAMES[k]).join('\n') +
     '\n  ],\n' +
     '  EYEY: ' + f(C.EYEY) + ',  EYEH: ' + f(C.EYEH) + ',  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
