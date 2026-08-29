@@ -267,12 +267,15 @@ export const C = {
   // Gates are what shape the pool, not the weights: regen sitting behind extra
   // heart means hearts are the entry fee for sustain, which is 9's "weight regen
   // rarer" done with a rule instead of a number.
+  // Three of these must be open at the very first draw or there is nothing to put
+  // beside the guaranteed fire rate - the gates were staggered so hard that wave
+  // 1 had a pool of one.
   CARDS: [
     [8, 1,  -1, 0, 20,   'FIRE RATE',     'shots a second'],
-    [8, 2,  -1, 0, 20,   'HORN DAMAGE',   'damage a horn'],
-    [4, 4,  -1, 0, 13.3, 'BIND RADIUS',   'metres'],
-    [4, 6,  -1, 0, 13.3, 'BIND COOLDOWN', 'seconds'],
-    [4, 8,  -1, 0, 13.3, 'BIND HOLD',     'seconds'],
+    [8, 1,  -1, 0, 20,   'HORN DAMAGE',   'damage a horn'],
+    [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'metres'],
+    [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'seconds'],
+    [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'seconds'],
     [2, 3,  -1, 0, 10,   'EXTRA HEART',   'hearts'],
     [2, 1,   5, 1, 10,   'REGEN',         'a wave'],
   ],
@@ -286,8 +289,16 @@ export const C = {
   RADG: 1.2,          // each bind radius level
   CDG: 1,             // seconds off the cooldown per level
   DURG: 0.5,          // seconds onto the hold per level
-  CARDW: 0.26,        // a card's width, as a fraction of the screen
-  CARDH: 0.52,        // and its height
+  CARDW: 0.175,       // a card's width, as a fraction of the screen
+  CARDH: 0.36,        // and its height, as a fraction of the height
+  // Type is sized off the CARD, not off the HUD unit. It was HUD-sized inside a
+  // card half the screen tall, which is how it managed to be both too big and
+  // unreadable at once.
+  CARDT: 0.125,       // title, as a fraction of the card's width
+  CARDL: 0.095,       // the level under it
+  CARDV: 0.115,       // the number it takes you to
+  CARDU: 0.085,       // and the unit that number is in
+  CARDI: 0.17,        // the icon's radius
   CARDBG: 'rgba(14,16,28,0.96)',
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
@@ -1411,7 +1422,7 @@ const hud = () => {
 
 // Where the cards sit. One place, so drawing and hit-testing cannot disagree.
 const cardBox = (n, i) => {
-  const w = W * C.CARDW, h = H * C.CARDH, gap = w * 0.09;
+  const w = W * C.CARDW, h = H * C.CARDH, gap = w * 0.14;
   return [W / 2 + (i - (n - 1) / 2) * (w + gap) - w / 2, H / 2 - h / 2, w, h];
 };
 
@@ -1474,43 +1485,47 @@ const cardIcon = (i, x, y, r) => {
 
 // DESIGN.md 8: three cards between waves, pick one. The run is held while you do.
 const cardScreen = () => {
-  const u = min(W, H) * C.HUDU;
+  const cw = W * C.CARDW, ch = H * C.CARDH;
+  const type = (f) => { g.font = (cw * f | 0) + 'px monospace'; };
   g.fillStyle = 'rgba(4,5,12,0.82)';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
   g.fillStyle = css(C.GOLD, 1);
-  g.font = (u * 1.1 | 0) + 'px monospace';
-  g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - H * C.CARDH / 2 - u * 1.2);
+  type(C.CARDT * 1.15);
+  g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - ch / 2 - cw * 0.16);
 
   for (let n = 0; n < offer.length; n++) {
-    const i = offer[n], [x, y, w, h] = cardBox(offer.length, n);
+    const i = offer[n], [x, y, w, h] = cardBox(offer.length, n), mx = x + w / 2;
     g.fillStyle = C.CARDBG;
     g.fillRect(x, y, w, h);
     g.strokeStyle = i < 0 ? C.HPC : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : C.HPC;
     g.lineWidth = 2;
     g.strokeRect(x, y, w, h);
 
+    // Everything below is placed as a fraction of the card, so the two move
+    // together and the layout cannot come apart when either is retuned.
     g.fillStyle = '#fff';
-    g.font = (u * 0.62 | 0) + 'px monospace';
-    g.fillText(i < 0 ? 'RECOVERY' : C.CARDS[i][5], x + w / 2, y + u * 1.1);
+    type(C.CARDT);
+    g.fillText(i < 0 ? 'RECOVERY' : C.CARDS[i][5], mx, y + h * 0.16);
     g.fillStyle = '#8b93b8';
-    g.font = (u * 0.5 | 0) + 'px monospace';
-    g.fillText(i < 0 ? '' : 'LV ' + (lv[i] + 1), x + w / 2, y + u * 1.8);
+    type(C.CARDL);
+    g.fillText(i < 0 ? 'full health' : 'LV ' + (lv[i] + 1), mx, y + h * 0.28);
 
-    cardIcon(i, x + w / 2, y + h * 0.48, w * 0.2);
+    cardIcon(i, mx, y + h * 0.52, w * C.CARDI);
 
-    g.fillStyle = '#cfd6f5';
-    g.font = (u * 0.5 | 0) + 'px monospace';
-    if (i < 0) g.fillText('full health', x + w / 2, y + h - u * 1.1);
-    else {
-      g.fillText(statAt(i, lv[i]).toFixed(i === 5 || i === 6 ? 0 : 2) + '  ->  ' +
-        statAt(i, lv[i] + 1).toFixed(i === 5 || i === 6 ? 0 : 2), x + w / 2, y + h - u * 1.5);
+    if (i >= 0) {
+      const dp = i > 4 ? 0 : 2;
+      g.fillStyle = '#cfd6f5';
+      type(C.CARDV);
+      g.fillText(statAt(i, lv[i]).toFixed(dp) + ' > ' + statAt(i, lv[i] + 1).toFixed(dp),
+                 mx, y + h * 0.83);
       g.fillStyle = '#8b93b8';
-      g.fillText(C.CARDS[i][6], x + w / 2, y + h - u * 0.8);
+      type(C.CARDU);
+      g.fillText(C.CARDS[i][6], mx, y + h * 0.94);
     }
     g.fillStyle = '#8b93b8';
-    g.font = (u * 0.45 | 0) + 'px monospace';
-    g.fillText('' + (n + 1), x + w / 2, y + h + u * 0.9);
+    type(C.CARDL);
+    g.fillText('' + (n + 1), mx, y + h + cw * 0.14);
   }
   g.textAlign = 'left';
 };
