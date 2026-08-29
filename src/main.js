@@ -251,6 +251,12 @@ export const C = {
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
+  XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
+  XHW: 2,             // and its thickness
+  XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
+  TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
+                      // 1, so the crosshair has to be inside the body rather than
+                      // anywhere near it
   TGTW: 4,            // the target outline, px. It traces the ghost's own
                       // silhouette rather than circling it, so what is lit up is
                       // the thing you are about to shoot and not a hoop near it
@@ -1195,9 +1201,9 @@ const hud = () => {
   g.textAlign = 'left';
 
   const a = proj(aimAt());                        // crosshair, on the horn's line
-  g.strokeStyle = '#ffffff88';
-  g.lineWidth = 1.5;
-  const c = min(W, H) * 0.012;
+  g.strokeStyle = css(C.GOLD, C.XHA);             // the horn's own colour
+  g.lineWidth = C.XHW;
+  const c = min(W, H) * C.XHR;
   g.beginPath();
   for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
     g.moveTo(a[0] + dx * c, a[1] + dy * c);
@@ -1231,12 +1237,17 @@ const overScreen = (u) => {
 // they are aimed at (DESIGN.md 7).
 const underCrosshair = () => {
   const a = proj(aimAt());
-  let best = null, bd = min(W, H) * 0.09;
+  let best = null, bd = 1;
   for (const o of ghosts) {
     const v = ghostAt(o);
     if (!v) continue;
-    const d = hypot(v.px - a[0], v.py - a[1]);
-    if (d < bd + v.r) { bd = d - v.r; best = o; }
+    // Measured in the ghost's OWN radius rather than in pixels, so the crosshair
+    // has to be ON the thing. It used to start from a flat 9% of the screen and
+    // then add the radius on top, which at range is metres of slack: a ghost lit
+    // up while the crosshair was plainly beside it. Normalising also settles
+    // overlaps sensibly - the one you are most centred on wins, not the biggest.
+    const d = hypot(v.px - a[0], v.py - a[1]) / (v.r * C.TGTR);
+    if (d < bd) { bd = d; best = o; }
   }
   return best;
 };
