@@ -320,11 +320,11 @@ export const C = {
   // beside the guaranteed fire rate - the gates were staggered so hard that wave
   // 1 had a pool of one.
   _CARDS: [
-    [8, 1,  -1, 0, 20,   'FIRE RATE',     'Shots A Second', 1],
+    [8, 1,  -1, 0, 20,   'SHOT RATE',     'Shots A Second', 1],
     [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'Damage A Horn',  1],
-    [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'Metres',         1],
-    [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'Seconds',        1],
-    [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'Seconds',        1],
+    [4, 1,  -1, 0, 13.3, 'RAINBOW RADIUS','Metres',         1],
+    [4, 2,  -1, 0, 13.3, 'RAINBOW COOLDOWN', 'Seconds',     1],
+    [4, 2,  -1, 0, 13.3, 'RAINBOW HOLD',  'Seconds',        1],
     [2, 3,  -1, 0, 10,   'EXTRA HEART',   'Hearts',         0],
     [2, 1,   5, 1, 10,   'HEAL',          'A Wave',         1],
   ],
@@ -1725,9 +1725,14 @@ const cardFace = (i, x, y, w, h) => {
 
     // Everything below is placed as a fraction of the card, so the two move
     // together and the layout cannot come apart when either is retuned.
+    // A title sizes itself down if it will not fit. The face is monospace, so a
+    // character is 0.6 of the font size and the largest that fits in 90% of the
+    // card is 1.5 / its length - no measuring needed, and RAINBOW COOLDOWN would
+    // have run 31px past the edge at the full size.
+    const title = i < 0 ? 'RECOVERY' : C._CARDS[i][5];
     g.fillStyle = '#fff';
-    type(C._CARDT);
-    g.fillText(i < 0 ? 'RECOVERY' : C._CARDS[i][5], mx, y + h * 0.16);
+    type(min(C._CARDT, 1.5 / title.length));
+    g.fillText(title, mx, y + h * 0.16);
     g.fillStyle = '#8b93b8';
     type(C._CARDL);
     if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.28);
