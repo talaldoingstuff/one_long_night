@@ -259,6 +259,36 @@ export const C = {
   BUDR: 1.12,         // and 12% more threat every wave after
   SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
   WAVEGAP: 2,         // seconds of quiet between a cleared wave and the next
+
+  // --- Upgrade cards (DESIGN.md 9) --------------------------------------------
+  // Row: cap, gate wave, prerequisite card (-1 for none), the level of that
+  // prerequisite needed, weight, title, and the unit its number is shown in.
+  //
+  // Gates are what shape the pool, not the weights: regen sitting behind extra
+  // heart means hearts are the entry fee for sustain, which is 9's "weight regen
+  // rarer" done with a rule instead of a number.
+  CARDS: [
+    [8, 1,  -1, 0, 20,   'FIRE RATE',     'shots a second'],
+    [8, 2,  -1, 0, 20,   'HORN DAMAGE',   'damage a horn'],
+    [4, 4,  -1, 0, 13.3, 'BIND RADIUS',   'metres'],
+    [4, 6,  -1, 0, 13.3, 'BIND COOLDOWN', 'seconds'],
+    [4, 8,  -1, 0, 13.3, 'BIND HOLD',     'seconds'],
+    [2, 3,  -1, 0, 10,   'EXTRA HEART',   'hearts'],
+    [2, 1,   5, 1, 10,   'REGEN',         'a wave'],
+  ],
+  // Extra heart's second level waits longer than its first.
+  HEART2: 9,          // the wave extra heart level 2 opens on
+  CARDN: 3,           // cards offered between waves
+  ADAPT: 2,           // the lagging half of horn-vs-bind draws at this weight
+  REGEN: 1,           // hearts healed between waves before any card
+  FIREG: 1.2,         // each fire rate level, compounding
+  DMGG: 1.25,         // each horn damage level
+  RADG: 1.2,          // each bind radius level
+  CDG: 1,             // seconds off the cooldown per level
+  DURG: 0.5,          // seconds onto the hold per level
+  CARDW: 0.26,        // a card's width, as a fraction of the screen
+  CARDH: 0.52,        // and its height
+  CARDBG: 'rgba(14,16,28,0.96)',
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
@@ -529,11 +559,15 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT;
+    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
+    lv, offer, picking, maxhp;
 
 const reset = () => {
   ghosts = []; horns = [];
-  hearts = C.HEARTS; kills = 0; over = 0;
+  lv = C.CARDS.map(() => 0);
+  maxhp = C.HEARTS;
+  hearts = maxhp; kills = 0; over = 0;
+  offer = []; picking = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
@@ -596,18 +630,18 @@ const aimAt = () => {
 // and the radius is just how far through that you are. It is what the floor shows
 // while charging; the cast itself is always at BINDR, because letting go early
 // fires nothing at all.
-const bindR = () => C.BINDR * min(1, bindC / C.BINDCHG);
+const bindR = () => sRad() * min(1, bindC / C.BINDCHG);
 
 // Only ever reached by holding all the way to BINDCHG, so there is one radius and
 // one price. DESIGN.md 6's cooldown-scales-with-r-squared rule priced a radius the
 // player chose; nothing chooses one any more, so there is nothing left for it to
 // price. It belongs back here the moment a card makes the radius variable again.
 const cast = () => {
-  const r = C.BINDR;
+  const r = sRad();
   charging = 0;
   bindC = 0;
   armT = -1;                                     // one press, one cast
-  bindT = C.BINDCD;
+  bindT = sCd();
   wallT = C.WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
@@ -617,13 +651,13 @@ const cast = () => {
     // the rule is learned by watching rather than by being told. A negative hold
     // is that: same slot, so nothing else has to know about it, and it cannot be
     // mistaken for being held because held is strictly positive.
-    o[8] = o[7] === C.WARDEN ? -C.SHRUGD : C.BINDDUR;
+    o[8] = o[7] === C.WARDEN ? -C.SHRUGD : sDur();
   }
 };
 
 const fire = () => {
   if (over || fireT > 0) return;
-  fireT = C.FIRE;
+  fireT = sFire();
   // From where the horn tip is SEEN to be, toward whatever is under the
   // crosshair. The puppet is posed, not aimed - so the shot's direction is the
   // player's, while its origin is the horn's.
@@ -657,6 +691,14 @@ const fire = () => {
 const onDown = (e) => {
   down = 1; lx = e.clientX; ly = e.clientY;
   if (over) { reset(); return; }
+  if (picking) {                                  // a card, if the pointer is on one
+    for (let n = 0; n < offer.length; n++) {
+      const [x, y, w, h] = cardBox(offer.length, n);
+      if (e.clientX >= x && e.clientX <= x + w && e.clientY >= y && e.clientY <= y + h)
+        return take(offer[n]);
+    }
+    return;
+  }
   armT = 0; ax = e.clientX; ay = e.clientY;
 };
 const onMove = (e) => {
@@ -694,6 +736,12 @@ const TURNK = {
 const onKey = (e) => {
   const d = e.type === 'keydown';
   if (d && KEYS[e.code]) return;                 // ignore the OS repeating it
+  // 1, 2, 3 take a card, so a run never needs the mouse
+  if (d && picking && e.code.slice(0, 5) === 'Digit') {
+    const n = +e.code[5] - 1;
+    if (n >= 0 && n < offer.length) { e.preventDefault(); take(offer[n]); }
+    return;
+  }
   if (!TURNK[e.code] && e.code !== 'Space') return;
   KEYS[e.code] = d ? 1 : 0;
   e.preventDefault();                            // or space scrolls the page
@@ -838,7 +886,7 @@ const mane = () => {
   const r = min(C.MANER, span * C.MANEG);
   // Washed by how far the bind has recharged: full colour ready, drained grey
   // the moment it is cast. This is the cooldown readout.
-  const k = C.SAT0 + (1 - C.SAT0) * (1 - bindT / C.BINDCD);
+  const k = C.SAT0 + (1 - C.SAT0) * (1 - bindT / sCd());
   for (let i = 0; i < C.MANEN; i++) {
     const t = C.MANEC + (C.MANEN < 2 ? 0 : C.MANEW * (i / (C.MANEN - 1) - 0.5));
     const h = nk[7] + (nk[9] - nk[7]) * t;       // the neck's half-height here
@@ -897,6 +945,71 @@ const spawn = (k) => {
 };
 
 const budgetFor = (w) => round(C.BUD0 * C.BUDR ** (w - 1));
+
+// Every number a card moves, read from the levels rather than from C. Nothing
+// downstream knows a card exists.
+const sFire = () => C.FIRE / C.FIREG ** lv[0];
+const sDmg = () => C.DMGG ** lv[1];
+const sRad = () => C.BINDR * C.RADG ** lv[2];
+const sCd = () => C.BINDCD - C.CDG * lv[3];
+const sDur = () => C.BINDDUR + C.DURG * lv[4];
+const sRegen = () => C.REGEN + lv[6];
+
+// Is this card's next level on the table? Cap, wave gate, and the prerequisite
+// chain - regen behind extra heart, and extra heart's own second level behind a
+// later wave than its first.
+const open = (i) => {
+  const c = C.CARDS[i];
+  if (lv[i] >= c[0]) return 0;
+  if (wave < (i === 5 && lv[i] ? C.HEART2 : c[1])) return 0;
+  return c[2] < 0 || lv[c[2]] >= c[3] + lv[i];
+};
+
+// The lagging half of horn-versus-bind is drawn at ADAPT times the weight. Each
+// side is measured against its OWN cap, since they do not have the same number of
+// levels - two cards of eight is not the same progress as two of four.
+const weightOf = (i) => {
+  const horn = (lv[0] + lv[1]) / (C.CARDS[0][0] + C.CARDS[1][0]);
+  const bind = (lv[2] + lv[3] + lv[4]) / (C.CARDS[2][0] + C.CARDS[3][0] + C.CARDS[4][0]);
+  const side = i < 2 ? horn : i < 5 ? bind : -1;
+  const behind = horn === bind ? -1 : horn < bind ? 0 : 1;   // which half is trailing
+  return C.CARDS[i][4] * (side >= 0 && (i < 2 ? 0 : 1) === behind ? C.ADAPT : 1);
+};
+
+// Deal CARDN distinct cards. Fire rate is guaranteed in the FIRST draw only -
+// after that it takes its chances like everything else. When the pool runs dry
+// the offer is a single Recovery, which is a full heal and never runs out.
+const deal = () => {
+  offer = [];
+  const pool = [];
+  for (let i = 0; i < C.CARDS.length; i++) if (open(i)) pool.push(i);
+  if (wave === 1 && pool.includes(0)) offer.push(pool.splice(pool.indexOf(0), 1)[0]);
+  while (offer.length < C.CARDN && pool.length) {
+    let total = 0;
+    for (const i of pool) total += weightOf(i);
+    let r = random() * total, k = 0;
+    for (; k < pool.length - 1 && (r -= weightOf(pool[k])) > 0; k++);
+    offer.push(pool.splice(k, 1)[0]);
+  }
+  if (!offer.length) offer.push(-1);              // Recovery
+};
+
+// What a stat reads at a given level, so a card can show the step it buys rather
+// than a percentage the player has to trust.
+const statAt = (i, l) => [
+  1 / (C.FIRE / C.FIREG ** l), C.DMGG ** l, C.BINDR * C.RADG ** l,
+  C.BINDCD - C.CDG * l, C.BINDDUR + C.DURG * l, C.HEARTS + l, C.REGEN + l,
+][i];
+
+const take = (i) => {
+  if (i < 0) hearts = maxhp;                      // Recovery
+  else if (++lv[i] && i === 5) { maxhp++; hearts++; }
+  picking = 0;
+  wave++;
+  hearts = min(maxhp, hearts + sRegen());         // DESIGN.md 9: healed between waves
+  budget = budgetFor(wave);
+  spawnT = 0;
+};
 
 // DESIGN.md 8: the spawner buys randomly from what is currently unlocked until
 // the budget is spent. The wave number gates the LIST, never the amount - so a
@@ -1013,6 +1126,7 @@ const drawGhost = (o, target) => {
 // ---------------------------------------------------------------------------
 const step = (dt) => {
   clock += dt;
+  if (picking) return;                            // the run is held while you choose
   // These two outlive the run. The blow that kills you is the one you most need
   // to feel, and it was the only one nobody ever saw: they were set on the same
   // frame as over, and everything below here stops.
@@ -1056,9 +1170,7 @@ const step = (dt) => {
   // Splitter's free children, which nothing paid for, still have to be dealt with
   // before the next wave starts.
   if (budget <= 0 && !ghosts.length && !waveT) waveT = C.WAVEGAP;
-  if (waveT && !(waveT = max(0, waveT - dt))) {
-    wave++; budget = budgetFor(wave); spawnT = 0;
-  }
+  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -1068,7 +1180,7 @@ const step = (dt) => {
     for (let j = ghosts.length; j--;) {
       const o = ghosts[j];
       if (hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) > C.HHIT + TY(o)[5]) continue;
-      o[3]--; o[5] = C.GFLASH;
+      o[3] -= sDmg(); o[5] = C.GFLASH;
       horns.splice(i, 1);
       if (o[3] <= 0) {
         ghosts.splice(j, 1); kills++;
@@ -1150,7 +1262,7 @@ const minimap = () => {
     dish(bindR() * k);
     g.fillStyle = css(RBV[2], 0.22);
     g.fill();
-    dish(C.BINDR * k);
+    dish(sRad() * k);
     g.strokeStyle = css(C.RIMC, 0.8);
     g.lineWidth = 1.5;
     g.stroke();
@@ -1191,7 +1303,7 @@ const minimap = () => {
 const hud = () => {
   const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
   if (over) return overScreen(u);
-  for (let i = 0; i < C.HEARTS; i++) {            // hearts, top-right
+  for (let i = 0; i < maxhp; i++) {               // hearts, top-right
     g.fillStyle = i < hearts ? C.HPC : '#2a2136';
     g.beginPath();
     const x = W - 16 - hu - i * (hu * 1.35), y = 18;
@@ -1225,7 +1337,7 @@ const hud = () => {
   // The fill is only ever the passive refill: how much of the bind is back.
   // Charging is a different thing being answered and it was borrowing the same
   // gesture, so a charge and a recharge looked identical.
-  const fill = 1 - bindT / C.BINDCD;
+  const fill = 1 - bindT / sCd();
   for (let i = 0; i < 6; i++) {                   // in rainbow, left to right
     const a = bw * i / 6, b = min(bw * fill, bw * (i + 1) / 6);
     if (b <= a) break;
@@ -1295,6 +1407,112 @@ const hud = () => {
   g.lineWidth = C.XHW;
   g.stroke();
   g.lineCap = 'butt';                             // it is a shared context
+};
+
+// Where the cards sit. One place, so drawing and hit-testing cannot disagree.
+const cardBox = (n, i) => {
+  const w = W * C.CARDW, h = H * C.CARDH, gap = w * 0.09;
+  return [W / 2 + (i - (n - 1) / 2) * (w + gap) - w / 2, H / 2 - h / 2, w, h];
+};
+
+// A glyph per card, built from what is already here: the heart path for the two
+// that give you hearts, a ring for the three that are about the bind, and a horn
+// for the two that are about shooting.
+const cardIcon = (i, x, y, r) => {
+  g.lineWidth = 3;
+  if (i >= 5 || i < 0) {                          // hearts, regen, Recovery
+    g.fillStyle = C.HPC;
+    g.beginPath();
+    g.moveTo(x, y + r);
+    g.lineTo(x - r, y - r * 0.24);
+    g.lineTo(x - r * 0.5, y - r);
+    g.lineTo(x, y - r * 0.28);
+    g.lineTo(x + r * 0.5, y - r);
+    g.lineTo(x + r, y - r * 0.24);
+    g.fill();
+    if (i !== 5) {                                // regen and Recovery carry a plus
+      g.strokeStyle = '#fff';
+      g.beginPath();
+      g.moveTo(x - r * 0.34, y - r * 0.1); g.lineTo(x + r * 0.34, y - r * 0.1);
+      g.moveTo(x, y - r * 0.44); g.lineTo(x, y + r * 0.24);
+      g.stroke();
+    }
+  } else if (i < 2) {                             // the horn: a cone, tip up
+    g.fillStyle = css(C.GOLD, 1);
+    g.beginPath();
+    g.moveTo(x, y - r);
+    g.lineTo(x + r * 0.42, y + r * 0.8);
+    g.lineTo(x - r * 0.42, y + r * 0.8);
+    g.fill();
+    if (i === 0) {                                // fire rate: three of them, stacked
+      g.strokeStyle = css(C.GOLD, 0.55);
+      g.beginPath();
+      for (const d of [0.45, 0.75]) {
+        g.moveTo(x - r * 0.62, y + r * (0.8 + d * 0.5));
+        g.lineTo(x + r * 0.62, y + r * (0.8 + d * 0.5));
+      }
+      g.stroke();
+    }
+  } else {                                        // the bind: a ring, in rainbow
+    for (let k = 0; k < 18; k++) {
+      const a0 = (k / 18) * 2 * PI, a1 = ((k + 1) / 18) * 2 * PI;
+      g.strokeStyle = css(bow(k / 18), 1);
+      g.beginPath();
+      g.arc(x, y, r * (i === 2 ? 0.95 : 0.7), a0, a1);
+      g.stroke();
+    }
+    if (i === 3) {                                // cooldown: a clock hand
+      g.strokeStyle = '#fff';
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - r * 0.55); g.stroke();
+    }
+    if (i === 4) {                                // hold: something caught in it
+      g.fillStyle = '#fff';
+      g.beginPath(); g.arc(x, y, r * 0.22, 0, 7); g.fill();
+    }
+  }
+};
+
+// DESIGN.md 8: three cards between waves, pick one. The run is held while you do.
+const cardScreen = () => {
+  const u = min(W, H) * C.HUDU;
+  g.fillStyle = 'rgba(4,5,12,0.82)';
+  g.fillRect(0, 0, W, H);
+  g.textAlign = 'center';
+  g.fillStyle = css(C.GOLD, 1);
+  g.font = (u * 1.1 | 0) + 'px monospace';
+  g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - H * C.CARDH / 2 - u * 1.2);
+
+  for (let n = 0; n < offer.length; n++) {
+    const i = offer[n], [x, y, w, h] = cardBox(offer.length, n);
+    g.fillStyle = C.CARDBG;
+    g.fillRect(x, y, w, h);
+    g.strokeStyle = i < 0 ? C.HPC : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : C.HPC;
+    g.lineWidth = 2;
+    g.strokeRect(x, y, w, h);
+
+    g.fillStyle = '#fff';
+    g.font = (u * 0.62 | 0) + 'px monospace';
+    g.fillText(i < 0 ? 'RECOVERY' : C.CARDS[i][5], x + w / 2, y + u * 1.1);
+    g.fillStyle = '#8b93b8';
+    g.font = (u * 0.5 | 0) + 'px monospace';
+    g.fillText(i < 0 ? '' : 'LV ' + (lv[i] + 1), x + w / 2, y + u * 1.8);
+
+    cardIcon(i, x + w / 2, y + h * 0.48, w * 0.2);
+
+    g.fillStyle = '#cfd6f5';
+    g.font = (u * 0.5 | 0) + 'px monospace';
+    if (i < 0) g.fillText('full health', x + w / 2, y + h - u * 1.1);
+    else {
+      g.fillText(statAt(i, lv[i]).toFixed(i === 5 || i === 6 ? 0 : 2) + '  ->  ' +
+        statAt(i, lv[i] + 1).toFixed(i === 5 || i === 6 ? 0 : 2), x + w / 2, y + h - u * 1.5);
+      g.fillStyle = '#8b93b8';
+      g.fillText(C.CARDS[i][6], x + w / 2, y + h - u * 0.8);
+    }
+    g.fillStyle = '#8b93b8';
+    g.font = (u * 0.45 | 0) + 'px monospace';
+    g.fillText('' + (n + 1), x + w / 2, y + h + u * 0.9);
+  }
+  g.textAlign = 'left';
 };
 
 // Nothing of the run is left on screen: no ghosts, no puppet, no HUD. Three lines
@@ -1504,7 +1722,7 @@ const render = () => {
     // Two ramps in one: a quick fade in over RIMFI so it arrives rather than
     // appears, then the slow brightening across the whole charge that says how
     // close the trigger is.
-    rim(C.BINDR, C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG) * min(1, bindC / C.RIMFI));
+    rim(sRad(), C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG) * min(1, bindC / C.RIMFI));
   }
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();
@@ -1541,6 +1759,7 @@ const render = () => {
   }
   if (over) return;                               // dying: the world and the red, no HUD
   hud();
+  if (picking) cardScreen();
 };
 
 const loop = (t) => {
@@ -1587,12 +1806,18 @@ export const poseCheck = () => {
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
-                             wave, budget, waveT, hurtT, shake,
+                             wave, budget, waveT, hurtT, shake, lv, offer, picking, maxhp,
+                             fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
+                             regen: sRegen(),
                              bindR: bindR() });
 export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 // test seam: start a run at a given wave, to reach an unlock without playing to it
 export const setWave = (w) => { wave = w; budget = budgetFor(w); waveT = 0; spawnT = 0; };
+// test seams for the draw: force a level, and deal without playing a wave
+export const setLv = (i, v) => { lv[i] = v; if (i === 5) { maxhp = C.HEARTS + v; hearts = maxhp; } };
+export const dealNow = () => { deal(); picking = 1; return offer; };
+export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);
