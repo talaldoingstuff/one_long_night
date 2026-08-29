@@ -233,6 +233,30 @@ slider('min cast', () => C.BINDMIN, (v) => (C.BINDMIN = v), 0, 6, 0.1,
 slider('drag limit', () => C.DRAGPX, (v) => (C.DRAGPX = v), 1, 30, 1,
        (v) => v + 'px');
 
+// The charge is the rainbow lying on the ground; the cast stands it up as a wall.
+h2('the rainbow');
+slider('bands', () => C.BINDBAND, (v) => (C.BINDBAND = v), 3, 20, 1);
+slider('brightness', () => C.BINDA, (v) => (C.BINDA = v), 0.05, 1, 0.05,
+       (v) => v.toFixed(2));
+slider('crests', () => C.BINDWAV, (v) => (C.BINDWAV = v), 0.5, 6, 0.1,
+       (v) => v.toFixed(1) + ' across the radius');
+slider('pulse', () => C.BINDPUL, (v) => (C.BINDPUL = v), 0, 4, 0.1,
+       (v) => v.toFixed(1) + '/s outward');
+slider('band width', () => C.BINDLW, (v) => (C.BINDLW = v), 0.002, 0.05, 0.001,
+       (v) => v.toFixed(3) + ' of H');
+slider('ceiling mark', () => C.MAXA, (v) => (C.MAXA = v), 0, 0.6, 0.02,
+       (v) => v.toFixed(2));
+
+h2('the wall');
+slider('height', () => C.WALLH, (v) => (C.WALLH = v), 0.5, 8, 0.1,
+       (v) => v.toFixed(1) + 'm');
+slider('lasts', () => C.WALLDUR, (v) => (C.WALLDUR = v), 0.1, 2, 0.05,
+       (v) => v.toFixed(2) + 's');
+slider('brightness', () => C.WALLA, (v) => (C.WALLA = v), 0.1, 1, 0.05,
+       (v) => v.toFixed(2));
+slider('eye rainbow', () => C.EYERB, (v) => (C.EYERB = v), 1, 30, 1,
+       (v) => v + ' colours/s');
+
 // --- animation ---------------------------------------------------------------
 // DESIGN.md 6 asks for exactly two: a recoil on firing and a blink on a
 // randomised timer. Turn auto fire on to tune the first.
@@ -301,6 +325,10 @@ const dump = () => {
     '  BINDCD: ' + f(C.BINDCD) + ',  BINDR: ' + f(C.BINDR) + ',  BINDDUR: ' + f(C.BINDDUR) +
       ',  BINDGROW: ' + f(C.BINDGROW) + ',\n' +
     '  BINDMIN: ' + f(C.BINDMIN) + ',  DRAGPX: ' + C.DRAGPX + ',\n' +
+    '  BINDBAND: ' + C.BINDBAND + ',  BINDA: ' + f(C.BINDA) + ',  BINDWAV: ' + f(C.BINDWAV) +
+      ',  BINDPUL: ' + f(C.BINDPUL) + ',\n' +
+    '  BINDLW: ' + f(C.BINDLW) + ',  MAXA: ' + f(C.MAXA) + ',  WALLDUR: ' + f(C.WALLDUR) +
+      ',  WALLH: ' + f(C.WALLH) + ',  WALLA: ' + f(C.WALLA) + ',  EYERB: ' + C.EYERB + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
       '],';
 };

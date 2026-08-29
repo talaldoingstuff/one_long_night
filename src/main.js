@@ -119,16 +119,26 @@ export const C = {
   // at whatever radius you have grown.
   BINDCD: 3,          // seconds to recharge from empty. An upgrade card.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
-  BINDDUR: 2.5,       // how long a caught ghost is held. A card.
+  BINDDUR: 3,         // how long a caught ghost is held. A card.
   BINDGROW: 7,        // metres of radius per second of holding
   BINDMIN: 1.5,       // below this a cast does nothing and is not spent
-  BINDSEG: 44,        // segments in the drawn ring
+  BINDSEG: 44,        // segments in a drawn circle
   EYE: 1.6,           // how high the eye is above the ground the ring lies on
   DRAGPX: 6,          // pointer travel that makes it a drag rather than a hold.
                       // One pointer has to carry aiming and binding both, and
                       // this is the only thing that separates them.
-  RING: 'rgba(255,255,255,0.75)',
-  RINGMAX: 'rgba(255,255,255,0.28)',
+  // The charge is the rainbow lying on the ground, pulsing outward.
+  BINDBAND: 9,        // concentric bands it is drawn as
+  BINDA: 0.55,        // the brightest a band gets
+  BINDWAV: 2.2,       // wave crests across the radius
+  BINDPUL: 0.9,       // crests per second, travelling outward
+  BINDLW: 0.014,      // band width, as a fraction of screen height
+  MAXA: 0.16,         // the faint circle marking what the charge could still buy
+  // And the cast is a wall of it, sweeping out to the radius it caught.
+  WALLDUR: 0.45,      // seconds the wall lives
+  WALLH: 2.4,         // how tall it stands, metres
+  WALLA: 0.9,         // its brightness at the moment of the cast
+  EYERB: 9,           // rainbow colours a second the eyes run while charging
 
   // --- Outline ---------------------------------------------------------------
   // A dark edge on the neck and head only. They are one colour meeting one
@@ -412,13 +422,14 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT, bindR, charging;
+    rec, blink, nextB, bindT, bindR, charging, wallT, wallR;
 
 const reset = () => {
   ghosts = []; horns = [];
   hearts = C.HEARTS; kills = 0; over = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindR = 0; charging = 0;
+  wallT = 0; wallR = 0;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -479,6 +490,7 @@ const cast = () => {
   bindR = 0;
   if (r < C.BINDMIN) return;                     // too small to do anything, so it costs nothing
   bindT = min(C.BINDCD, bindT + bindCost(r));
+  wallT = C.WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
@@ -620,12 +632,17 @@ const eyes = () => {
   // A blink is the eye's own height going to almost nothing and back. Shaped with
   // a sine so it closes and opens rather than switching.
   const bk = blink > 0 ? 1 - (1 - C.BLINKS) * sin(PI * blink / C.BLINKD) : 1;
+  // Charging, the eyes run the rainbow. It eases in as the charge crosses the
+  // smallest cast that would actually catch anything, so the colour arriving in
+  // them is also the signal that letting go is now worth something.
+  const cg = charging ? min(1, bindR / C.BINDMIN) : 0;
+  const ic = cg ? mix(C.IRIS, RBV[(clock * C.EYERB | 0) % 6], cg) : C.IRIS;
   for (const sx of [1, -1]) {
     const o = hw * C.EYES[2] * C.HEADS + d / 2;
     cone(frame([ax + sx * fl[0] * o, ay + sx * fl[1] * o, az + sx * fl[2] * o],
                [up[0] * r * bk, up[1] * r * bk, up[2] * r * bk],
                [sx * fl[0] * d / 2, sx * fl[1] * d / 2, sx * fl[2] * d / 2],
-               [fw[0] * r, fw[1] * r, fw[2] * r]), 10, C.IRIS, T);
+               [fw[0] * r, fw[1] * r, fw[2] * r]), 10, ic, T);
   }
 };
 
@@ -662,6 +679,9 @@ const mane = () => {
           r, r, r * C.MANEP, r * C.MANEP, wash(RBV[1 + (i % 5)], k));
   }
 };
+
+const mix = (a, b, k) =>
+  [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 
 // Wash a colour toward its own brightness. At k = 1 it is itself; at 0 it is the
 // grey it would be in a photograph. This is the whole cooldown readout.
@@ -754,6 +774,7 @@ const step = (dt) => {
   fireT = max(0, fireT - dt);
   rec = max(0, rec - dt / C.RECT);
   bindT = max(0, bindT - dt);
+  wallT = max(0, wallT - dt);
   if (charging) bindR = min(bindMax(), bindR + C.BINDGROW * dt);
   blink = max(0, blink - dt);
   nextB -= dt;
@@ -857,29 +878,72 @@ const underCrosshair = () => {
   return best;
 };
 
-// The bind ring, on the ground, centred on the player.
+// The bind, drawn.
 //
-// DESIGN.md 6 suggests concentric ellipses with their centre below the viewport.
+// DESIGN.md 6 suggests concentric white ellipses centred below the viewport.
 // That is the trick for when you have no projection; there is one here, so the
-// real circle is projected instead - which then behaves correctly under pitch and
-// yaw for free, and the near half falls behind the camera by itself rather than
-// having to be clipped away.
-const ring = (r, style, dash) => {
+// real ground circle is projected instead - which behaves correctly under pitch
+// and yaw for free, and its near half falls behind the camera by itself rather
+// than having to be clipped away.
+//
+// What is drawn on those circles is the rainbow, which is the one thing carried
+// over from the previous game: faded bands lying on the floor while you charge,
+// and a wall of it standing up and sweeping out when you let go.
+const css = (c, a) => 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ',' + a + ')';
+
+// A point on the circle of radius r, h metres above the ground, projected. Null
+// when it is behind the eye. y is down, so up is minus.
+const gpt = (a, r, h) => {
+  const c = cam([cos(a) * r, C.EYE - h, sin(a) * r]);
+  return c[2] < C.NEAR ? null : proj(c);
+};
+
+const circle = (r, style, w) => {
   if (r < 0.05) return;
   g.strokeStyle = style;
-  g.lineWidth = 2;
+  g.lineWidth = w;
   let up = 0;
   g.beginPath();
   for (let i = 0; i <= C.BINDSEG; i++) {
-    const a = (i / C.BINDSEG) * 2 * PI;
-    const c = cam([cos(a) * r, C.EYE, sin(a) * r]);
-    if (c[2] < C.NEAR) { up = 0; continue; }     // behind the eye: lift the pen
-    const p = proj(c);
-    if (up && !(dash && i % 2)) g.lineTo(p[0], p[1]);
-    else g.moveTo(p[0], p[1]);
+    const p = gpt((i / C.BINDSEG) * 2 * PI, r, 0);
+    if (!p) { up = 0; continue; }                // behind the eye: lift the pen
+    if (up) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]);
     up = 1;
   }
   g.stroke();
+};
+
+// The charge: the rainbow faded across the floor out to what you have grown, with
+// a crest travelling outward through it so the whole disc pulses rather than
+// blinking as one.
+const groundBow = (r) => {
+  for (let b = 0; b < C.BINDBAND; b++) {
+    const f = (b + 0.5) / C.BINDBAND;
+    const w = 0.5 + 0.5 * sin(2 * PI * (f * C.BINDWAV - clock * C.BINDPUL));
+    circle(r * f, css(RBV[b % 6], C.BINDA * w * (1 - f * 0.4)), C.BINDLW * H);
+  }
+};
+
+// The cast: that same rainbow standing up as a wall and sweeping out to the
+// radius it caught. Red along the floor, violet at the top - the rainbow on its
+// edge. It is drawn over the ghosts rather than sorted among them: it lasts
+// WALLDUR and is additive, so it brightens what it passes instead of hiding it.
+const bindWall = () => {
+  const u = 1 - wallT / C.WALLDUR;               // 0 at the cast, 1 as it dies
+  const r = wallR * u ** 0.55;                   // out fast, then easing into place
+  const a = C.WALLA * (1 - u) ** 0.9;
+  for (let i = 0; i < C.BINDSEG; i++) {
+    const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
+    for (let b = 0; b < 6; b++) {
+      const h0 = C.WALLH * b / 6, h1 = C.WALLH * (b + 1) / 6;
+      const q = [gpt(a0, r, h0), gpt(a1, r, h0), gpt(a1, r, h1), gpt(a0, r, h1)];
+      if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
+      g.fillStyle = css(RBV[b], a * (1 - b / 8));
+      g.beginPath();
+      for (const t of q) g.lineTo(t[0], t[1]);
+      g.fill();
+    }
+  }
 };
 
 const render = () => {
@@ -896,18 +960,19 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
+  // The charge lies on the floor, under everything standing on it. The faint
+  // outermost circle is the ceiling: the most the charge left would still buy.
+  if (charging || bindR > 0) {
+    circle(bindMax(), css(RBV[5], C.MAXA), 2);
+    groundBow(bindR);
+  }
   for (const o of ghosts) drawGhost(o, target);
+  if (wallT > 0) bindWall();
   g.globalCompositeOperation = 'source-over';
 
   // A horn in flight is a cone, apex forward, built in the world and put through
   // the same pipeline as everything else. It was a swept box tapered to a point,
   // which is a pyramid; a horn is round.
-  // Solid: what you have charged. Dashed: the most the charge left would pay for.
-  if (charging || bindR > 0) {
-    ring(bindMax(), C.RINGMAX, 1);
-    ring(bindR, C.RING, 0);
-  }
-
   for (const h of horns) {
     const L = hypot(h[3], h[4], h[5]) || 1;
     const px = h[3] / L, py = h[4] / L, pz = h[5] / L;
@@ -972,7 +1037,7 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindR, charging });
+export const anim = () => ({ rec, blink, nextB, bindT, bindR, charging, wallT, wallR });
 export const bindInfo = () => ({ cost: bindCost, max: bindMax(), cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 
