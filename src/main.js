@@ -124,9 +124,14 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
-  KTURN: 2.2,         // radians a second of keyboard turn. DESIGN.md 12 calls turn
+  KTURN: 1.3,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
-                      // knob TURN is, in the units a key can be held in.
+                      // knob TURN is, in the units a key can be held in. At 2.2
+                      // it matched a 524px/s drag sustained forever, which is a
+                      // flick speed, not a panning one.
+  KPITCH: 0.7,        // and its own rate for pitch, because that range is only
+                      // 63 degrees end to end - one rate for both put the whole
+                      // of it half a second apart.
   ARM: 0.3,           // seconds of holding still before the charge begins. The
                       // start of every press is free for turning, so a drag never
                       // charges by accident.
@@ -1166,7 +1171,7 @@ const step = (dt) => {
   for (const c in TURNK) if (KEYS[c]) { kx += TURNK[c][0]; ky += TURNK[c][1]; }
   if (kx || ky) {
     yaw += kx * C.KTURN * dt;
-    pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + ky * C.KTURN * dt));
+    pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + ky * C.KPITCH * dt));
     aim();
   }
   assist(dt);
@@ -1403,7 +1408,9 @@ const hud = () => {
   // corner reads as one column.
   if (!charging && bindT <= 0) {
     g.fillStyle = css(C.RIMC, 1);
-    g.fillText('RAINBOW ENERGY READY', W - 16, by + bh + lbl * 1.3);
+    g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
+    g.fillStyle = '#fff';
+    g.fillText('Click/Space & Hold', W - 16, by + bh + lbl * 2.6);
   }
 
   // Wave above, kills below it, both on the centre line. The wave takes the
