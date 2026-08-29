@@ -125,6 +125,12 @@ const bar = (...bs) => { const d = document.createElement('div'); d.className = 
 // ---------------------------------------------------------------------------
 h2('sound');
 let studio = 0, muted = 0;
+// Silencing the music must not overwrite the number you tuned it to, so musV is
+// the truth and C._MUSV is only what is currently playing. The slider and the
+// paste-back both read musV, which means the value survives being muted and a
+// copy taken while muted is still the right one.
+let musOff = 0, musV = C._MUSV;
+const applyMus = () => { C._MUSV = musOff ? 0 : musV; };
 const enable = btn('CLICK HERE TO START THE SOUND', (b) => {
   M.startAudio();                                 // a context made outside a gesture is blocked
   b.textContent = 'sound is on';
@@ -140,8 +146,14 @@ const quiet = btn('studio', (b) => {
   M.setFire(!studio);                             // the puppet fires several times a second otherwise
   b.classList.toggle('on', !!studio);
 });
-bar(mute, quiet, btn('clear the field', () => M.place([])), btn('restart', () => M.restart()));
-p('studio stops the puppet firing, so a sound can be heard on its own. Everything else keeps running.');
+const musBtn = btn('music off', (b) => {
+  musOff ^= 1;
+  applyMus();
+  b.classList.toggle('on', !!musOff);
+  b.textContent = musOff ? 'music OFF' : 'music off';
+});
+bar(mute, musBtn, quiet, btn('clear the field', () => M.place([])), btn('restart', () => M.restart()));
+p('music off silences the music alone, so the sounds can be worked on against nothing - it does not touch the volume you set it to, and a paste-back taken while it is off still carries the real value. studio stops the puppet firing, so one sound can be heard on its own. mute silences everything.');
 
 // ---------------------------------------------------------------------------
 // One sound at a time
@@ -227,7 +239,7 @@ p('Each tick outlasts the gap after it, so early on they are separate pulses and
 // Music
 // ---------------------------------------------------------------------------
 h2('music');
-slider('volume', () => C._MUSV, (v) => (C._MUSV = v), 0, 0.3, 0.002, (v) => v.toFixed(3));
+slider('volume', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.3, 0.002, (v) => v.toFixed(3));
 slider('gap', () => C._MUSGAP, (v) => (C._MUSGAP = v), 0.3, 8, 0.1, (v) => v.toFixed(1) + 's');
 slider('note length', () => C._MUSDUR, (v) => (C._MUSDUR = v), 0.2, 6, 0.1, (v) => v.toFixed(1) + 's');
 slider('root', () => C._MUSROOT, (v) => (C._MUSROOT = v), 55, 330, 1, (v) => v + ' Hz');
@@ -336,7 +348,7 @@ function dump() {
       n3(C._CHG[VOL]) + ', ' + C._CHG[WAVE] + '],\n' +
     '  _CHGUP: ' + (+C._CHGUP).toFixed(2) + ',\n' +
     '  _CHGGAP: [' + (+C._CHGGAP[0]).toFixed(2) + ', ' + (+C._CHGGAP[1]).toFixed(2) + '],\n' +
-    '  _MUSV: ' + n3(C._MUSV) + ',\n' +
+    '  _MUSV: ' + n3(musV) + ',\n' +
     '  _MUSGAP: ' + (+C._MUSGAP).toFixed(1) + ',\n' +
     '  _MUSDUR: ' + (+C._MUSDUR).toFixed(1) + ',\n' +
     '  _MUSROOT: ' + C._MUSROOT + ',\n' +
