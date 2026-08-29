@@ -51,7 +51,7 @@ const C = M.C;
 // single threaded, so the game's next frame cannot land in the middle of that.
 const hostCtx = document.getElementById('c').getContext('2d');
 
-const NAMES = [...C.CARDS.map((c) => c[5]), 'RECOVERY'];
+const NAMES = [...C._CARDS.map((c) => c[5]), 'RECOVERY'];
 const IDS = [0, 1, 2, 3, 4, 5, 6, -1];
 
 const sheet = document.getElementById('sheet');
@@ -83,9 +83,9 @@ const stc = stage.getContext('2d');
 const draw = () => {
   M.setCtx(stc);
   M.restart();
-  for (let i = 0; i < C.CARDS.length; i++) M.setLv(i, Math.min(level, C.CARDS[i][0] - 1));
+  for (let i = 0; i < C._CARDS.length; i++) M.setLv(i, Math.min(level, C._CARDS[i][0] - 1));
 
-  const cw = GW * C.CARDW, ch = GH * C.CARDH;
+  const cw = GW * C._CARDW, ch = GH * C._CARDH;
   // --- the sheet: every card at its true size ------------------------------------
   sheet.width = Math.max(1180, IDS.length * (cw + 18) + 20);
   sheet.height = ch + 62;
@@ -100,7 +100,7 @@ const draw = () => {
   // --- the icons alone, three sizes ------------------------------------------------
   // Size the canvas BEFORE drawing into it: setting width or height on a canvas
   // clears it, so measuring afterwards wipes the frame that was just made.
-  const base = cw * C.CARDI;
+  const base = cw * C._CARDI;
   const MULS = [[3, '3x'], [1, 'actual'], [0.5, 'half']];
   const bands = MULS.map(([m]) => base * m * 2 + 26);
   zoom.width = IDS.length * 140 + 60;
@@ -126,10 +126,10 @@ const draw = () => {
   for (let n = 0; n < IDS.length; n++) zc.fillText(NAMES[n].slice(0, 13), n * 140 + 46, y + 14);
 
   out.value =
-    '  CARDW: ' + C.CARDW.toFixed(3) + ',  CARDH: ' + C.CARDH.toFixed(3) + ',\n' +
-    '  CARDT: ' + C.CARDT.toFixed(3) + ',  CARDL: ' + C.CARDL.toFixed(3) +
-      ',  CARDV: ' + C.CARDV.toFixed(3) + ',\n' +
-    '  CARDU: ' + C.CARDU.toFixed(3) + ',  CARDI: ' + C.CARDI.toFixed(3) + ',';
+    '  _CARDW: ' + C._CARDW.toFixed(3) + ',  _CARDH: ' + C._CARDH.toFixed(3) + ',\n' +
+    '  _CARDT: ' + C._CARDT.toFixed(3) + ',  _CARDL: ' + C._CARDL.toFixed(3) +
+      ',  _CARDV: ' + C._CARDV.toFixed(3) + ',\n' +
+    '  _CARDU: ' + C._CARDU.toFixed(3) + ',  _CARDI: ' + C._CARDI.toFixed(3) + ',';
 
   M.setCtx(hostCtx);
 };
@@ -138,19 +138,19 @@ h2('the level shown');
 slider('level', () => level, (v) => (level = v | 0), 0, 7, 1, (v) => 'LV ' + ((v | 0) + 1));
 
 h2('the card');
-slider('width', () => C.CARDW, (v) => (C.CARDW = v), 0.08, 0.34, 0.005,
+slider('width', () => C._CARDW, (v) => (C._CARDW = v), 0.08, 0.34, 0.005,
        (v) => v.toFixed(3) + ' of W');
-slider('height', () => C.CARDH, (v) => (C.CARDH = v), 0.15, 0.7, 0.005,
+slider('height', () => C._CARDH, (v) => (C._CARDH = v), 0.15, 0.7, 0.005,
        (v) => v.toFixed(3) + ' of H');
 
 h2('type, as a fraction of the card width');
-slider('title', () => C.CARDT, (v) => (C.CARDT = v), 0.05, 0.25, 0.005);
-slider('level line', () => C.CARDL, (v) => (C.CARDL = v), 0.04, 0.2, 0.005);
-slider('the number', () => C.CARDV, (v) => (C.CARDV = v), 0.04, 0.2, 0.005);
-slider('the unit', () => C.CARDU, (v) => (C.CARDU = v), 0.03, 0.18, 0.005);
+slider('title', () => C._CARDT, (v) => (C._CARDT = v), 0.05, 0.25, 0.005);
+slider('level line', () => C._CARDL, (v) => (C._CARDL = v), 0.04, 0.2, 0.005);
+slider('the number', () => C._CARDV, (v) => (C._CARDV = v), 0.04, 0.2, 0.005);
+slider('the unit', () => C._CARDU, (v) => (C._CARDU = v), 0.03, 0.18, 0.005);
 
 h2('the icon');
-slider('radius', () => C.CARDI, (v) => (C.CARDI = v), 0.05, 0.4, 0.005);
+slider('radius', () => C._CARDI, (v) => (C._CARDI = v), 0.05, 0.4, 0.005);
 
 h2('paste back into C');
 const out = document.createElement('textarea');

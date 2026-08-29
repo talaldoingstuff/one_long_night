@@ -116,7 +116,7 @@ h2('preview');
     ghosts = !ghosts;
     b.classList.toggle('on', !ghosts);
     b.textContent = ghosts ? 'ghosts' : 'ghosts off';
-    C.SPAWN = ghosts ? ORIGC.SPAWN : 1e9;
+    C._SPAWN = ghosts ? ORIGC.SPAWN : 1e9;
     if (!ghosts) M.place([]);
   }, r).classList.add('on');
   $('grip').onclick = () => {
@@ -137,13 +137,13 @@ h2('preview');
 
 // --- pose --------------------------------------------------------------------
 h2('pose in the frame');
-slider('right', () => C.PUP[0], (v) => (C.PUP[0] = v), -1.5, 3, 0.01);
-slider('down', () => C.PUP[1], (v) => (C.PUP[1] = v), -1, 3, 0.01);
-slider('back', () => C.PUP[2], (v) => (C.PUP[2] = v), 0.2, 5, 0.01);
-slider('scale', () => C.PUPS, (v) => (C.PUPS = v), 0.3, 8, 0.02);
-slider('yaw', () => C.PUPA, (v) => (C.PUPA = v), -1.6, 1.6, 0.01,
+slider('right', () => C._PUP[0], (v) => (C._PUP[0] = v), -1.5, 3, 0.01);
+slider('down', () => C._PUP[1], (v) => (C._PUP[1] = v), -1, 3, 0.01);
+slider('back', () => C._PUP[2], (v) => (C._PUP[2] = v), 0.2, 5, 0.01);
+slider('scale', () => C._PUPS, (v) => (C._PUPS = v), 0.3, 8, 0.02);
+slider('yaw', () => C._PUPA, (v) => (C._PUPA = v), -1.6, 1.6, 0.01,
        (v) => (v * 57.3).toFixed(0) + '\u00b0');
-slider('pitch', () => C.PUPB, (v) => (C.PUPB = v), -1.6, 1.6, 0.01,
+slider('pitch', () => C._PUPB, (v) => (C._PUPB = v), -1.6, 1.6, 0.01,
        (v) => (v * 57.3).toFixed(0) + '\u00b0');
 
 // --- group placement ---------------------------------------------------------
@@ -151,25 +151,25 @@ slider('pitch', () => C.PUPB, (v) => (C.PUPB = v), -1.6, 1.6, 0.01,
 // leaves the horn behind, which is not a thing a head does.
 h2('head, horn and eyes together');
 const deg = (v) => (v * 57.3).toFixed(0) + '\u00b0';
-slider('sideways', () => C.HEADO[0], (v) => (C.HEADO[0] = v), -0.3, 0.3, 0.002);
-slider('up', () => C.HEADO[1], (v) => (C.HEADO[1] = v), -0.3, 0.4, 0.002);
-slider('forward', () => C.HEADO[2], (v) => (C.HEADO[2] = v), -0.3, 0.4, 0.002);
-slider('scale', () => C.HEADS, (v) => (C.HEADS = v), 0.3, 2.5, 0.01);
+slider('sideways', () => C._HEADO[0], (v) => (C._HEADO[0] = v), -0.3, 0.3, 0.002);
+slider('up', () => C._HEADO[1], (v) => (C._HEADO[1] = v), -0.3, 0.4, 0.002);
+slider('forward', () => C._HEADO[2], (v) => (C._HEADO[2] = v), -0.3, 0.4, 0.002);
+slider('scale', () => C._HEADS, (v) => (C._HEADS = v), 0.3, 2.5, 0.01);
 // About the joint where the head meets the neck, so it swings rather than
 // drifting off the end of it.
-slider('nod', () => C.HEADR[0], (v) => (C.HEADR[0] = v), -1.2, 1.2, 0.01, deg);
-slider('turn', () => C.HEADR[1], (v) => (C.HEADR[1] = v), -1.2, 1.2, 0.01, deg);
-slider('tilt', () => C.HEADR[2], (v) => (C.HEADR[2] = v), -1.2, 1.2, 0.01, deg);
+slider('nod', () => C._HEADR[0], (v) => (C._HEADR[0] = v), -1.2, 1.2, 0.01, deg);
+slider('turn', () => C._HEADR[1], (v) => (C._HEADR[1] = v), -1.2, 1.2, 0.01, deg);
+slider('tilt', () => C._HEADR[2], (v) => (C._HEADR[2] = v), -1.2, 1.2, 0.01, deg);
 
 // The eyes are discs laid against the head's flank, so they are placed against
 // the head - a fraction along it, and a multiple of its own half-width out - and
 // stay put when the head is retuned.
 h2('eyes');
-slider('up', () => C.EYES[0], (v) => (C.EYES[0] = v), -0.12, 0.12, 0.002);
-slider('along head', () => C.EYES[1], (v) => (C.EYES[1] = v), -0.1, 1.1, 0.01);
-slider('out', () => C.EYES[2], (v) => (C.EYES[2] = v), 0.5, 2, 0.01);
-slider('radius', () => C.EYES[3], (v) => (C.EYES[3] = v), 0.004, 0.08, 0.001);
-slider('stands out', () => C.EYES[4], (v) => (C.EYES[4] = v), 0.001, 0.06, 0.001);
+slider('up', () => C._EYES[0], (v) => (C._EYES[0] = v), -0.12, 0.12, 0.002);
+slider('along head', () => C._EYES[1], (v) => (C._EYES[1] = v), -0.1, 1.1, 0.01);
+slider('out', () => C._EYES[2], (v) => (C._EYES[2] = v), 0.5, 2, 0.01);
+slider('radius', () => C._EYES[3], (v) => (C._EYES[3] = v), 0.004, 0.08, 0.001);
+slider('stands out', () => C._EYES[4], (v) => (C._EYES[4] = v), 0.001, 0.06, 0.001);
 
 // --- the parts ---------------------------------------------------------------
 // Every row is [ax,ay,az, bx,by,bz, w0,h0, w1,h1, material]: a box swept from one
@@ -198,23 +198,23 @@ h2('mane');
 // The mane is welded to the top face of the neck, so there is nothing here that
 // can put it somewhere else - only how much of the neck it covers, and what the
 // tufts look like.
-slider('tufts', () => C.MANEN, (v) => (C.MANEN = Math.round(v)), 0, 16, 1, (v) => String(v));
-slider('position', () => C.MANEC, (v) => (C.MANEC = v), 0, 1, 0.01);
-slider('covers', () => C.MANEW, (v) => (C.MANEW = v), 0, 1, 0.01);
-slider('height', () => C.MANEH, (v) => (C.MANEH = v), 0, 0.3, 0.002);
-slider('sweep back', () => C.MANEB, (v) => (C.MANEB = v), -0.1, 0.2, 0.002);
-slider('thickness', () => C.MANER, (v) => (C.MANER = v), 0.002, 0.09, 0.001);
-slider('gap', () => C.MANEG, (v) => (C.MANEG = v), 0.1, 0.5, 0.01,
+slider('tufts', () => C._MANEN, (v) => (C._MANEN = Math.round(v)), 0, 16, 1, (v) => String(v));
+slider('position', () => C._MANEC, (v) => (C._MANEC = v), 0, 1, 0.01);
+slider('covers', () => C._MANEW, (v) => (C._MANEW = v), 0, 1, 0.01);
+slider('height', () => C._MANEH, (v) => (C._MANEH = v), 0, 0.3, 0.002);
+slider('sweep back', () => C._MANEB, (v) => (C._MANEB = v), -0.1, 0.2, 0.002);
+slider('thickness', () => C._MANER, (v) => (C._MANER = v), 0.002, 0.09, 0.001);
+slider('gap', () => C._MANEG, (v) => (C._MANEG = v), 0.1, 0.5, 0.01,
        (v) => (100 * 2 * v).toFixed(0) + '% of slot');
-slider('tip taper', () => C.MANEP, (v) => (C.MANEP = v), 0.02, 1, 0.02);
+slider('tip taper', () => C._MANEP, (v) => (C._MANEP = v), 0.02, 1, 0.02);
 
 // DESIGN.md 6 hung this on a casting arm. There is no arm - the unicorn casts -
 // so it runs on the mane, the rainbow the unicorn already has.
 h2('mane as the cooldown');
 let cd = 0;
-slider('drain it', () => cd, (v) => { cd = v; M.setBind(v * C.BINDCD); }, 0, 1, 0.02,
+slider('drain it', () => cd, (v) => { cd = v; M.setBind(v * C._BINDCD); }, 0, 1, 0.02,
        (v) => (v === 0 ? 'ready' : (100 * (1 - v)).toFixed(0) + '% charged'));
-slider('washes to', () => C.SAT0, (v) => (C.SAT0 = v), 0, 1, 0.02,
+slider('washes to', () => C._SAT0, (v) => (C._SAT0 = v), 0, 1, 0.02,
        (v) => (100 * v).toFixed(0) + '% colour');
 
 // Hold still anywhere in the preview for ARM seconds and the charge begins; it
@@ -222,66 +222,66 @@ slider('washes to', () => C.SAT0, (v) => (C.SAT0 = v), 0, 1, 0.02,
 // that first second makes the press a turn instead, which is how looking around
 // avoids charging. Once it is charging you can turn all you like.
 h2('the bind');
-slider('recharge', () => C.BINDCD, (v) => (C.BINDCD = v), 0.5, 10, 0.1,
+slider('recharge', () => C._BINDCD, (v) => (C._BINDCD = v), 0.5, 10, 0.1,
        (v) => v.toFixed(1) + 's');
-slider('max radius', () => C.BINDR, (v) => (C.BINDR = v), 1, 25, 0.5,
+slider('max radius', () => C._BINDR, (v) => (C._BINDR = v), 1, 25, 0.5,
        (v) => v.toFixed(1) + 'm');
-slider('holds for', () => C.BINDDUR, (v) => (C.BINDDUR = v), 0.2, 10, 0.1,
+slider('holds for', () => C._BINDDUR, (v) => (C._BINDDUR = v), 0.2, 10, 0.1,
        (v) => v.toFixed(1) + 's');
-slider('arm after', () => C.ARM, (v) => (C.ARM = v), 0.1, 3, 0.05,
+slider('arm after', () => C._ARM, (v) => (C._ARM = v), 0.1, 3, 0.05,
        (v) => v.toFixed(2) + 's of holding still');
-slider('allowing', () => C.ARMPX, (v) => (C.ARMPX = v), 1, 40, 1,
+slider('allowing', () => C._ARMPX, (v) => (C._ARMPX = v), 1, 40, 1,
        (v) => v + 'px of drift before it is a turn');
-slider('charge time', () => C.BINDCHG, (v) => (C.BINDCHG = v), 0.5, 8, 0.1,
+slider('charge time', () => C._BINDCHG, (v) => (C._BINDCHG = v), 0.5, 8, 0.1,
        (v) => v.toFixed(1) + 's, then it fires itself');
 
 
 // The charge is the rainbow lying on the ground; the cast stands it up as a wall.
 h2('the rainbow');
-slider('bands', () => C.BINDBAND, (v) => (C.BINDBAND = v), 3, 20, 1);
-slider('brightness', () => C.BINDA, (v) => (C.BINDA = v), 0.05, 1, 0.05,
+slider('bands', () => C._BINDBAND, (v) => (C._BINDBAND = v), 3, 20, 1);
+slider('brightness', () => C._BINDA, (v) => (C._BINDA = v), 0.05, 1, 0.05,
        (v) => v.toFixed(2));
-slider('crests', () => C.BINDWAV, (v) => (C.BINDWAV = v), 0.5, 6, 0.1,
+slider('crests', () => C._BINDWAV, (v) => (C._BINDWAV = v), 0.5, 6, 0.1,
        (v) => v.toFixed(1) + ' across the radius');
-slider('pulse', () => C.BINDPUL, (v) => (C.BINDPUL = v), 0, 4, 0.1,
+slider('pulse', () => C._BINDPUL, (v) => (C._BINDPUL = v), 0, 4, 0.1,
        (v) => v.toFixed(1) + '/s outward');
-slider('segments', () => C.BINDSEG, (v) => (C.BINDSEG = v), 8, 80, 2,
+slider('segments', () => C._BINDSEG, (v) => (C._BINDSEG = v), 8, 80, 2,
        (v) => v + ' around');
-slider('rim width', () => C.RIMW, (v) => (C.RIMW = v), 0.05, 2, 0.05,
+slider('rim width', () => C._RIMW, (v) => (C._RIMW = v), 0.05, 2, 0.05,
        (v) => v.toFixed(2) + 'm');
-slider('rim brightness', () => C.RIMA, (v) => (C.RIMA = v), 0.1, 1, 0.05,
+slider('rim brightness', () => C._RIMA, (v) => (C._RIMA = v), 0.1, 1, 0.05,
        (v) => v.toFixed(2));
-slider('rim fades in', () => C.RIMFI, (v) => (C.RIMFI = v), 0.01, 1.5, 0.01,
+slider('rim fades in', () => C._RIMFI, (v) => (C._RIMFI = v), 0.01, 1.5, 0.01,
        (v) => v.toFixed(2) + 's');
 
 h2('the wall');
-slider('height', () => C.WALLH, (v) => (C.WALLH = v), 0.5, 8, 0.1,
+slider('height', () => C._WALLH, (v) => (C._WALLH = v), 0.5, 8, 0.1,
        (v) => v.toFixed(1) + 'm each');
-slider('repeats', () => C.WALLREP, (v) => (C.WALLREP = v), 1, 5, 1,
-       (v) => v + ' stacked, ' + (v * C.WALLH).toFixed(1) + 'm tall');
-slider('lasts', () => C.WALLDUR, (v) => (C.WALLDUR = v), 0.1, 2, 0.05,
+slider('repeats', () => C._WALLREP, (v) => (C._WALLREP = v), 1, 5, 1,
+       (v) => v + ' stacked, ' + (v * C._WALLH).toFixed(1) + 'm tall');
+slider('lasts', () => C._WALLDUR, (v) => (C._WALLDUR = v), 0.1, 2, 0.05,
        (v) => v.toFixed(2) + 's');
-slider('brightness', () => C.WALLA, (v) => (C.WALLA = v), 0.1, 1, 0.05,
+slider('brightness', () => C._WALLA, (v) => (C._WALLA = v), 0.1, 1, 0.05,
        (v) => v.toFixed(2));
-slider('eye rainbow', () => C.EYERB, (v) => (C.EYERB = v), 1, 30, 1,
+slider('eye rainbow', () => C._EYERB, (v) => (C._EYERB = v), 1, 30, 1,
        (v) => v + ' colours/s');
 
 // --- animation ---------------------------------------------------------------
 // DESIGN.md 6 asks for exactly two: a recoil on firing and a blink on a
 // randomised timer. Turn auto fire on to tune the first.
 h2('recoil and blink');
-slider('kick', () => C.RECOIL, (v) => (C.RECOIL = v), 0, 0.8, 0.01);
-slider('kick time', () => C.RECT, (v) => (C.RECT = v), 0.04, 0.5, 0.01,
+slider('kick', () => C._RECOIL, (v) => (C._RECOIL = v), 0, 0.8, 0.01);
+slider('kick time', () => C._RECT, (v) => (C._RECT = v), 0.04, 0.5, 0.01,
        (v) => v.toFixed(2) + 's');
-slider('fire every', () => C.FIRE, (v) => (C.FIRE = v), 0.08, 2, 0.02,
+slider('fire every', () => C._FIRE, (v) => (C._FIRE = v), 0.08, 2, 0.02,
        (v) => v.toFixed(2) + 's');
-slider('blink for', () => C.BLINKD, (v) => (C.BLINKD = v), 0.03, 0.4, 0.01,
+slider('blink for', () => C._BLINKD, (v) => (C._BLINKD = v), 0.03, 0.4, 0.01,
        (v) => v.toFixed(2) + 's');
-slider('blink every', () => C.BLINK0, (v) => (C.BLINK0 = Math.min(v, C.BLINK1)), 0.3, 8, 0.1,
+slider('blink every', () => C._BLINK0, (v) => (C._BLINK0 = Math.min(v, C._BLINK1)), 0.3, 8, 0.1,
        (v) => v.toFixed(1) + 's');
-slider('  to', () => C.BLINK1, (v) => (C.BLINK1 = Math.max(v, C.BLINK0)), 0.3, 12, 0.1,
+slider('  to', () => C._BLINK1, (v) => (C._BLINK1 = Math.max(v, C._BLINK0)), 0.3, 12, 0.1,
        (v) => v.toFixed(1) + 's');
-slider('closes to', () => C.BLINKS, (v) => (C.BLINKS = v), 0, 0.6, 0.01,
+slider('closes to', () => C._BLINKS, (v) => (C._BLINKS = v), 0, 0.6, 0.01,
        (v) => (100 * v).toFixed(0) + '%');
 
 // --- colours -----------------------------------------------------------------
@@ -289,9 +289,9 @@ slider('closes to', () => C.BLINKS, (v) => (C.BLINKS = v), 0, 0.6, 0.01,
 // joint between them is otherwise invisible. The horn, eyes and mane separate
 // themselves by being a different colour entirely.
 h2('outline');
-slider('width', () => C.OUTL, (v) => (C.OUTL = v), 0, 0.008, 0.0002,
+slider('width', () => C._OUTL, (v) => (C._OUTL = v), 0, 0.008, 0.0002,
        (v) => (v * 500).toFixed(1) + 'px');
-slider('opacity', () => C.OUTA, (v) => (C.OUTA = v), 0, 1, 0.02,
+slider('opacity', () => C._OUTA, (v) => (C._OUTA = v), 0, 1, 0.02,
        (v) => (100 * v).toFixed(0) + '%');
 
 h2('colour');
@@ -300,10 +300,10 @@ const rgbRow = (label, arr) => {
     slider(label + ' ' + ch, () => arr[k], (v) => (arr[k] = Math.round(v)), 0, 255, 1, (v) => String(v));
   }
 };
-rgbRow('body', C.BODY);
-rgbRow('horn', C.GOLD);
-rgbRow('eye', C.IRIS);
-rgbRow('rim hint', C.RIMC);
+rgbRow('body', C._BODY);
+rgbRow('horn', C._GOLD);
+rgbRow('eye', C._IRIS);
+rgbRow('rim hint', C._RIMC);
 
 // --- output ------------------------------------------------------------------
 h2('paste back into C');
@@ -320,29 +320,29 @@ const dump = () => {
     'export const PARTS = [\n' +
     PARTS.map((q, i) => '  [' + q.map(f).join(', ') + '],').map((s, i) => s.padEnd(64) + '// ' + NAMES[i]).join('\n') +
     '\n];\n\n// in C:\n' +
-    '  PUP: [' + C.PUP.map(f).join(', ') + '],\n' +
-    '  PUPS: ' + f(C.PUPS) + ',  PUPA: ' + f(C.PUPA) + ',  PUPB: ' + f(C.PUPB) + ',\n' +
-    '  MANEN: ' + C.MANEN + ',  MANEC: ' + f(C.MANEC) + ',  MANEW: ' + f(C.MANEW) + ',\n' +
-    '  MANEH: ' + f(C.MANEH) + ',  MANEB: ' + f(C.MANEB) + ',  MANER: ' + f(C.MANER) +
-      ',  MANEG: ' + f(C.MANEG) + ',  MANEP: ' + f(C.MANEP) + ',\n' +
-    '  EYES: [' + C.EYES.map(f).join(', ') + '],\n' +
-    '  HEADO: [' + C.HEADO.map(f).join(', ') + '],  HEADS: ' + f(C.HEADS) +
-      ',  HEADR: [' + C.HEADR.map(f).join(', ') + '],\n' +
-    '  RECOIL: ' + f(C.RECOIL) + ',  RECT: ' + f(C.RECT) + ',  FIRE: ' + f(C.FIRE) + ',\n' +
-    '  BLINKD: ' + f(C.BLINKD) + ',  BLINK0: ' + f(C.BLINK0) + ',  BLINK1: ' + f(C.BLINK1) +
-      ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
-    '  SAT0: ' + f(C.SAT0) + ',  OUTL: ' + f(C.OUTL) + ',  OUTA: ' + f(C.OUTA) + ',\n' +
-    '  BINDCD: ' + f(C.BINDCD) + ',  BINDR: ' + f(C.BINDR) + ',  BINDDUR: ' + f(C.BINDDUR) +
-      ',  BINDCHG: ' + f(C.BINDCHG) + ',\n' +
-    '  ARM: ' + f(C.ARM) + ',  ARMPX: ' + C.ARMPX + ',\n' +
-    '  RIMW: ' + f(C.RIMW) + ',  RIMA: ' + f(C.RIMA) + ',  RIMFI: ' + f(C.RIMFI) + ',\n' +
-    '  BINDBAND: ' + C.BINDBAND + ',  BINDA: ' + f(C.BINDA) + ',  BINDWAV: ' + f(C.BINDWAV) +
-      ',  BINDPUL: ' + f(C.BINDPUL) + ',\n' +
-    '  BINDSEG: ' + C.BINDSEG + ',  WALLDUR: ' + f(C.WALLDUR) +
-      ',  WALLH: ' + f(C.WALLH) + ',  WALLREP: ' + C.WALLREP + ',\n' +
-    '  WALLA: ' + f(C.WALLA) + ',  EYERB: ' + C.EYERB + ',\n' +
-    '  RIMC: [' + C.RIMC + '],\n' +
-    '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
+    '  PUP: [' + C._PUP.map(f).join(', ') + '],\n' +
+    '  _PUPS: ' + f(C._PUPS) + ',  _PUPA: ' + f(C._PUPA) + ',  _PUPB: ' + f(C._PUPB) + ',\n' +
+    '  _MANEN: ' + C._MANEN + ',  _MANEC: ' + f(C._MANEC) + ',  _MANEW: ' + f(C._MANEW) + ',\n' +
+    '  _MANEH: ' + f(C._MANEH) + ',  _MANEB: ' + f(C._MANEB) + ',  _MANER: ' + f(C._MANER) +
+      ',  _MANEG: ' + f(C._MANEG) + ',  _MANEP: ' + f(C._MANEP) + ',\n' +
+    '  EYES: [' + C._EYES.map(f).join(', ') + '],\n' +
+    '  HEADO: [' + C._HEADO.map(f).join(', ') + '],  HEADS: ' + f(C._HEADS) +
+      ',  HEADR: [' + C._HEADR.map(f).join(', ') + '],\n' +
+    '  _RECOIL: ' + f(C._RECOIL) + ',  _RECT: ' + f(C._RECT) + ',  _FIRE: ' + f(C._FIRE) + ',\n' +
+    '  _BLINKD: ' + f(C._BLINKD) + ',  _BLINK0: ' + f(C._BLINK0) + ',  _BLINK1: ' + f(C._BLINK1) +
+      ',  _BLINKS: ' + f(C._BLINKS) + ',\n' +
+    '  _SAT0: ' + f(C._SAT0) + ',  _OUTL: ' + f(C._OUTL) + ',  _OUTA: ' + f(C._OUTA) + ',\n' +
+    '  _BINDCD: ' + f(C._BINDCD) + ',  _BINDR: ' + f(C._BINDR) + ',  _BINDDUR: ' + f(C._BINDDUR) +
+      ',  _BINDCHG: ' + f(C._BINDCHG) + ',\n' +
+    '  _ARM: ' + f(C._ARM) + ',  _ARMPX: ' + C._ARMPX + ',\n' +
+    '  _RIMW: ' + f(C._RIMW) + ',  _RIMA: ' + f(C._RIMA) + ',  _RIMFI: ' + f(C._RIMFI) + ',\n' +
+    '  _BINDBAND: ' + C._BINDBAND + ',  _BINDA: ' + f(C._BINDA) + ',  _BINDWAV: ' + f(C._BINDWAV) +
+      ',  _BINDPUL: ' + f(C._BINDPUL) + ',\n' +
+    '  _BINDSEG: ' + C._BINDSEG + ',  _WALLDUR: ' + f(C._WALLDUR) +
+      ',  _WALLH: ' + f(C._WALLH) + ',  _WALLREP: ' + C._WALLREP + ',\n' +
+    '  _WALLA: ' + f(C._WALLA) + ',  _EYERB: ' + C._EYERB + ',\n' +
+    '  RIMC: [' + C._RIMC + '],\n' +
+    '  BODY: [' + C._BODY + '],  GOLD: [' + C._GOLD + '],  IRIS: [' + C._IRIS +
       '],';
 };
 dump();

@@ -22,28 +22,28 @@ const { min, max, abs, cos, sin, tan, atan2, hypot, random, round, PI } = Math;
 
 export const C = {
   // --- Projection ------------------------------------------------------------
-  F: 1.2,             // focal length, metres. With ZOOM this sets the field of
+  _F: 1.2,             // focal length, metres. With ZOOM this sets the field of
                       // view: tan(halfFOV) = W / (2 * PX * F), about 73 degrees
                       // horizontal at 16:9.
-  ZOOM: 1,            // metres-to-pixels is ZOOM * screen height
-  NEAR: 0.05,         // metres. Anything nearer is dropped rather than clipped.
+  _ZOOM: 1,            // metres-to-pixels is ZOOM * screen height
+  _NEAR: 0.05,         // metres. Anything nearer is dropped rather than clipped.
 
   // --- Flat shading (DESIGN.md 5: three discrete steps, no gradients) --------
-  LGT: [-0.42, -0.80, 0.43],   // above-front-left. -y is up, so this points down.
-  T0: 0.18,           // dot thresholds between the three steps
-  T1: 0.62,
-  STEP: [0.42, 0.70, 1],       // and the three brightnesses they select
+  _LGT: [-0.42, -0.80, 0.43],   // above-front-left. -y is up, so this points down.
+  _T0: 0.18,           // dot thresholds between the three steps
+  _T1: 0.62,
+  _STEP: [0.42, 0.70, 1],       // and the three brightnesses they select
 
   // --- Camera (DESIGN.md 12) -------------------------------------------------
-  TURN: 0.0042,       // radians per pixel of drag. THE difficulty knob: slow
+  _TURN: 0.0042,       // radians per pixel of drag. THE difficulty knob: slow
                       // turning against 360 degrees of threat is the whole
                       // tension, and fast turning throws it away.
-  PITCHMAX: 0.55,     // radians up and down
+  _PITCHMAX: 0.55,     // radians up and down
 
   // --- The world (DESIGN.md 14: dark field, dark sky, faint horizon) --------
-  SKY: '#05060e',
-  GND: '#0a0b10',
-  HORIZ: '#1b2036',
+  _SKY: '#05060e',
+  _GND: '#0a0b10',
+  _HORIZ: '#1b2036',
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
   // The mesh is the unicorn head and neck from the previous game, recovered from
@@ -55,11 +55,11 @@ export const C = {
   // frame so there is no hole to see into, the silhouette has to reach the right
   // side, and half the screen height has to be VISIBLE - measuring the whole
   // bounding box once scored a buried puppet at 60% tall.
-  PUP: [0.96, 1.02, 0.7],      // camera-space placement
-  PUPS: 2.7,          // scale applied to the model's own units
-  PUPA: -0.092,       // yaw. Solved, not chosen: this is the value that puts the
+  _PUP: [0.96, 1.02, 0.7],      // camera-space placement
+  _PUPS: 2.7,          // scale applied to the model's own units
+  _PUPA: -0.092,       // yaw. Solved, not chosen: this is the value that puts the
                       // horn's line through the middle of the screen.
-  PUPB: -0.2945,      // pitch, solved with it - yaw only moves the crosshair
+  _PUPB: -0.2945,      // pitch, solved with it - yaw only moves the crosshair
                       // sideways, and it was 59px high. The pose is otherwise
                       // yours to set from the view a player
                       // sees; the servo below takes care of the aim, so nothing
@@ -71,9 +71,9 @@ export const C = {
   // leaves its own horn behind. These are applied on the way out of the table,
   // so one slider moves everything attached. Step 9 needs exactly these handles
   // anyway: recoil offsets the head group, and a blink flattens the eyes.
-  HEADO: [0, -0.036, -0.064],  // head group: sideways, up, forward
-  HEADS: 1,           // and its scale
-  HEADR: [0, 0, 0],   // and its rotation about the joint where it meets the neck:
+  _HEADO: [0, -0.036, -0.064],  // head group: sideways, up, forward
+  _HEADS: 1,           // and its scale
+  _HEADR: [0, 0, 0],   // and its rotation about the joint where it meets the neck:
                       // pitch, yaw, roll. The pivot is derived from the head row
                       // rather than stored, so a retuned neck keeps the joint.
   // Eyes are discs on the flanks of the head, not rows in the table. They were
@@ -82,13 +82,13 @@ export const C = {
   // made of the hard-edged polygons DESIGN.md 5 asks for - no rounded primitive.
   // Placed against the head rather than in model coordinates, so they stay on it
   // when the head is retuned:
-  EYES: [0.028, 0.37, 0.78, 0.028, 0.005],
+  _EYES: [0.028, 0.37, 0.78, 0.028, 0.005],
                       // up, how far along the head, how far out as a multiple of
                       // the head's own half-width there, radius, and how far the
                       // disc stands proud
-  BODY: [246, 245, 252],       // the unicorn is white
-  GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
-  IRIS: [58, 150, 255],        // blue eyes
+  _BODY: [246, 245, 252],       // the unicorn is white
+  _GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
+  _IRIS: [58, 150, 255],        // blue eyes
   // The mane is placed as ONE thing: where its middle sits along the neck and how
   // much of the neck it covers. It used to be a first position and a last one,
   // which meant moving the mane took two sliders that had to be moved by the same
@@ -98,101 +98,101 @@ export const C = {
   // not on it - along a crest direction computed from the raw table row rather
   // than the posed one. Rebuilt: every tuft is rooted exactly on the surface the
   // neck actually has, at the width it actually has there.
-  MANEN: 5,           // tufts
-  MANEC: 0.45,        // where the middle of the mane sits, 0 = base, 1 = poll
-  MANEW: 0.7,         // and how much of the neck it covers
-  MANEH: 0.09,        // how far each tuft rises off the surface
-  MANEB: 0.01,        // and how far it sweeps back while it does. A mane lies
+  _MANEN: 5,           // tufts
+  _MANEC: 0.45,        // where the middle of the mane sits, 0 = base, 1 = poll
+  _MANEW: 0.7,         // and how much of the neck it covers
+  _MANEH: 0.09,        // how far each tuft rises off the surface
+  _MANEB: 0.01,        // and how far it sweeps back while it does. A mane lies
                       // back along the neck; straight up reads as a fin.
-  MANER: 0.01,        // tuft thickness - a maximum, clamped to leave a gap
-  MANEG: 0.31,        // that clamp, as a fraction of a tuft's own slot
-  MANEP: 0.04,        // tip thickness as a fraction of the root. Low is pointy.
+  _MANER: 0.01,        // tuft thickness - a maximum, clamped to leave a gap
+  _MANEG: 0.31,        // that clamp, as a fraction of a tuft's own slot
+  _MANEP: 0.04,        // tip thickness as a fraction of the root. Low is pointy.
 
   // The rainbow IS the cooldown readout (DESIGN.md 6): fully coloured means the
   // bind is ready, washed out means it is recharging, and there is no bar to
   // draw anywhere. DESIGN.md put that on a casting arm; with the arm gone and
   // the unicorn casting instead, the rainbow it runs on is the MANE.
-  SAT0: 0.12,         // how much colour is left at the moment of casting
+  _SAT0: 0.12,         // how much colour is left at the moment of casting
 
   // --- The bind (DESIGN.md 6) ------------------------------------------------
   // Centred on the player, not in front of them. Hold to charge, release to cast
   // at whatever radius you have grown.
-  BINDCHG: 3,         // seconds to a full charge. It fires ITSELF at that point -
+  _BINDCHG: 3,         // seconds to a full charge. It fires ITSELF at that point -
                       // holding longer buys nothing, so the charge is a window,
                       // not a resource you can sit on.
-  BINDCD: 9,          // seconds of cooldown a full-strength cast costs. An upgrade
+  _BINDCD: 9,          // seconds of cooldown a full-strength cast costs. An upgrade
                       // card. You cannot begin a new charge while any is owed.
-  BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
-  BINDDUR: 3,         // how long a caught ghost is held. A card.
-  KTURN: 1.7,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  _BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
+  _BINDDUR: 3,         // how long a caught ghost is held. A card.
+  _KTURN: 1.7,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
                       // knob TURN is, in the units a key can be held in. At 2.2
                       // it matched a 524px/s drag sustained forever, which is a
                       // flick speed, not a panning one; 1.3 was a walk.
-  KPITCH: 0.9,        // and its own rate for pitch, because that range is only
+  _KPITCH: 0.9,        // and its own rate for pitch, because that range is only
                       // 63 degrees end to end - one rate for both put the whole
                       // of it half a second apart.
-  ARM: 0.3,           // seconds of holding still before the charge begins. The
+  _ARM: 0.3,           // seconds of holding still before the charge begins. The
                       // start of every press is free for turning, so a drag never
                       // charges by accident.
-  ARMPX: 8,           // pixels from where the press landed that make it a turn and
+  _ARMPX: 8,           // pixels from where the press landed that make it a turn and
                       // nothing else. Measured as distance from that point, not
                       // distance travelled: a hand shaking in place covers a lot
                       // of the second but goes nowhere, and only going somewhere
                       // means you meant to turn.
-  BINDSEG: 44,        // segments in a drawn circle
-  EYE: 1.6,           // how high the eye is above the ground the ring lies on
+  _BINDSEG: 44,        // segments in a drawn circle
+  _EYE: 1.6,           // how high the eye is above the ground the ring lies on
   // The charge is the rainbow lying on the ground, pulsing outward.
-  BINDBAND: 10,       // filled bands it is drawn as, all the same width, edge to
+  _BINDBAND: 10,       // filled bands it is drawn as, all the same width, edge to
                       // edge - so the disc is covered rather than ringed
-  BINDA: 0.55,        // the brightest a band gets
-  RIMW: 0.35,         // width of the circle marking where the wave will end, metres
-  RIMA: 0.85,         // and its brightness at the moment it fires
-  RIMFI: 0.35,        // seconds it fades in over. Hung on the charge rather than
+  _BINDA: 0.55,        // the brightest a band gets
+  _RIMW: 0.35,         // width of the circle marking where the wave will end, metres
+  _RIMA: 0.85,         // and its brightness at the moment it fires
+  _RIMFI: 0.35,        // seconds it fades in over. Hung on the charge rather than
                       // on the arming window: the fade is worth having, but only
                       // once there is a charge to announce.
-  RIMC: [34, 201, 255],        // cyan - the rainbow's own, so it stays in palette
-  BINDWAV: 2.2,       // wave crests across the radius
-  BINDPUL: 0.9,       // crests per second, travelling outward
+  _RIMC: [34, 201, 255],        // cyan - the rainbow's own, so it stays in palette
+  _BINDWAV: 2.2,       // wave crests across the radius
+  _BINDPUL: 0.9,       // crests per second, travelling outward
   // And the cast is a wall of it, sweeping out to the radius it caught.
-  WALLDUR: 0.45,      // seconds the wall lives
-  WALLH: 2.4,         // how tall ONE rainbow stands, metres
-  WALLREP: 2,         // how many times it repeats up the wall, so the whole thing
+  _WALLDUR: 0.45,      // seconds the wall lives
+  _WALLH: 2.4,         // how tall ONE rainbow stands, metres
+  _WALLREP: 2,         // how many times it repeats up the wall, so the whole thing
                       // is WALLH * WALLREP tall
-  WALLA: 0.9,         // its brightness at the moment of the cast
-  EYERB: 9,           // rainbow colours a second the eyes run while charging
+  _WALLA: 0.9,         // its brightness at the moment of the cast
+  _EYERB: 9,           // rainbow colours a second the eyes run while charging
 
   // --- Outline ---------------------------------------------------------------
   // A dark edge on the neck and head only. They are one colour meeting one
   // colour, so without it the joint between them is invisible; the horn, eyes and
   // mane already separate themselves by being a different colour entirely.
-  OUTL: 0.0022,       // width, as a fraction of screen height. Thin on purpose.
-  OUTA: 0.5,          // and its opacity
+  _OUTL: 0.0022,       // width, as a fraction of screen height. Thin on purpose.
+  _OUTA: 0.5,          // and its opacity
 
   // --- Animation (DESIGN.md 6) ----------------------------------------------
-  RECOIL: 0.3,        // metres the puppet kicks back along its OWN axis on firing.
+  _RECOIL: 0.3,        // metres the puppet kicks back along its OWN axis on firing.
                       // Measured on screen: 0.1 moves the horn tip 5px, 0.3 moves
                       // it 16px, 0.6 moves it 35px.
-  RECT: 0.16,         // and the seconds it takes to ease back out
-  BLINKD: 0.11,       // how long a blink lasts
-  BLINK0: 2,          // and the window between them, seconds. Randomised, because
-  BLINK1: 5,          // a blink on a fixed timer reads as a machine.
-  BLINKS: 0.05,       // how far the eye closes: its own height, times this
+  _RECT: 0.16,         // and the seconds it takes to ease back out
+  _BLINKD: 0.11,       // how long a blink lasts
+  _BLINK0: 2,          // and the window between them, seconds. Randomised, because
+  _BLINK1: 5,          // a blink on a fixed timer reads as a machine.
+  _BLINKS: 0.05,       // how far the eye closes: its own height, times this
 
   // --- Horns (DESIGN.md 6: travel time, not hitscan) ------------------------
-  FIRE: 1,            // seconds between shots at fire rate level 1. The puppet
+  _FIRE: 1,            // seconds between shots at fire rate level 1. The puppet
                       // fires on its own at this cadence - the trigger is not a
                       // trigger. DESIGN.md 9 makes fire rate an upgrade card, so
                       // this is the slowest the gun ever is, and the pointer is
                       // left free for aiming and, at step 5, the bind.
-  HSPD: 26,           // metres per second
-  HLIFE: 1.2,         // seconds before it expires
-  HHIT: 0.5,          // metres, collision radius against a ghost centre
-  HW: 0.035,          // the flying horn's own radius at its base
-  HL: 0.3,            // and its length, metres
-  HN: 7,              // sides on it. It is a cone - a horn is round - and a box
+  _HSPD: 26,           // metres per second
+  _HLIFE: 1.2,         // seconds before it expires
+  _HHIT: 0.5,          // metres, collision radius against a ghost centre
+  _HW: 0.035,          // the flying horn's own radius at its base
+  _HL: 0.3,            // and its length, metres
+  _HN: 7,              // sides on it. It is a cone - a horn is round - and a box
                       // swept to a point is a pyramid, which is what it was.
-  CONV: 9,            // metres. Where a shot goes when nothing is under the
+  _CONV: 9,            // metres. Where a shot goes when nothing is under the
                       // crosshair. The muzzle sits over a metre off the camera
                       // axis - a worn puppet has to sit where a hand is - so a
                       // shot on a fixed direction crosses the crosshair's line at
@@ -202,9 +202,9 @@ export const C = {
                       // The puppet itself does not move to aim. It used to turn
                       // to keep the horn on target, which worked and looked like
                       // the puppet chasing ghosts around the screen.
-  AIMR: 0.2,          // how far off the middle of the screen a ghost may be and
+  _AIMR: 0.2,          // how far off the middle of the screen a ghost may be and
                       // still count as the thing you are aiming at, in radians
-  MUZZ: 0.9,          // metres. A viewmodel is fake-scaled: at the on-screen size
+  _MUZZ: 0.9,          // metres. A viewmodel is fake-scaled: at the on-screen size
                       // this puppet wants, its horn tip is two and a half metres
                       // in front of the eye - so a ghost closer than that could
                       // not be shot AT ALL, and ghosts reach you at 1.1m. The
@@ -218,18 +218,18 @@ export const C = {
   // --- Ghosts (DESIGN.md 7) --------------------------------------------------
   // One generator, parameters per type. Only the Drifter exists at step 3; the
   // other four are the same numbers with different values (step 7).
-  ARENA: 16,          // metres. Spawn ring radius.
-  GY: 0.15,           // metres below eye level they float
-  GBOB: 0.09,         // bob amplitude
-  GBOBR: 1.7,         // bob rate
-  GCONTACT: 1.1,      // metres. Closer than this and it reaches you.
-  GW: 0.82,           // half-width as a fraction of the radius: a shade taller
+  _ARENA: 16,          // metres. Spawn ring radius.
+  _GY: 0.15,           // metres below eye level they float
+  _GBOB: 0.09,         // bob amplitude
+  _GBOBR: 1.7,         // bob rate
+  _GCONTACT: 1.1,      // metres. Closer than this and it reaches you.
+  _GW: 0.82,           // half-width as a fraction of the radius: a shade taller
                       // than wide, like the reference
-  GDOME: 12,          // segments in the dome. It is a real arc, not a modulated
+  _GDOME: 12,          // segments in the dome. It is a real arc, not a modulated
                       // circle, so this only controls how round it looks
-  SPIKE: 0.3,         // how far a notch cuts up from the tips, as a fraction of
+  _SPIKE: 0.3,         // how far a notch cuts up from the tips, as a fraction of
                       // the radius
-  SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
+  _SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
   //   frequency, wisps, colour, eye shape, horn, mouth, eye tilt, mouth curve,
@@ -263,36 +263,36 @@ export const C = {
   // into its eyes while the Darter's sat right.
   // Cost and the unlock wave belong to step 8's threat budget and are carried
   // here because they are properties of the type, not of the spawner.
-  GSPEED: 1,          // metres a second at speed 1.0x
+  _GSPEED: 1,          // metres a second at speed 1.0x
   // Costs are priced so hp-per-cost sits in a 2.0-3.6 band. They used to run
   // 1.0-3.0 with the CHEAPEST ghost the best value on both hp and damage, which
   // meant the budget was measuring roughly the opposite of threat.
   //
   // Unlocks are the difficulty spikes: 5, 10, 20, 30.
-  TYPES: [
+  _TYPES: [
     [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
     [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0, 0, 0],   // Darter, sharp cyan
     [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5, 0, 0], // Hulk, angry red
     [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 0.9, 0.55, 1],  // Warden, near black
   ],
-  SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost
-  SOLIDE: 0.34,       // and a faint white edge on it, so a near-black body still
+  _SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost
+  _SOLIDE: 0.34,       // and a faint white edge on it, so a near-black body still
                       // has a silhouette against a near-black ground
-  SOLIDEW: 1.5,       // px
-  EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
+  _SOLIDEW: 1.5,       // px
+  _EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
                       // ghost radii. It hangs down from there, so this is not the
                       // eye's centre - and the round eye's 0.24 would put the
                       // whole face a third of a radius too low.
-  EYEH: 1.7,          // a scared eye is stretched this much taller than it is wide
-  EYEBOW: 1,          // and its lower edge is that height scaled by 1 - EYEBOW, so
+  _EYEH: 1.7,          // a scared eye is stretched this much taller than it is wide
+  _EYEBOW: 1,          // and its lower edge is that height scaled by 1 - EYEBOW, so
                       // 1 is a straight lid, under 1 rounds it out and over 1
                       // curves it up INTO the eye. A curved lid on a tall dome
                       // still read as a smile, so the Darter takes the flat one:
                       // a tall dome cut off square is what a wide open eye is.
-  SPLIT: 3,           // the Splitter's row: dies into two Drifters
-  WARDEN: 4,          // the Warden's row: the bind cannot hold it
-  SPLITD: 0.5,        // how far apart the two children appear, metres
+  _SPLIT: 3,           // the Splitter's row: dies into two Drifters
+  _WARDEN: 4,          // the Warden's row: the bind cannot hold it
+  _SPLITD: 0.5,        // how far apart the two children appear, metres
 
   // --- Waves (DESIGN.md 8) ----------------------------------------------------
   // Both curves are geometric, and they have to be. The cards multiply - fire
@@ -302,10 +302,10 @@ export const C = {
   //
   // The budget sets how LONG a wave is; the spawn interval sets how HARD it is.
   // Both move, or waves just get longer.
-  BUD0: 6,            // wave 1: six Drifters at a cost of 1 each
-  BUDR: 1.12,         // and 12% more threat every wave after
-  SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
-  WAVEGAP: 2,         // seconds of quiet between a cleared wave and the next
+  _BUD0: 6,            // wave 1: six Drifters at a cost of 1 each
+  _BUDR: 1.12,         // and 12% more threat every wave after
+  _SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
+  _WAVEGAP: 2,         // seconds of quiet between a cleared wave and the next
 
   // --- Upgrade cards (DESIGN.md 9) --------------------------------------------
   // Row: cap, gate wave, prerequisite card (-1 for none), the level of that
@@ -319,7 +319,7 @@ export const C = {
   // Three of these must be open at the very first draw or there is nothing to put
   // beside the guaranteed fire rate - the gates were staggered so hard that wave
   // 1 had a pool of one.
-  CARDS: [
+  _CARDS: [
     [8, 1,  -1, 0, 20,   'FIRE RATE',     'Shots A Second', 1],
     [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'Damage A Horn',  1],
     [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'Metres',         1],
@@ -329,94 +329,94 @@ export const C = {
     [2, 1,   5, 1, 10,   'HEAL',          'A Wave',         1],
   ],
   // Extra heart's second level waits longer than its first.
-  HEART2: 9,          // the wave extra heart level 2 opens on
-  CARDN: 3,           // cards offered between waves
-  ADAPT: 2,           // the lagging half of horn-vs-bind draws at this weight
-  REGEN: 1,           // hearts healed between waves before any card
-  FIREG: 1.2,         // each fire rate level, compounding
-  DMGG: 1.25,         // each horn damage level
-  RADG: 1.2,          // each bind radius level
-  CDG: 1,             // seconds off the cooldown per level
-  DURG: 0.5,          // seconds onto the hold per level
-  CARDW: 0.175,       // a card's width, as a fraction of the screen
-  CARDH: 0.36,        // and its height, as a fraction of the height
+  _HEART2: 9,          // the wave extra heart level 2 opens on
+  _CARDN: 3,           // cards offered between waves
+  _ADAPT: 2,           // the lagging half of horn-vs-bind draws at this weight
+  _REGEN: 1,           // hearts healed between waves before any card
+  _FIREG: 1.2,         // each fire rate level, compounding
+  _DMGG: 1.25,         // each horn damage level
+  _RADG: 1.2,          // each bind radius level
+  _CDG: 1,             // seconds off the cooldown per level
+  _DURG: 0.5,          // seconds onto the hold per level
+  _CARDW: 0.175,       // a card's width, as a fraction of the screen
+  _CARDH: 0.36,        // and its height, as a fraction of the height
   // Type is sized off the CARD, not off the HUD unit. It was HUD-sized inside a
   // card half the screen tall, which is how it managed to be both too big and
   // unreadable at once.
-  CARDT: 0.125,       // title, as a fraction of the card's width
-  CARDL: 0.095,       // the level under it
-  CARDV: 0.115,       // the number it takes you to
-  CARDU: 0.085,       // and the unit that number is in
-  CARDI: 0.17,        // the icon's radius
-  CARDBG: 'rgba(14,16,28,0.96)',
-  HEALC: [96, 214, 118],       // the two cards that give health back
-  HEALP: 2,           // seconds an about-to-be-healed heart pulses before it settles
-  HEALR: 9,           // and how fast it pulses, radians a second
-  SHOTR: [255, 68, 58],        // the top of the shot damage horn
+  _CARDT: 0.125,       // title, as a fraction of the card's width
+  _CARDL: 0.095,       // the level under it
+  _CARDV: 0.115,       // the number it takes you to
+  _CARDU: 0.085,       // and the unit that number is in
+  _CARDI: 0.17,        // the icon's radius
+  _CARDBG: 'rgba(14,16,28,0.96)',
+  _HEALC: [96, 214, 118],       // the two cards that give health back
+  _HEALP: 2,           // seconds an about-to-be-healed heart pulses before it settles
+  _HEALR: 9,           // and how fast it pulses, radians a second
+  _SHOTR: [255, 68, 58],        // the top of the shot damage horn
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
-  GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
-  GFLASH: 0.11,       // seconds of white on a hit
-  XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
-  XHW: 3.5,           // and its thickness
-  XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
-  XHO: 'rgba(0,0,0,0.85)',   // a dark halo under it, because the target outline is
-  XHOW: 1,            // gold too - without this the crosshair disappears into the
+  _GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
+  _GFLASH: 0.11,       // seconds of white on a hit
+  _XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
+  _XHW: 3.5,           // and its thickness
+  _XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
+  _XHO: 'rgba(0,0,0,0.85)',   // a dark halo under it, because the target outline is
+  _XHOW: 1,            // gold too - without this the crosshair disappears into the
                       // one thing it most needs to be legible against. px each side
-  ASSISTR: 1.6,       // aim assist reaches this many of a ghost's radii - wider
+  _ASSISTR: 1.6,       // aim assist reaches this many of a ghost's radii - wider
                       // than the pick, so it pulls you onto things you are only
                       // near, and stops the moment you are on one
-  ASSIST: 3,          // and closes that much of the gap a second
-  BARSLW: 3,          // the charging outline, px
-  BARSC: '#fff',
-  HINTF: 0.8,         // the how-to line under RAINBOW READY, against the caption
+  _ASSIST: 3,          // and closes that much of the gap a second
+  _BARSLW: 3,          // the charging outline, px
+  _BARSC: '#fff',
+  _HINTF: 0.8,         // the how-to line under RAINBOW READY, against the caption
                       // size - it is an instruction, so it sits below the label
-  TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
+  _TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
                       // anywhere near it
-  BINDW: 6,           // the rainbow a bound ghost wears, px
-  TGTW: 4.5,          // the target outline, px. It traces the ghost's own
+  _BINDW: 6,           // the rainbow a bound ghost wears, px
+  _TGTW: 4.5,          // the target outline, px. It traces the ghost's own
                       // silhouette rather than circling it, so what is lit up is
                       // the thing you are about to shoot and not a hoop near it
 
   // --- Player (DESIGN.md 10) -------------------------------------------------
   // --- Minimap (DESIGN.md 11) ------------------------------------------------
-  MAPR: 0.1104,       // dish radius as a fraction of screen height. 0.221H
+  _MAPR: 0.1104,       // dish radius as a fraction of screen height. 0.221H
                       // across, back inside 11's roughly a quarter of H cap.
-  MAPPAD: 14,         // pixels in from the top-left corner
-  MAPZ: 1.06,         // how far past the spawn ring the dish reaches, so a ghost
+  _MAPPAD: 14,         // pixels in from the top-left corner
+  _MAPZ: 1.06,         // how far past the spawn ring the dish reaches, so a ghost
                       // arriving sits inside the rim rather than on it
-  MAPBLIP: 0.07,      // blip radius, as a fraction of the dish
-  MAPEW: 3,           // the dish edge, px
-  MAPFANW: 2,         // and the two sides of the view fan
-  MAPBG: 'rgba(6,8,16,0.72)',
-  MAPEDGE: 'rgba(139,147,184,0.6)',
-  MAPCONE: 'rgba(255,255,255,0.09)',
-  MAPFAN: 'rgba(255,255,255,0.3)',
+  _MAPBLIP: 0.07,      // blip radius, as a fraction of the dish
+  _MAPEW: 3,           // the dish edge, px
+  _MAPFANW: 2,         // and the two sides of the view fan
+  _MAPBG: 'rgba(6,8,16,0.72)',
+  _MAPEDGE: 'rgba(139,147,184,0.6)',
+  _MAPCONE: 'rgba(255,255,255,0.09)',
+  _MAPFAN: 'rgba(255,255,255,0.3)',
 
   // --- HUD -------------------------------------------------------------------
-  HUDU: 0.036,        // the unit everything in the HUD is sized off, a fraction
+  _HUDU: 0.036,        // the unit everything in the HUD is sized off, a fraction
                       // of the smaller screen dimension
-  HEARTS2: 2,         // hearts drawn at this multiple of it
-  WAVEF: 1.6875,      // the wave counter, as a multiple of the unit
-  KILLF: 0.775,       // the kill count, and READY, which matches it
-  BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
+  _HEARTS2: 2,         // hearts drawn at this multiple of it
+  _WAVEF: 1.6875,      // the wave counter, as a multiple of the unit
+  _KILLF: 0.775,       // the kill count, and READY, which matches it
+  _BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
                       // so it runs out past the left of the three that are there
-  BARH: 0.3,          // its height, as a fraction of a heart's
-  BARGAP: 0.55,       // and the gap under the HEALTH label, so it does not crowd it
-  HPC: [255, 59, 107],// the hearts, and the word under them - one colour, so the
+  _BARH: 0.3,          // its height, as a fraction of a heart's
+  _BARGAP: 0.55,       // and the gap under the HEALTH label, so it does not crowd it
+  _HPC: [255, 59, 107],// the hearts, and the word under them - one colour, so the
                       // label and the thing it names read as one block. An array
                       // rather than a hex string, so a healing heart can be mixed
                       // toward white instead of just blinking between the two.
-  BARBG: 'rgba(255,255,255,0.1)',
+  _BARBG: 'rgba(255,255,255,0.1)',
 
-  HEARTS: 3,
-  DMGCAP: 3,          // no single contact may take more than this
-  SHAKEA: 7,          // px the whole view kicks by at full shake
-  HURTD: 0.28,        // seconds of red over the screen when something reaches you
-  HURTA: 0.42,        // and how red it gets at the moment of the hit
-  HURTC: [255, 40, 60],
-  IFRAME: 0.6,        // seconds of grace after a hit, so a clump cannot chain
-  SPAWN: 1.5,         // seconds between spawns. Step 8 replaces this with waves.
+  _HEARTS: 3,
+  _DMGCAP: 3,          // no single contact may take more than this
+  _SHAKEA: 7,          // px the whole view kicks by at full shake
+  _HURTD: 0.28,        // seconds of red over the screen when something reaches you
+  _HURTA: 0.42,        // and how red it gets at the moment of the hit
+  _HURTC: [255, 40, 60],
+  _IFRAME: 0.6,        // seconds of grace after a hit, so a clump cannot chain
+  _SPAWN: 1.5,         // seconds between spawns. Step 8 replaces this with waves.
 };
 
 // ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ const resize = () => {
   cv.width = W * d; cv.height = H * d;
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   g.setTransform(d, 0, 0, d, 0, 0);
-  PX = C.ZOOM * H;
+  PX = C._ZOOM * H;
 };
 
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ export const unCam = (p) => {
 
 // DESIGN.md 5: s = f/(f+z), px = x*s + w/2, py = y*s + h/2.
 export const proj = (p) => {
-  const s = C.F / (C.F + p[2]);
+  const s = C._F / (C._F + p[2]);
   return [p[0] * s * PX + W / 2, p[1] * s * PX + H / 2];
 };
 
@@ -575,8 +575,8 @@ export const swept = (T, ax, ay, az, bx, by, bz, w0, h0, w1, h1, col, roll = 0) 
 // Draw. Painter's algorithm: cull what faces away, sort far to near, fill flat.
 // ---------------------------------------------------------------------------
 export const shade = (col, nx, ny, nz, k2 = 1) => {
-  const d = nx * C.LGT[0] + ny * C.LGT[1] + nz * C.LGT[2];
-  const k = C.STEP[d > C.T1 ? 2 : d > C.T0 ? 1 : 0] * k2;
+  const d = nx * C._LGT[0] + ny * C._LGT[1] + nz * C._LGT[2];
+  const k = C._STEP[d > C._T1 ? 2 : d > C._T0 ? 1 : 0] * k2;
   return 'rgb(' + (col[0] * k | 0) + ',' + (col[1] * k | 0) + ',' + (col[2] * k | 0) + ')';
 };
 
@@ -590,7 +590,7 @@ export const flush = (world = 1) => {
   for (const f of FACES) {
     const vs = world ? f[0].map(cam) : f[0];
     let near = 0, z = 0;
-    for (const v of vs) { if (v[2] < C.NEAR) near = 1; z += v[2]; }
+    for (const v of vs) { if (v[2] < C._NEAR) near = 1; z += v[2]; }
     if (near) continue;
     // Cull back faces: the camera sits at the origin, so any vertex doubles as
     // the view vector to the face.
@@ -602,8 +602,8 @@ export const flush = (world = 1) => {
   // against the world, which it never is: it is drawn afterwards, on top. Its own
   // parts still have to occlude each other, or the horn draws through the head.
   draw.sort((a, b) => b[0] - a[0]);
-  g.lineWidth = C.OUTL * H;
-  g.strokeStyle = 'rgba(0,0,0,' + C.OUTA + ')';
+  g.lineWidth = C._OUTL * H;
+  g.strokeStyle = 'rgba(0,0,0,' + C._OUTA + ')';
   for (const d of draw) {
     g.fillStyle = d[2];
     g.beginPath();
@@ -632,14 +632,14 @@ let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
 
 const reset = () => {
   ghosts = []; horns = [];
-  lv = C.CARDS.map(() => 0);
-  maxhp = C.HEARTS;
+  lv = C._CARDS.map(() => 0);
+  maxhp = C._HEARTS;
   hearts = maxhp; kills = 0; over = 0;
   offer = []; picking = 0;
   healT = 0; healA = 0; healN = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
-  rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
+  rec = 0; blink = 0; nextB = C._BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
   // armT is input state and outlives a run, so it has to be cleared here too. Die
   // mid-charge and it is still sitting at ARM; the click that restarts returns
@@ -674,12 +674,12 @@ const aimRay = () => {
 // of the line counts; the closest to it wins.
 const targetRange = () => {
   const [o, u] = aimRay();
-  let r = C.CONV, bd = C.AIMR;
+  let r = C._CONV, bd = C._AIMR;
   for (const g2 of ghosts) {
     const c = cam([g2[0], g2[1], g2[2]]);
     const w = [c[0] - o[0], c[1] - o[1], c[2] - o[2]];
     const t = w[0] * u[0] + w[1] * u[1] + w[2] * u[2];
-    if (t < C.NEAR) continue;
+    if (t < C._NEAR) continue;
     const off = hypot(w[0] - u[0] * t, w[1] - u[1] * t, w[2] - u[2] * t) / t;
     if (off < bd) { bd = off; r = t; }
   }
@@ -699,7 +699,7 @@ const aimAt = () => {
 // and the radius is just how far through that you are. It is what the floor shows
 // while charging; the cast itself is always at BINDR, because letting go early
 // fires nothing at all.
-const bindR = () => sRad() * min(1, bindC / C.BINDCHG);
+const bindR = () => sRad() * min(1, bindC / C._BINDCHG);
 
 // Only ever reached by holding all the way to BINDCHG, so there is one radius and
 // one price. DESIGN.md 6's cooldown-scales-with-r-squared rule priced a radius the
@@ -711,7 +711,7 @@ const cast = () => {
   bindC = 0;
   armT = -1;                                     // one press, one cast
   bindT = sCd();
-  wallT = C.WALLDUR; wallR = r;                  // the wall sweeps to what it caught
+  wallT = C._WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
@@ -720,7 +720,7 @@ const cast = () => {
     // the rule is learned by watching rather than by being told. A negative hold
     // is that: same slot, so nothing else has to know about it, and it cannot be
     // mistaken for being held because held is strictly positive.
-    o[8] = o[7] === C.WARDEN ? -C.SHRUGD : sDur();
+    o[8] = o[7] === C._WARDEN ? -C._SHRUGD : sDur();
   }
 };
 
@@ -732,18 +732,18 @@ const fire = () => {
   // player's, while its origin is the horn's.
   const q = eff(2);
   const c = T(q[3], q[4], q[5]);                 // the horn tip, camera space
-  const k = (C.F / (C.F + c[2])) / (C.F / (C.F + C.MUZZ));
-  const o = unCam(c[2] > C.MUZZ ? [c[0] * k, c[1] * k, C.MUZZ] : c);
+  const k = (C._F / (C._F + c[2])) / (C._F / (C._F + C._MUZZ));
+  const o = unCam(c[2] > C._MUZZ ? [c[0] * k, c[1] * k, C._MUZZ] : c);
   const p = unCam(aimAt());
   const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
   const L = hypot(d[0], d[1], d[2]) || 1;
-  horns.push([o[0], o[1], o[2], d[0] / L * C.HSPD, d[1] / L * C.HSPD, d[2] / L * C.HSPD, C.HLIFE]);
+  horns.push([o[0], o[1], o[2], d[0] / L * C._HSPD, d[1] / L * C._HSPD, d[2] / L * C._HSPD, C._HLIFE]);
   // After the shot, so it leaves from the un-kicked muzzle. The blink goes with
   // the kick - a thing that recoils screws its eyes up - and pushes the idle
   // timer back, so a shot is never followed by a second blink a moment later.
   rec = 1;
-  blink = C.BLINKD;
-  nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0);
+  blink = C._BLINKD;
+  nextB = C._BLINK0 + random() * (C._BLINK1 - C._BLINK0);
 };
 
 // One pointer has to carry turning and binding both, and the two are told apart
@@ -774,9 +774,9 @@ const onMove = (e) => {
   if (!down) return;
   const dx = e.clientX - lx, dy = e.clientY - ly;
   // Only while arming. Once it is charging, this is just aiming.
-  if (!charging && hypot(e.clientX - ax, e.clientY - ay) > C.ARMPX) armT = -1;
-  yaw += dx * C.TURN;
-  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - dy * C.TURN));
+  if (!charging && hypot(e.clientX - ax, e.clientY - ay) > C._ARMPX) armT = -1;
+  yaw += dx * C._TURN;
+  pitch = min(C._PITCHMAX, max(-C._PITCHMAX, pitch - dy * C._TURN));
   lx = e.clientX; ly = e.clientY;
   aim();
 };
@@ -817,7 +817,7 @@ const onKey = (e) => {
   if (e.code !== 'Space') return;
   if (!d) { charging = 0; bindC = 0; armT = -1; return; }
   if (over) { reset(); return; }
-  if (bindT <= 0) armT = C.ARM;
+  if (bindT <= 0) armT = C._ARM;
 };
 
 // ---------------------------------------------------------------------------
@@ -848,7 +848,7 @@ export const PARTS = [
   [0.076, 0.33, 0.346, 0.1, 0.324, 0.7, 0.06, 0.104, 0.06, 0.04, 0],     // head
   [0.1, 0.336, 0.42, 0.1, 0.548, 1, 0.03, 0.03, 0.002, 0.002, 1],        // horn
 ];
-const MAT = [C.BODY, C.GOLD];
+const MAT = [C._BODY, C._GOLD];
 
 // A part's endpoints with its group offsets folded in. Everything that draws or
 // aims reads the table through this, so the head, horn and eyes cannot drift
@@ -857,7 +857,7 @@ const MAT = [C.BODY, C.GOLD];
 // version so the eyes can push out along the head's rotated flank instead of along
 // model x, which is where they would stay if only positions were rotated.
 const hrot = (a, b, c) => {
-  const [rx, ry, rz] = C.HEADR;
+  const [rx, ry, rz] = C._HEADR;
   const cx = cos(rx), sx = sin(rx), cw = cos(ry), sw = sin(ry), cz = cos(rz), sz = sin(rz);
   const a2 = a * cw + c * sw, c2 = c * cw - a * sw;    // yaw, about up
   const b2 = b * cx - c2 * sx, c3 = c2 * cx + b * sx;  // pitch, about the flank
@@ -865,9 +865,9 @@ const hrot = (a, b, c) => {
 };
 // And to a point: scaled and rotated about the joint, then moved.
 const hmap = (x, y, z) => {
-  const P0 = PARTS[1], k = C.HEADS;
+  const P0 = PARTS[1], k = C._HEADS;
   const v = hrot((x - P0[0]) * k, (y - P0[1]) * k, (z - P0[2]) * k);
-  return [P0[0] + v[0] + C.HEADO[0], P0[1] + v[1] + C.HEADO[1], P0[2] + v[2] + C.HEADO[2]];
+  return [P0[0] + v[0] + C._HEADO[0], P0[1] + v[1] + C._HEADO[1], P0[2] + v[2] + C._HEADO[2]];
 };
 
 export const eff = (i) => {
@@ -876,7 +876,7 @@ export const eff = (i) => {
     const a = hmap(q[0], q[1], q[2]), b = hmap(q[3], q[4], q[5]);
     q[0] = a[0]; q[1] = a[1]; q[2] = a[2];
     q[3] = b[0]; q[4] = b[1]; q[5] = b[2];
-    for (const k of [6, 7, 8, 9]) q[k] *= C.HEADS;
+    for (const k of [6, 7, 8, 9]) q[k] *= C._HEADS;
   }
   return q;
 };
@@ -886,16 +886,16 @@ const PIV = [PARTS[0][0], PARTS[0][1], PARTS[0][2]];
 // Model space into camera space. A rigid placement plus a uniform scale, so
 // normals stay normals and push() can go on deriving them from the geometry.
 const T = (x, y, z) => {
-  const s = C.PUPS, ca = cos(C.PUPA), sa = sin(C.PUPA), cb = cos(C.PUPB), sb = sin(C.PUPB);
+  const s = C._PUPS, ca = cos(C._PUPA), sa = sin(C._PUPA), cb = cos(C._PUPB), sb = sin(C._PUPB);
   const a = (x - PIV[0]) * s, b = -(y - PIV[1]) * s, c = (z - PIV[2]) * s;
   const a2 = a * ca + c * sa, c2 = c * ca - a * sa;
   // Recoil, back along the puppet's own axis rather than straight at the camera:
   // (sa, -ca*sb, ca*cb) is where its nose points once the pose has been applied.
   // Squared, so it snaps back and then eases the last of the way out.
-  const k = rec * rec * C.RECOIL;
-  return [C.PUP[0] + a2 - k * sa,
-          C.PUP[1] + b * cb - c2 * sb + k * ca * sb,
-          C.PUP[2] + c2 * cb + b * sb - k * ca * cb];
+  const k = rec * rec * C._RECOIL;
+  return [C._PUP[0] + a2 - k * sa,
+          C._PUP[1] + b * cb - c2 * sb + k * ca * sb,
+          C._PUP[2] + c2 * cb + b * sb - k * ca * cb];
 };
 
 // Charging, the eyes and the horn run the rainbow. It eases in over the charge,
@@ -903,29 +903,29 @@ const T = (x, y, z) => {
 // goes. Both share it, because they are the two things on the puppet the player
 // is already looking at - the horn is where the crosshair sits.
 const charged = (base) => {
-  const k = charging ? min(1, bindC / C.BINDCHG) : 0;
-  return k ? mix(base, RBV[(clock * C.EYERB | 0) % 6], k) : base;
+  const k = charging ? min(1, bindC / C._BINDCHG) : 0;
+  return k ? mix(base, RBV[(clock * C._EYERB | 0) % 6], k) : base;
 };
 
 // The head lies in the sagittal plane, so its own lateral axis is exactly x and
 // an eye is a shallow disc pushed out along it.
 const eyes = () => {
-  const q = eff(1), t = C.EYES[1];
-  const ax = q[0] + (q[3] - q[0]) * t + hrot(0, C.EYES[0], 0)[0];
-  const u0 = hrot(0, C.EYES[0], 0);              // "up" is the head's up, not the world's
+  const q = eff(1), t = C._EYES[1];
+  const ax = q[0] + (q[3] - q[0]) * t + hrot(0, C._EYES[0], 0)[0];
+  const u0 = hrot(0, C._EYES[0], 0);              // "up" is the head's up, not the world's
   const ay = q[1] + (q[4] - q[1]) * t + u0[1];
   const az = q[2] + (q[5] - q[2]) * t + u0[2];
   const hw = q[6] + (q[8] - q[6]) * t;           // the head's half-width there
-  const r = C.EYES[3] * C.HEADS, d = C.EYES[4] * C.HEADS;
+  const r = C._EYES[3] * C._HEADS, d = C._EYES[4] * C._HEADS;
   // Out along the head's OWN flank, which is only model x while the group is
   // unrotated. The up and forward axes of the disc follow the head too.
   const fl = hrot(1, 0, 0), up = hrot(0, 1, 0), fw = hrot(0, 0, 1);
   // A blink is the eye's own height going to almost nothing and back. Shaped with
   // a sine so it closes and opens rather than switching.
-  const bk = blink > 0 ? 1 - (1 - C.BLINKS) * sin(PI * blink / C.BLINKD) : 1;
-  const ic = charged(C.IRIS);
+  const bk = blink > 0 ? 1 - (1 - C._BLINKS) * sin(PI * blink / C._BLINKD) : 1;
+  const ic = charged(C._IRIS);
   for (const sx of [1, -1]) {
-    const o = hw * C.EYES[2] * C.HEADS + d / 2;
+    const o = hw * C._EYES[2] * C._HEADS + d / 2;
     cone(frame([ax + sx * fl[0] * o, ay + sx * fl[1] * o, az + sx * fl[2] * o],
                [up[0] * r * bk, up[1] * r * bk, up[2] * r * bk],
                [sx * fl[0] * d / 2, sx * fl[1] * d / 2, sx * fl[2] * d / 2],
@@ -951,19 +951,19 @@ const mane = () => {
   // sank a fraction into the surface it was supposed to be standing on.
   const pL = hypot(dy, dz) || 1;
   const uy = dz / pL, uz = -dy / pL;             // straight up out of the top face
-  const span = C.MANEN > 1 ? (C.MANEW / (C.MANEN - 1)) * L : 1;
-  const r = min(C.MANER, span * C.MANEG);
+  const span = C._MANEN > 1 ? (C._MANEW / (C._MANEN - 1)) * L : 1;
+  const r = min(C._MANER, span * C._MANEG);
   // Washed by how far the bind has recharged: full colour ready, drained grey
   // the moment it is cast. This is the cooldown readout.
-  const k = C.SAT0 + (1 - C.SAT0) * (1 - bindT / sCd());
-  for (let i = 0; i < C.MANEN; i++) {
-    const t = C.MANEC + (C.MANEN < 2 ? 0 : C.MANEW * (i / (C.MANEN - 1) - 0.5));
+  const k = C._SAT0 + (1 - C._SAT0) * (1 - bindT / sCd());
+  for (let i = 0; i < C._MANEN; i++) {
+    const t = C._MANEC + (C._MANEN < 2 ? 0 : C._MANEW * (i / (C._MANEN - 1) - 0.5));
     const h = nk[7] + (nk[9] - nk[7]) * t;       // the neck's half-height here
     const ax = nk[0] + dx * t, ay = nk[1] + dy * t, az = nk[2] + dz * t;
     const ry = ay + uy * h, rz = az + uz * h;    // the root, on the surface
     swept(T, ax, ry, rz,
-          ax, ry + uy * C.MANEH - py * C.MANEB, rz + uz * C.MANEH - pz * C.MANEB,
-          r, r, r * C.MANEP, r * C.MANEP, wash(RBV[1 + (i % 5)], k));
+          ax, ry + uy * C._MANEH - py * C._MANEB, rz + uz * C._MANEH - pz * C._MANEB,
+          r, r, r * C._MANEP, r * C._MANEP, wash(RBV[1 + (i % 5)], k));
   }
 };
 
@@ -983,7 +983,7 @@ const puppet = () => {
     OUT = i < 2;                                 // neck and head carry the outline
     // The horn is the last part, and the only one that takes the charge colour.
     swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9],
-          i === 2 ? charged(C.GOLD) : MAT[q[10]], i ? C.HEADR[2] : 0);
+          i === 2 ? charged(C._GOLD) : MAT[q[10]], i ? C._HEADR[2] : 0);
   }
   OUT = 0;
   eyes();
@@ -1003,34 +1003,34 @@ const puppet = () => {
 // cannot darken anything, so a drawn eye would glow instead of reading as a void.
 // ---------------------------------------------------------------------------
 // Slot 7 is the type, and every number about a ghost is read from its row.
-const TY = (o) => C.TYPES[o[7]];
+const TY = (o) => C._TYPES[o[7]];
 
 const born = (x, z, k) =>
-  ghosts.push([x, C.GY, z, C.TYPES[k][0], C.TYPES[k][0], 0, random() * 9, k, 0]);
+  ghosts.push([x, C._GY, z, C._TYPES[k][0], C._TYPES[k][0], 0, random() * 9, k, 0]);
 
 const spawn = (k) => {
   const a = random() * 2 * PI;
-  born(cos(a) * C.ARENA, sin(a) * C.ARENA, k);
+  born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
 };
 
-const budgetFor = (w) => round(C.BUD0 * C.BUDR ** (w - 1));
+const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
 
 // Every number a card moves, read from the levels rather than from C. Nothing
 // downstream knows a card exists.
-const sFire = () => C.FIRE / C.FIREG ** lv[0];
-const sDmg = () => C.DMGG ** lv[1];
-const sRad = () => C.BINDR * C.RADG ** lv[2];
-const sCd = () => C.BINDCD - C.CDG * lv[3];
-const sDur = () => C.BINDDUR + C.DURG * lv[4];
-const sRegen = () => C.REGEN + lv[6];
+const sFire = () => C._FIRE / C._FIREG ** lv[0];
+const sDmg = () => C._DMGG ** lv[1];
+const sRad = () => C._BINDR * C._RADG ** lv[2];
+const sCd = () => C._BINDCD - C._CDG * lv[3];
+const sDur = () => C._BINDDUR + C._DURG * lv[4];
+const sRegen = () => C._REGEN + lv[6];
 
 // Is this card's next level on the table? Cap, wave gate, and the prerequisite
 // chain - regen behind extra heart, and extra heart's own second level behind a
 // later wave than its first.
 const open = (i) => {
-  const c = C.CARDS[i];
+  const c = C._CARDS[i];
   if (lv[i] >= c[0]) return 0;
-  if (wave < (i === 5 && lv[i] ? C.HEART2 : c[1])) return 0;
+  if (wave < (i === 5 && lv[i] ? C._HEART2 : c[1])) return 0;
   return c[2] < 0 || lv[c[2]] >= c[3] + lv[i];
 };
 
@@ -1038,11 +1038,11 @@ const open = (i) => {
 // side is measured against its OWN cap, since they do not have the same number of
 // levels - two cards of eight is not the same progress as two of four.
 const weightOf = (i) => {
-  const horn = (lv[0] + lv[1]) / (C.CARDS[0][0] + C.CARDS[1][0]);
-  const bind = (lv[2] + lv[3] + lv[4]) / (C.CARDS[2][0] + C.CARDS[3][0] + C.CARDS[4][0]);
+  const horn = (lv[0] + lv[1]) / (C._CARDS[0][0] + C._CARDS[1][0]);
+  const bind = (lv[2] + lv[3] + lv[4]) / (C._CARDS[2][0] + C._CARDS[3][0] + C._CARDS[4][0]);
   const side = i < 2 ? horn : i < 5 ? bind : -1;
   const behind = horn === bind ? -1 : horn < bind ? 0 : 1;   // which half is trailing
-  return C.CARDS[i][4] * (side >= 0 && (i < 2 ? 0 : 1) === behind ? C.ADAPT : 1);
+  return C._CARDS[i][4] * (side >= 0 && (i < 2 ? 0 : 1) === behind ? C._ADAPT : 1);
 };
 
 // Deal CARDN distinct cards. Fire rate is guaranteed in the FIRST draw only -
@@ -1051,9 +1051,9 @@ const weightOf = (i) => {
 const deal = () => {
   offer = [];
   const pool = [];
-  for (let i = 0; i < C.CARDS.length; i++) if (open(i)) pool.push(i);
+  for (let i = 0; i < C._CARDS.length; i++) if (open(i)) pool.push(i);
   if (wave === 1 && pool.includes(0)) offer.push(pool.splice(pool.indexOf(0), 1)[0]);
-  while (offer.length < C.CARDN && pool.length) {
+  while (offer.length < C._CARDN && pool.length) {
     let total = 0;
     for (const i of pool) total += weightOf(i);
     let r = random() * total, k = 0;
@@ -1066,8 +1066,8 @@ const deal = () => {
 // What a stat reads at a given level, so a card can show the step it buys rather
 // than a percentage the player has to trust.
 const statAt = (i, l) => [
-  1 / (C.FIRE / C.FIREG ** l), C.DMGG ** l, C.BINDR * C.RADG ** l,
-  C.BINDCD - C.CDG * l, C.BINDDUR + C.DURG * l, C.HEARTS + l, C.REGEN + l,
+  1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR * C._RADG ** l,
+  C._BINDCD - C._CDG * l, C._BINDDUR + C._DURG * l, C._HEARTS + l, C._REGEN + l,
 ][i];
 
 const take = (i) => {
@@ -1080,7 +1080,7 @@ const take = (i) => {
   // begin with more health than it ended with.
   const was = hearts;
   hearts = min(maxhp, hearts + sRegen());
-  if (hearts > was) { healA = was; healN = hearts - was; healT = C.HEALP; }
+  if (hearts > was) { healA = was; healN = hearts - was; healT = C._HEALP; }
   budget = budgetFor(wave);
   spawnT = 0;
 };
@@ -1092,16 +1092,16 @@ const take = (i) => {
 // "spent" means when the cheapest thing still costs something.
 const buy = () => {
   const list = [];
-  for (let k = 0; k < C.TYPES.length; k++)
-    if (C.TYPES[k][4] <= wave && C.TYPES[k][3] <= budget) list.push(k);
+  for (let k = 0; k < C._TYPES.length; k++)
+    if (C._TYPES[k][4] <= wave && C._TYPES[k][3] <= budget) list.push(k);
   return list.length ? list[random() * list.length | 0] : -1;
 };
 
 const ghostAt = (o) => {
   const t = TY(o);
-  const c = cam([o[0], o[1] + sin(clock * C.GBOBR + o[6]) * C.GBOB, o[2]]);
-  if (c[2] < C.NEAR) return null;
-  const s = C.F / (C.F + c[2]);
+  const c = cam([o[0], o[1] + sin(clock * C._GBOBR + o[6]) * C._GBOB, o[2]]);
+  if (c[2] < C._NEAR) return null;
+  const s = C._F / (C._F + c[2]);
   return { c, s, px: c[0] * s * PX + W / 2, py: c[1] * s * PX + H / 2, r: t[5] * s * PX, t };
 };
 
@@ -1142,7 +1142,7 @@ const face = (v, t) => {
       // expression. Anchored off EYEY rather than the round eye's line, because
       // this one hangs down from its anchor instead of sitting either side, and
       // the outer end rides up, so the tilt flips with the side of the face.
-      domeHole(cx, v.py - v.r * C.EYEY, er, er * C.EYEH, C.EYEBOW, ex < 0 ? t[13] : -t[13]);
+      domeHole(cx, v.py - v.r * C._EYEY, er, er * C._EYEH, C._EYEBOW, ex < 0 ? t[13] : -t[13]);
     } else {
       g.moveTo(cx + er, ey);
       for (let i = 0; i <= 9; i++) {
@@ -1162,7 +1162,7 @@ const drawGhost = (o, target) => {
   if (!v) return;
   const t = v.t;
   // Opacity is the health bar (DESIGN.md 7): a nearly-dead ghost is visibly faint.
-  const k = C.GFADE + (1 - C.GFADE) * (o[3] / o[4]);
+  const k = C._GFADE + (1 - C._GFADE) * (o[3] / o[4]);
   const hit = o[5] > 0;
   // A hit reads at full strength whatever the fade says. Opacity is the health
   // bar (7), so a nearly-dead ghost is faint - and the flash confirming you hit it
@@ -1178,16 +1178,16 @@ const drawGhost = (o, target) => {
   // The wobble stays, but only on the dome - it is what keeps the thing amorphous
   // (DESIGN.md 7) while the hem stays crisp.
   const r = v.r * (1 + t[6] * sin(clock * 2.2 + o[6]));
-  const w = r * C.GW;
+  const w = r * C._GW;
   const dy = v.py - r + w;                        // the dome's centre
   const hy = v.py + r;                            // the tooth tips
-  const ny = hy - r * C.SPIKE;                    // and the notches between them
+  const ny = hy - r * C._SPIKE;                    // and the notches between them
   const bp = [];                                  // the body outline, kept for stroking
   g.beginPath();
-  for (let i = 0; i <= C.GDOME; i++) {
+  for (let i = 0; i <= C._GDOME; i++) {
     // PI to 2PI, so it runs left, over the top, to right. y is down, so sin is
     // negative across that span and the arc is the upper half.
-    const a = PI * (1 + i / C.GDOME);
+    const a = PI * (1 + i / C._GDOME);
     const q = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
     // A horn is a point of the dome pushed further out, so it is part of the
     // outline rather than a shape sitting on top of one - it wobbles with the
@@ -1196,7 +1196,7 @@ const drawGhost = (o, target) => {
     // either side of it, which puts them out on the shoulders.
     // Past a spread of 1 the horns leave the dome entirely and go down the sides,
     // so nothing here is pushed out.
-    const mid = C.GDOME >> 1, sp = t[17] > 1 ? -1 : round(t[17] * mid);
+    const mid = C._GDOME >> 1, sp = t[17] > 1 ? -1 : round(t[17] * mid);
     const pair = t[11] && sp >= 0 && (sp ? i === mid - sp || i === mid + sp : i === mid);
     // The crown is its own column, so a ghost can carry a pair AND a spike.
     const k = t[18] && i === mid ? 1 + t[18] : pair ? 1 + t[11] : 1;
@@ -1229,7 +1229,7 @@ const drawGhost = (o, target) => {
   // rather than held at one colour, so what the bind has caught is unmistakable
   // and is the same language the floor and the wall speak.
   if (o[8] > 0) {
-    g.lineWidth = C.BINDW;
+    g.lineWidth = C._BINDW;
     for (let i = 1; i < bp.length; i++) {
       g.strokeStyle = css(bow((i - 1) / (bp.length - 1)), 1);
       g.beginPath();
@@ -1241,8 +1241,8 @@ const drawGhost = (o, target) => {
     for (const q of bp) g.lineTo(q[0], q[1]);
     g.closePath();
   } else if (target === o) {
-    g.strokeStyle = css(C.GOLD, 1);
-    g.lineWidth = C.TGTW;
+    g.strokeStyle = css(C._GOLD, 1);
+    g.lineWidth = C._TGTW;
     g.stroke();
   }
   // Round, large and set wide and high, per the reference. They were ellipses
@@ -1256,12 +1256,12 @@ const drawGhost = (o, target) => {
     // Traced while the body path is still the current one, and after the fill so
     // the line is not half swallowed by it. Any target or bind outline was
     // stroked before that fill and is thicker, so it still reads outside this.
-    g.strokeStyle = 'rgba(255,255,255,' + C.SOLIDE + ')';
-    g.lineWidth = C.SOLIDEW;
+    g.strokeStyle = 'rgba(255,255,255,' + C._SOLIDE + ')';
+    g.lineWidth = C._SOLIDEW;
     g.stroke();
     g.beginPath();
     face(v, t);
-    g.fillStyle = hit ? 'rgb(' + t[9] + ')' : css(C.SOLIDF, 1);
+    g.fillStyle = hit ? 'rgb(' + t[9] + ')' : css(C._SOLIDF, 1);
     g.fill();
     g.globalCompositeOperation = 'lighter';
   } else {
@@ -1271,7 +1271,7 @@ const drawGhost = (o, target) => {
   // The bind arriving and failing: a ring of the Warden's own colour pushing out
   // past it and fading. Under lighter, so it reads as light coming off it.
   if (o[8] < 0) {
-    const q = 1 + o[8] / C.SHRUGD;
+    const q = 1 + o[8] / C._SHRUGD;
     g.strokeStyle = 'rgb(' + t[9] + ')';
     g.globalAlpha = 1 - q;
     g.lineWidth = 2.5;
@@ -1295,30 +1295,30 @@ const step = (dt) => {
   hurtT = max(0, hurtT - dt);
   if (over) return;
   fireT = max(0, fireT - dt);
-  rec = max(0, rec - dt / C.RECT);
+  rec = max(0, rec - dt / C._RECT);
   bindT = max(0, bindT - dt);
   wallT = max(0, wallT - dt);
   let kx = 0, ky = 0;
   for (const c in TURNK) if (KEYS[c]) { kx += TURNK[c][0]; ky += TURNK[c][1]; }
   if (kx || ky) {
-    yaw += kx * C.KTURN * dt;
-    pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + ky * C.KPITCH * dt));
+    yaw += kx * C._KTURN * dt;
+    pitch = min(C._PITCHMAX, max(-C._PITCHMAX, pitch + ky * C._KPITCH * dt));
     aim();
   }
   assist(dt);
   // It lets go by itself at BINDCHG. Waiting for the player to release would let
   // them hold a full ring indefinitely and pick their moment for free.
-  if (charging && (bindC += dt) >= C.BINDCHG) cast();
+  if (charging && (bindC += dt) >= C._BINDCHG) cast();
   // Arming runs after that, so the frame which finishes arming does not also
   // charge - the charge starts from zero on the next one.
   if (armT >= 0 && !charging) {
     armT += dt;
     // Held through a cooldown, it begins the moment the bind is ready again.
-    if (armT >= C.ARM && bindT <= 0) charging = 1;
+    if (armT >= C._ARM && bindT <= 0) charging = 1;
   }
   blink = max(0, blink - dt);
   nextB -= dt;
-  if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
+  if (nextB <= 0) { blink = C._BLINKD; nextB = C._BLINK0 + random() * (C._BLINK1 - C._BLINK0); }
   inv = max(0, inv - dt);
   healT = max(0, healT - dt);
   if (auto && !fireT) fire();                     // it fires on its own, at FIRE
@@ -1326,12 +1326,12 @@ const step = (dt) => {
   spawnT -= dt;
   if (spawnT <= 0) {
     const k = buy();
-    if (k >= 0) { spawnT = C.SPAWN * C.SPAWNR ** (wave - 1); budget -= C.TYPES[k][3]; spawn(k); }
+    if (k >= 0) { spawnT = C._SPAWN * C._SPAWNR ** (wave - 1); budget -= C._TYPES[k][3]; spawn(k); }
   }
   // A wave is over when its budget is spent AND the field is clear - so the
   // Splitter's free children, which nothing paid for, still have to be dealt with
   // before the next wave starts.
-  if (budget <= 0 && !ghosts.length && !waveT) waveT = C.WAVEGAP;
+  if (budget <= 0 && !ghosts.length && !waveT) waveT = C._WAVEGAP;
   if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; }
 
   for (let i = horns.length; i--;) {
@@ -1341,8 +1341,8 @@ const step = (dt) => {
     if (h[6] <= 0) { horns.splice(i, 1); continue; }
     for (let j = ghosts.length; j--;) {
       const o = ghosts[j];
-      if (hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) > C.HHIT + TY(o)[5]) continue;
-      o[3] -= sDmg(); o[5] = C.GFLASH;
+      if (hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) > C._HHIT + TY(o)[5]) continue;
+      o[3] -= sDmg(); o[5] = C._GFLASH;
       horns.splice(i, 1);
       if (o[3] <= 0) {
         ghosts.splice(j, 1); kills++;
@@ -1350,10 +1350,10 @@ const step = (dt) => {
         // wide bind worth having - you can hold the children before they scatter.
         // Placed across the line to the player, so both keep the range the parent
         // had rather than one being handed a head start.
-        if (o[7] === C.SPLIT) {
+        if (o[7] === C._SPLIT) {
           const d = hypot(o[0], o[2]) || 1;
           for (const sx of [-1, 1])
-            born(o[0] - o[2] / d * sx * C.SPLITD, o[2] + o[0] / d * sx * C.SPLITD, 0);
+            born(o[0] - o[2] / d * sx * C._SPLITD, o[2] + o[0] / d * sx * C._SPLITD, 0);
         }
       }
       break;
@@ -1366,16 +1366,16 @@ const step = (dt) => {
     if (o[8] > 0) { o[8] -= dt; continue; }      // held: it neither moves nor reaches you
     if (o[8] < 0) o[8] = min(0, o[8] + dt);      // shrugging it off, and still coming
     const d = hypot(o[0], o[2]) || 1;
-    if (d < C.GCONTACT) {                         // reached you: hits and is gone
+    if (d < C._GCONTACT) {                         // reached you: hits and is gone
       ghosts.splice(i, 1);
       if (!inv) {
-        hearts -= min(C.DMGCAP, TY(o)[2]);
-        inv = C.IFRAME; shake = 1; hurtT = C.HURTD;
+        hearts -= min(C._DMGCAP, TY(o)[2]);
+        inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
         if (hearts <= 0) { hearts = 0; over = 1; }
       }
       continue;
     }
-    const v = C.GSPEED * TY(o)[1] * dt / d;
+    const v = C._GSPEED * TY(o)[1] * dt / d;
     o[0] -= o[0] * v; o[2] -= o[2] * v;
   }
 };
@@ -1392,17 +1392,17 @@ const step = (dt) => {
 // the map that is on screen, so a blip outside it is the one that reaches you
 // without ever being seen.
 const minimap = () => {
-  const r = C.MAPR * H, ox = C.MAPPAD + r, oy = C.MAPPAD + r;
-  const reach = C.ARENA * C.MAPZ, k = r / reach;
+  const r = C._MAPR * H, ox = C._MAPPAD + r, oy = C._MAPPAD + r;
+  const reach = C._ARENA * C._MAPZ, k = r / reach;
   const dish = (rad) => { g.beginPath(); g.arc(ox, oy, rad, 0, 2 * PI); };
 
   dish(r);
-  g.fillStyle = C.MAPBG;
+  g.fillStyle = C._MAPBG;
   g.fill();
 
   // The cone is the real one: its half-angle comes from the same W, PX and F the
   // projection uses, so it stays honest if any of them change.
-  const hf = atan2(W / 2, PX * C.F);
+  const hf = atan2(W / 2, PX * C._F);
   const fan = () => {
     g.beginPath();
     g.moveTo(ox, oy);
@@ -1410,11 +1410,11 @@ const minimap = () => {
     g.closePath();
   };
   fan();
-  g.fillStyle = C.MAPCONE;
+  g.fillStyle = C._MAPCONE;
   g.fill();
   fan();                                         // and its two sides, drawn
-  g.strokeStyle = C.MAPFAN;
-  g.lineWidth = C.MAPFANW;
+  g.strokeStyle = C._MAPFAN;
+  g.lineWidth = C._MAPFANW;
   g.stroke();
 
   // The bind, as the circle it actually is - which is the whole reason 6 says the
@@ -1425,7 +1425,7 @@ const minimap = () => {
     g.fillStyle = css(RBV[2], 0.22);
     g.fill();
     dish(sRad() * k);
-    g.strokeStyle = css(C.RIMC, 0.8);
+    g.strokeStyle = css(C._RIMC, 0.8);
     g.lineWidth = 1.5;
     g.stroke();
   }
@@ -1438,10 +1438,10 @@ const minimap = () => {
     // arriving is still a bearing you can react to.
     const d = hypot(bx, bz), c = min(1, reach / (d || 1)) * k;
     g.beginPath();
-    g.arc(ox + bx * c, oy - bz * c, C.MAPBLIP * r, 0, 2 * PI);
+    g.arc(ox + bx * c, oy - bz * c, C._MAPBLIP * r, 0, 2 * PI);
     // A blip is too small to carry a rainbow around itself, so a held one runs
     // through it in time instead - the same cycle the horn and the eyes use.
-    g.fillStyle = o[8] > 0 ? css(RBV[(clock * C.EYERB | 0) % 6], 1) : 'rgb(' + TY(o)[9] + ')';
+    g.fillStyle = o[8] > 0 ? css(RBV[(clock * C._EYERB | 0) % 6], 1) : 'rgb(' + TY(o)[9] + ')';
     g.fill();
   }
 
@@ -1449,13 +1449,13 @@ const minimap = () => {
   // running the rainbow while the bind charges. Two readouts of one state, and
   // the map is the one you can see without looking away from a threat.
   g.beginPath();
-  g.arc(ox, oy, C.MAPBLIP * r * 0.8, 0, 2 * PI);
-  g.fillStyle = css(charged(C.GOLD), 1);
+  g.arc(ox, oy, C._MAPBLIP * r * 0.8, 0, 2 * PI);
+  g.fillStyle = css(charged(C._GOLD), 1);
   g.fill();
 
   dish(r);
-  g.strokeStyle = C.MAPEDGE;
-  g.lineWidth = C.MAPEW;
+  g.strokeStyle = C._MAPEDGE;
+  g.lineWidth = C._MAPEW;
   g.stroke();
 };
 
@@ -1463,13 +1463,13 @@ const minimap = () => {
 // Render
 // ---------------------------------------------------------------------------
 const hud = () => {
-  const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
+  const u = min(W, H) * C._HUDU, hu = u * C._HEARTS2;
   if (over) return overScreen(u);
   for (let i = 0; i < maxhp; i++) {               // hearts, top-right
     const heal = healT > 0 && i >= healA && i < healA + healN;
     g.fillStyle = heal
-      ? css(mix(C.HPC, [255, 255, 255], 0.5 + 0.5 * sin(clock * C.HEALR)), 1)
-      : i < hearts ? css(C.HPC, 1) : '#2a2136';
+      ? css(mix(C._HPC, [255, 255, 255], 0.5 + 0.5 * sin(clock * C._HEALR)), 1)
+      : i < hearts ? css(C._HPC, 1) : '#2a2136';
     g.beginPath();
     const x = W - 16 - hu - i * (hu * 1.35), y = 18;
     g.moveTo(x + hu / 2, y + hu);
@@ -1482,10 +1482,10 @@ const hud = () => {
   }
 
   // Both labels are the kill count's size: they are captions, not readouts.
-  const lbl = u * C.KILLF;
+  const lbl = u * C._KILLF;
   g.textAlign = 'right';
   g.font = (lbl | 0) + 'px monospace';
-  g.fillStyle = css(C.HPC, 1);
+  g.fillStyle = css(C._HPC, 1);
   g.fillText('HEALTH', W - 16, 18 + hu + lbl);
 
   // The rainbow bar under them: how much of the bind is back. DESIGN.md 11 says
@@ -1495,9 +1495,9 @@ const hud = () => {
   // hearts already have your eye.
   // 1.35 is the heart pitch used above, so BARN of 5 is exactly the width five
   // hearts would occupy - which puts its left end well past the three there are.
-  const bw = hu * (1 + (C.BARN - 1) * 1.35), bh = hu * C.BARH;
-  const bx = W - 16 - bw, by = 18 + hu + lbl + hu * C.BARGAP;
-  g.fillStyle = C.BARBG;
+  const bw = hu * (1 + (C._BARN - 1) * 1.35), bh = hu * C._BARH;
+  const bx = W - 16 - bw, by = 18 + hu + lbl + hu * C._BARGAP;
+  g.fillStyle = C._BARBG;
   g.fillRect(bx, by, bw, bh);
   // The fill is only ever the passive refill: how much of the bind is back.
   // Charging is a different thing being answered and it was borrowing the same
@@ -1520,9 +1520,9 @@ const hud = () => {
   // frame charging is already over. The last drawn one is 99.4% across, and a
   // right edge that can never be seen is just bytes.
   if (charging) {
-    const f = min(1, bindC / C.BINDCHG), e = bx + bw * f;
-    g.strokeStyle = C.BARSC;
-    g.lineWidth = C.BARSLW;
+    const f = min(1, bindC / C._BINDCHG), e = bx + bw * f;
+    g.strokeStyle = C._BARSC;
+    g.lineWidth = C._BARSLW;
     g.beginPath();
     g.moveTo(e, by);
     g.lineTo(bx, by);
@@ -1538,10 +1538,10 @@ const hud = () => {
   // Right-aligned to the same edge the bar and the hearts end on, so the whole
   // corner reads as one column.
   if (!charging && bindT <= 0) {
-    g.fillStyle = css(C.RIMC, 1);
+    g.fillStyle = css(C._RIMC, 1);
     g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
     g.fillStyle = '#fff';
-    g.font = (lbl * C.HINTF | 0) + 'px monospace';
+    g.font = (lbl * C._HINTF | 0) + 'px monospace';
     g.fillText('CLICK/SPACE & HOLD', W - 16, by + bh + lbl * 2.5);
   }
 
@@ -1549,16 +1549,16 @@ const hud = () => {
   // horn's gold, which is now also the map dot - one colour for the thing the
   // run is counted in.
   g.textAlign = 'center';
-  g.fillStyle = css(C.GOLD, 1);
-  g.font = (u * C.WAVEF | 0) + 'px monospace';
-  g.fillText('WAVE ' + wave, W / 2, 18 + u * C.WAVEF);
+  g.fillStyle = css(C._GOLD, 1);
+  g.font = (u * C._WAVEF | 0) + 'px monospace';
+  g.fillText('WAVE ' + wave, W / 2, 18 + u * C._WAVEF);
   g.fillStyle = '#8b93b8';
-  g.font = (u * C.KILLF | 0) + 'px monospace';
-  g.fillText('KILLS ' + kills, W / 2, 18 + u * (C.WAVEF + C.KILLF * 1.15));
+  g.font = (u * C._KILLF | 0) + 'px monospace';
+  g.fillText('KILLS ' + kills, W / 2, 18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
 
   const a = proj(aimAt());                        // crosshair, on the horn's line
-  const c = min(W, H) * C.XHR;
+  const c = min(W, H) * C._XHR;
   g.beginPath();
   for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
     g.moveTo(a[0] + dx * c, a[1] + dy * c);
@@ -1568,18 +1568,18 @@ const hud = () => {
   // the halo wraps the ends of each arm rather than stopping flush with them and
   // leaving the tips to blend into whatever is behind.
   g.lineCap = 'round';
-  g.strokeStyle = C.XHO;
-  g.lineWidth = C.XHW + C.XHOW * 2;
+  g.strokeStyle = C._XHO;
+  g.lineWidth = C._XHW + C._XHOW * 2;
   g.stroke();
-  g.strokeStyle = css(C.GOLD, C.XHA);             // the horn's own colour
-  g.lineWidth = C.XHW;
+  g.strokeStyle = css(C._GOLD, C._XHA);             // the horn's own colour
+  g.lineWidth = C._XHW;
   g.stroke();
   g.lineCap = 'butt';                             // it is a shared context
 };
 
 // Where the cards sit. One place, so drawing and hit-testing cannot disagree.
 const cardBox = (n, i) => {
-  const w = W * C.CARDW, h = H * C.CARDH, gap = w * 0.14;
+  const w = W * C._CARDW, h = H * C._CARDH, gap = w * 0.14;
   return [W / 2 + (i - (n - 1) / 2) * (w + gap) - w / 2, H / 2 - h / 2, w, h];
 };
 
@@ -1613,7 +1613,7 @@ const cardIcon = (i, x, y, r) => {
 
   if (i < 0 || i > 4) {                           // the three about health
     if (i === 5) {                                // EXTRA HEART: red, and one more
-      g.fillStyle = css(C.HPC, 1);
+      g.fillStyle = css(C._HPC, 1);
       heartAt(x, y + r * 0.12, r);
       g.strokeStyle = '#fff';
       g.beginPath();
@@ -1621,13 +1621,13 @@ const cardIcon = (i, x, y, r) => {
       g.moveTo(x, y - r * 0.17); g.lineTo(x, y + r * 0.59);
       g.stroke();
     } else if (i < 0) {                           // RECOVERY: all of it back
-      g.fillStyle = css(C.HEALC, 1);
+      g.fillStyle = css(C._HEALC, 1);
       g.globalAlpha = 0.32;
       heartAt(x, y + r * 0.02, r * 1.18);
       g.globalAlpha = 1;
       heartAt(x, y + r * 0.14, r * 0.8);
     } else {                                      // HEAL: green, filling
-      g.fillStyle = css(C.HEALC, 1);
+      g.fillStyle = css(C._HEALC, 1);
       heartAt(x, y + r * 0.22, r * 0.78);
       g.strokeStyle = '#fff';
       g.beginPath();
@@ -1641,13 +1641,13 @@ const cardIcon = (i, x, y, r) => {
   }
 
   if (i < 2) {                                    // the two about shooting
-    g.fillStyle = css(C.GOLD, 1);
+    g.fillStyle = css(C._GOLD, 1);
     if (!i) for (const d of [-1, 0, 1]) hornAt(x + d * r * 0.64, y, r * 0.58);
     else {                                        // SHOT DAMAGE: one, and it lands
       // Hot at the point, gold at the base - the same horn, carrying more.
       const grd = g.createLinearGradient(0, y - r * 0.74, 0, y + r * 0.9);
-      grd.addColorStop(0, css(C.SHOTR, 1));
-      grd.addColorStop(1, css(C.GOLD, 1));
+      grd.addColorStop(0, css(C._SHOTR, 1));
+      grd.addColorStop(1, css(C._GOLD, 1));
       g.fillStyle = grd;
       hornAt(x, y + r * 0.18, r * 0.92);
     }
@@ -1676,7 +1676,7 @@ const cardIcon = (i, x, y, r) => {
     g.stroke();
   } else {                                        // HOLD: a ghost caught inside it
     ring(r, 0, 2 * PI);
-    g.fillStyle = 'rgb(' + C.TYPES[0][9] + ')';
+    g.fillStyle = 'rgb(' + C._TYPES[0][9] + ')';
     const q = r * 0.52;
     g.beginPath();
     for (let k = 0; k <= 8; k++) {
@@ -1692,16 +1692,16 @@ const cardIcon = (i, x, y, r) => {
 
 // DESIGN.md 8: three cards between waves, pick one. The run is held while you do.
 const cardScreen = () => {
-  const cw = W * C.CARDW, ch = H * C.CARDH;
+  const cw = W * C._CARDW, ch = H * C._CARDH;
   const type = (f) => { g.font = (cw * f | 0) + 'px monospace'; };
   g.fillStyle = 'rgba(4,5,12,0.82)';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
-  g.fillStyle = css(C.GOLD, 1);
-  type(C.CARDT * 1.15);
+  g.fillStyle = css(C._GOLD, 1);
+  type(C._CARDT * 1.15);
   g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - ch / 2 - cw * 0.32);
   g.fillStyle = '#fff';
-  type(C.CARDT * 0.85);
+  type(C._CARDT * 0.85);
   g.fillText('Pick a Power Up', W / 2, H / 2 - ch / 2 - cw * 0.13);
 
   for (let n = 0; n < offer.length; n++) cardFace(offer[n], ...cardBox(offer.length, n));
@@ -1716,38 +1716,38 @@ const cardFace = (i, x, y, w, h) => {
   const type = (f) => { g.font = (w * f | 0) + 'px monospace'; };
   {
     g.textAlign = 'center';
-    g.fillStyle = C.CARDBG;
+    g.fillStyle = C._CARDBG;
     g.fillRect(x, y, w, h);
-    g.strokeStyle = i < 0 || i === 6 ? css(C.HEALC, 1)
-      : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : css(C.HPC, 1);
+    g.strokeStyle = i < 0 || i === 6 ? css(C._HEALC, 1)
+      : i < 2 ? css(C._GOLD, 1) : i < 5 ? css(C._RIMC, 1) : css(C._HPC, 1);
     g.lineWidth = 2;
     g.strokeRect(x, y, w, h);
 
     // Everything below is placed as a fraction of the card, so the two move
     // together and the layout cannot come apart when either is retuned.
     g.fillStyle = '#fff';
-    type(C.CARDT);
-    g.fillText(i < 0 ? 'RECOVERY' : C.CARDS[i][5], mx, y + h * 0.16);
+    type(C._CARDT);
+    g.fillText(i < 0 ? 'RECOVERY' : C._CARDS[i][5], mx, y + h * 0.16);
     g.fillStyle = '#8b93b8';
-    type(C.CARDL);
-    if (i >= 0) g.fillText('LV ' + (lv[i] + C.CARDS[i][7] + 1), mx, y + h * 0.28);
+    type(C._CARDL);
+    if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.28);
 
-    cardIcon(i, mx, y + h * 0.52, w * C.CARDI);
+    cardIcon(i, mx, y + h * 0.52, w * C._CARDI);
 
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';
-      type(C.CARDU);
+      type(C._CARDU);
       g.fillText('Fully Recover', mx, y + h * 0.83);
       g.fillText('Health', mx, y + h * 0.94);
     } else {
       const dp = i > 4 ? 0 : 2;
       g.fillStyle = '#cfd6f5';
-      type(C.CARDV);
+      type(C._CARDV);
       g.fillText(statAt(i, lv[i]).toFixed(dp) + ' > ' + statAt(i, lv[i] + 1).toFixed(dp),
                  mx, y + h * 0.83);
       g.fillStyle = '#8b93b8';
-      type(C.CARDU);
-      g.fillText(C.CARDS[i][6], mx, y + h * 0.94);
+      type(C._CARDU);
+      g.fillText(C._CARDS[i][6], mx, y + h * 0.94);
     }
   }
   g.textAlign = 'left';
@@ -1760,7 +1760,7 @@ const overScreen = (u) => {
   g.fillStyle = '#000c';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
-  g.fillStyle = css(C.GOLD, 1);
+  g.fillStyle = css(C._GOLD, 1);
   g.font = (u * 2 | 0) + 'px monospace';
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
   // is one wave cleared, and dying in wave 1 is none.
@@ -1791,13 +1791,13 @@ const assist = (dt) => {
   for (const o of ghosts) {
     const v = ghostAt(o);
     if (!v) continue;
-    const d = hypot(v.px - a[0], v.py - a[1]) / (v.r * C.ASSISTR);
+    const d = hypot(v.px - a[0], v.py - a[1]) / (v.r * C._ASSISTR);
     if (d < bd) { bd = d; bx = a[0] - v.px; by = a[1] - v.py; bz = v.c[2]; bs = v.s; }
   }
   if (!bz) return;
-  const k = min(1, C.ASSIST * dt) / (bz * bs * PX);
+  const k = min(1, C._ASSIST * dt) / (bz * bs * PX);
   yaw -= bx * k;
-  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + by * k));
+  pitch = min(C._PITCHMAX, max(-C._PITCHMAX, pitch + by * k));
   aim();
 };
 
@@ -1812,7 +1812,7 @@ const underCrosshair = () => {
     // then add the radius on top, which at range is metres of slack: a ghost lit
     // up while the crosshair was plainly beside it. Normalising also settles
     // overlaps sensibly - the one you are most centred on wins, not the biggest.
-    const d = hypot(v.px - a[0], v.py - a[1]) / (v.r * C.TGTR);
+    const d = hypot(v.px - a[0], v.py - a[1]) / (v.r * C._TGTR);
     if (d < bd) { bd = d; best = o; }
   }
   return best;
@@ -1834,8 +1834,8 @@ const css = (c, a) => 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0)
 // A point on the circle of radius r, h metres above the ground, projected. Null
 // when it is behind the eye. y is down, so up is minus.
 const gpt = (a, r, h) => {
-  const c = cam([cos(a) * r, C.EYE - h, sin(a) * r]);
-  return c[2] < C.NEAR ? null : proj(c);
+  const c = cam([cos(a) * r, C._EYE - h, sin(a) * r]);
+  return c[2] < C._NEAR ? null : proj(c);
 };
 
 // One band of the ground rainbow: the ring of floor between r0 and r1, filled.
@@ -1850,8 +1850,8 @@ const gpt = (a, r, h) => {
 // same seam would show as a lighter line.
 const band = (r0, r1, col, a) => {
   g.fillStyle = css(col, a);
-  for (let i = 0; i < C.BINDSEG; i++) {
-    const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
+  for (let i = 0; i < C._BINDSEG; i++) {
+    const a0 = (i / C._BINDSEG) * 2 * PI, a1 = ((i + 1) / C._BINDSEG) * 2 * PI;
     const q = [gpt(a0, r0, 0), gpt(a1, r0, 0), gpt(a1, r1, 0), gpt(a0, r1, 0)];
     if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
     g.beginPath();
@@ -1875,10 +1875,10 @@ const bow = (f) => {
 // whole readout of when it will go.
 const rim = (r, a) => {
   if (a < 0.01) return;                          // nothing to see, and 44 quads to skip
-  const w = C.RIMW / 2;
-  g.fillStyle = css(C.RIMC, a);
-  for (let i = 0; i < C.BINDSEG; i++) {
-    const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
+  const w = C._RIMW / 2;
+  g.fillStyle = css(C._RIMC, a);
+  for (let i = 0; i < C._BINDSEG; i++) {
+    const a0 = (i / C._BINDSEG) * 2 * PI, a1 = ((i + 1) / C._BINDSEG) * 2 * PI;
     const q = [gpt(a0, r - w, 0), gpt(a1, r - w, 0), gpt(a1, r + w, 0), gpt(a0, r + w, 0)];
     if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
     g.beginPath();
@@ -1892,10 +1892,10 @@ const rim = (r, a) => {
 // blinking as one.
 const groundBow = (r) => {
   if (r < 0.05) return;
-  for (let b = 0; b < C.BINDBAND; b++) {
-    const f = b / C.BINDBAND, f1 = (b + 1) / C.BINDBAND, m = (f + f1) / 2;
-    const w = 0.5 + 0.5 * sin(2 * PI * (m * C.BINDWAV - clock * C.BINDPUL));
-    band(r * f, r * f1, bow(m), C.BINDA * w);
+  for (let b = 0; b < C._BINDBAND; b++) {
+    const f = b / C._BINDBAND, f1 = (b + 1) / C._BINDBAND, m = (f + f1) / 2;
+    const w = 0.5 + 0.5 * sin(2 * PI * (m * C._BINDWAV - clock * C._BINDPUL));
+    band(r * f, r * f1, bow(m), C._BINDA * w);
   }
 };
 
@@ -1904,14 +1904,14 @@ const groundBow = (r) => {
 // edge. It is drawn over the ghosts rather than sorted among them: it lasts
 // WALLDUR and is additive, so it brightens what it passes instead of hiding it.
 const bindWall = () => {
-  const u = 1 - wallT / C.WALLDUR;               // 0 at the cast, 1 as it dies
+  const u = 1 - wallT / C._WALLDUR;               // 0 at the cast, 1 as it dies
   const r = wallR * u ** 0.55;                   // out fast, then easing into place
-  const a = C.WALLA * (1 - u) ** 0.9;
-  const n = 6 * C.WALLREP;                       // the same rainbow stacked, WALLREP times
-  for (let i = 0; i < C.BINDSEG; i++) {
-    const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
+  const a = C._WALLA * (1 - u) ** 0.9;
+  const n = 6 * C._WALLREP;                       // the same rainbow stacked, WALLREP times
+  for (let i = 0; i < C._BINDSEG; i++) {
+    const a0 = (i / C._BINDSEG) * 2 * PI, a1 = ((i + 1) / C._BINDSEG) * 2 * PI;
     for (let b = 0; b < n; b++) {
-      const h0 = C.WALLH * b / 6, h1 = C.WALLH * (b + 1) / 6;
+      const h0 = C._WALLH * b / 6, h1 = C._WALLH * (b + 1) / 6;
       const q = [gpt(a0, r, h0), gpt(a1, r, h0), gpt(a1, r, h1), gpt(a0, r, h1)];
       if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
       g.fillStyle = css(RBV[b % 6], a * (1 - b / (n + 2)));
@@ -1933,19 +1933,19 @@ const render = () => {
   // Being hit kicks the whole view, not just the horizon line. It was a jitter
   // applied to hy alone, which moved the join between sky and ground while every
   // ghost standing on it held perfectly still.
-  const m = C.SHAKEA;
+  const m = C._SHAKEA;
   g.save();
   if (shake) g.translate((random() - 0.5) * shake * m, (random() - 0.5) * shake * m);
 
   // Sky, ground, and the horizon between them. Every horizontal direction shares
   // the same vanishing height, so the horizon is one straight line whose only
   // input is pitch. Overdrawn by the kick, so the shake cannot expose an edge.
-  const hy = H / 2 + tan(pitch) * C.F * PX;
-  g.fillStyle = C.SKY;
+  const hy = H / 2 + tan(pitch) * C._F * PX;
+  g.fillStyle = C._SKY;
   g.fillRect(-m, -m, W + 2 * m, H + 2 * m);
-  g.fillStyle = C.GND;
+  g.fillStyle = C._GND;
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
-  g.fillStyle = C.HORIZ;
+  g.fillStyle = C._HORIZ;
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
 
   const target = underCrosshair();
@@ -1960,7 +1960,7 @@ const render = () => {
     // Two ramps in one: a quick fade in over RIMFI so it arrives rather than
     // appears, then the slow brightening across the whole charge that says how
     // close the trigger is.
-    rim(sRad(), C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG) * min(1, bindC / C.RIMFI));
+    rim(sRad(), C._RIMA * (0.35 + 0.65 * bindC / C._BINDCHG) * min(1, bindC / C._RIMFI));
   }
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();
@@ -1978,11 +1978,11 @@ const render = () => {
     const uL = hypot(ux, uy, uz) || 1;
     ux /= uL; uy /= uL; uz /= uL;
     const vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
-    const r = C.HW, k = C.HL / 2;
+    const r = C._HW, k = C._HL / 2;
     cone(frame([h[0] - px * k, h[1] - py * k, h[2] - pz * k],
                [ux * r, uy * r, uz * r],
                [px * k, py * k, pz * k],
-               [vx * r, vy * r, vz * r]), C.HN, C.GOLD);
+               [vx * r, vy * r, vz * r]), C._HN, C._GOLD);
   }
   flush();
 
@@ -1992,7 +1992,7 @@ const render = () => {
   // The screen goes red for HURTD. Over the world and under the HUD, and outside
   // the shake - a flash that moved with the kick would read as an object.
   if (hurtT > 0) {
-    g.fillStyle = css(C.HURTC, C.HURTA * hurtT / C.HURTD);
+    g.fillStyle = css(C._HURTC, C._HURTA * hurtT / C._HURTD);
     g.fillRect(0, 0, W, H);
   }
   if (over) return;                               // dying: the world and the red, no HUD
@@ -2032,7 +2032,7 @@ export const poseCheck = () => {
   const k = eff(0);
   const capY = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([su, sv]) => {
     const P2 = T(k[0] + su * k[6], k[1], k[2] + sv * k[7]);
-    return P2[1] * (C.F / (C.F + P2[2])) * PX + H / 2;
+    return P2[1] * (C._F / (C._F + P2[2])) * PX + H / 2;
   });
   return {
     aim: Math.acos(max(-1, min(1, (d[0] * w[0] + d[1] * w[1] + d[2] * w[2]) / (dl * wl)))) * 180 / PI,
@@ -2054,7 +2054,7 @@ export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown rea
 // test seam: start a run at a given wave, to reach an unlock without playing to it
 export const setWave = (w) => { wave = w; budget = budgetFor(w); waveT = 0; spawnT = 0; };
 // test seams for the draw: force a level, and deal without playing a wave
-export const setLv = (i, v) => { lv[i] = v; if (i === 5) { maxhp = C.HEARTS + v; hearts = maxhp; } };
+export const setLv = (i, v) => { lv[i] = v; if (i === 5) { maxhp = C._HEARTS + v; hearts = maxhp; } };
 export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 export const drawCard = cardFace;               // editor: every card, side by side

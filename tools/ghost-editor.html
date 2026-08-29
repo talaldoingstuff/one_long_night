@@ -50,7 +50,7 @@ const HP = 0, SPEED = 1, DMG = 2, COST = 3, WAVE = 4, RAD = 5, WOB = 6, FREQ = 7
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
-const ORIG = JSON.parse(JSON.stringify(C.TYPES));
+const ORIG = JSON.parse(JSON.stringify(C._TYPES));
 
 let type = 0;         // which ghost is on the field
 let dist = 7;         // how far it stands, when pinned
@@ -79,19 +79,19 @@ const btn = (label, onclick, host) => {
   (host || panel).append(b);
   return b;
 };
-const T = () => C.TYPES[type];
+const T = () => C._TYPES[type];
 
 // --- the field ---------------------------------------------------------------
 // One ghost, of the type you are looking at. The wave machinery is switched off
 // rather than fought with: a budget that never empties means the wave never turns
 // over, so the card screen never takes the view away while you are tuning.
 const quiet = () => {
-  C.BUD0 = 1e6; C.BUDR = 1; C.SPAWN = 1e6;
+  C._BUD0 = 1e6; C._BUDR = 1; C._SPAWN = 1e6;
   M.restart(); M.look(0, 0); M.place([]);
 };
 const put = () => {
   const t = T();
-  M.place([[0, C.GY, dist, t[HP], t[HP], 0, 1.7, type, 0]]);
+  M.place([[0, C._GY, dist, t[HP], t[HP], 0, 1.7, type, 0]]);
 };
 quiet(); put();
 
@@ -111,7 +111,7 @@ setInterval(() => {
   $('chk').innerHTML =
     '<b>hp</b>' + mine[3].toFixed(1) + ' of ' + t[HP] + '<br>' +
     '<b>range</b>' + Math.hypot(mine[0], mine[2]).toFixed(2) + 'm<br>' +
-    '<b>walk-in</b>' + ((C.ARENA - C.GCONTACT) / t[SPEED]).toFixed(1) + 's from the ring<br>' +
+    '<b>walk-in</b>' + ((C._ARENA - C._GCONTACT) / t[SPEED]).toFixed(1) + 's from the ring<br>' +
     '<b>shots to kill</b>' + Math.ceil(t[HP] / M.anim().dmg);
 }, 1000 / 30);
 
@@ -136,7 +136,7 @@ btn('respawn', () => { M.place([]); put(); }, acts);
 btn('pinned', (b) => { pinned = !pinned; b.classList.toggle('on', pinned); }, acts).classList.add('on');
 btn('auto respawn', (b) => { alive = !alive; b.classList.toggle('on', alive); }, acts).classList.add('on');
 btn('reset type', () => {
-  C.TYPES[type] = JSON.parse(JSON.stringify(ORIG[type]));
+  C._TYPES[type] = JSON.parse(JSON.stringify(ORIG[type]));
   M.place([]); put(); ctl.forEach((s) => s()); dump();
 }, acts);
 
@@ -150,11 +150,11 @@ slider('wobble', () => T()[WOB], (v) => (T()[WOB] = v), 0, 0.3, 0.005);
 slider('wobble rate', () => T()[FREQ], (v) => (T()[FREQ] = v | 0), 1, 9, 1, (v) => (v | 0) + '');
 slider('eyes', () => T()[EYE], (v) => (T()[EYE] = v | 0), 0, 1, 1,
        (v) => ((v | 0) ? 'scared' : 'round'));
-slider('eye height', () => C.EYEH, (v) => (C.EYEH = v), 0.6, 3, 0.05,
+slider('eye height', () => C._EYEH, (v) => (C._EYEH = v), 0.6, 3, 0.05,
        (v) => (+v).toFixed(2) + 'x wide');
-slider('eye top', () => C.EYEY, (v) => (C.EYEY = v), -0.1, 0.9, 0.01,
+slider('eye top', () => C._EYEY, (v) => (C._EYEY = v), -0.1, 0.9, 0.01,
        (v) => (+v).toFixed(2) + ' of radius up');
-slider('top edge', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 2, 0.05,
+slider('top edge', () => C._EYEBOW, (v) => (C._EYEBOW = v), 0, 2, 0.05,
        (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved in' : 'flat'));
 slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
@@ -165,9 +165,9 @@ slider('crown horn', () => T()[CROWN], (v) => (T()[CROWN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
 slider('solid', () => T()[SOLID], (v) => (T()[SOLID] = v | 0), 0, 1, 1,
        (v) => ((v | 0) ? 'opaque, face painted on' : 'additive, face cut out'));
-slider('solid edge', () => C.SOLIDE, (v) => (C.SOLIDE = v), 0, 1, 0.02,
+slider('solid edge', () => C._SOLIDE, (v) => (C._SOLIDE = v), 0, 1, 0.02,
        (v) => (+v).toFixed(2) + ' white');
-slider('edge width', () => C.SOLIDEW, (v) => (C.SOLIDEW = v), 0.5, 6, 0.5,
+slider('edge width', () => C._SOLIDEW, (v) => (C._SOLIDEW = v), 0.5, 6, 0.5,
        (v) => (+v).toFixed(1) + 'px');
 slider('mouth', () => T()[MOUTH], (v) => (T()[MOUTH] = v), 0, 0.6, 0.01,
        (v) => (+v ? (+v).toFixed(2) + ' of radius' : 'none'));
@@ -191,16 +191,16 @@ slider('cost', () => T()[COST], (v) => (T()[COST] = v | 0), 1, 12, 1, (v) => (v 
 slider('unlocks', () => T()[WAVE], (v) => (T()[WAVE] = v | 0), 1, 40, 1, (v) => 'wave ' + (v | 0));
 
 h2('every ghost');
-slider('half width', () => C.GW, (v) => (C.GW = v), 0.5, 1.2, 0.01);
-slider('dome', () => C.GDOME, (v) => (C.GDOME = v | 0), 4, 30, 1, (v) => (v | 0) + ' segments');
-slider('notch depth', () => C.SPIKE, (v) => (C.SPIKE = v), 0.05, 0.6, 0.01);
-slider('bob', () => C.GBOB, (v) => (C.GBOB = v), 0, 0.4, 0.01, (v) => (+v).toFixed(2) + 'm');
-slider('bob rate', () => C.GBOBR, (v) => (C.GBOBR = v), 0.2, 5, 0.1);
-slider('float height', () => C.GY, (v) => (C.GY = v), -0.6, 0.8, 0.01, (v) => (+v).toFixed(2) + 'm');
-slider('faintest', () => C.GFADE, (v) => (C.GFADE = v), 0.05, 1, 0.01);
-slider('hit flash', () => C.GFLASH, (v) => (C.GFLASH = v), 0.02, 0.5, 0.01, (v) => (+v).toFixed(2) + 's');
-slider('target line', () => C.TGTW, (v) => (C.TGTW = v), 1, 12, 0.5, (v) => (+v).toFixed(1) + 'px');
-slider('bound line', () => C.BINDW, (v) => (C.BINDW = v), 1, 12, 0.5, (v) => (+v).toFixed(1) + 'px');
+slider('half width', () => C._GW, (v) => (C._GW = v), 0.5, 1.2, 0.01);
+slider('dome', () => C._GDOME, (v) => (C._GDOME = v | 0), 4, 30, 1, (v) => (v | 0) + ' segments');
+slider('notch depth', () => C._SPIKE, (v) => (C._SPIKE = v), 0.05, 0.6, 0.01);
+slider('bob', () => C._GBOB, (v) => (C._GBOB = v), 0, 0.4, 0.01, (v) => (+v).toFixed(2) + 'm');
+slider('bob rate', () => C._GBOBR, (v) => (C._GBOBR = v), 0.2, 5, 0.1);
+slider('float height', () => C._GY, (v) => (C._GY = v), -0.6, 0.8, 0.01, (v) => (+v).toFixed(2) + 'm');
+slider('faintest', () => C._GFADE, (v) => (C._GFADE = v), 0.05, 1, 0.01);
+slider('hit flash', () => C._GFLASH, (v) => (C._GFLASH = v), 0.02, 0.5, 0.01, (v) => (+v).toFixed(2) + 's');
+slider('target line', () => C._TGTW, (v) => (C._TGTW = v), 1, 12, 0.5, (v) => (+v).toFixed(1) + 'px');
+slider('bound line', () => C._BINDW, (v) => (C._BINDW = v), 1, 12, 0.5, (v) => (+v).toFixed(1) + 'px');
 
 h2('paste back into C');
 const out = document.createElement('textarea');
@@ -211,7 +211,7 @@ const f = (v) => (+v).toFixed(2).replace(/\.?0+$/, '') || '0';
 function dump() {
   out.value =
     '  TYPES: [\n' +
-    C.TYPES.map((t, k) =>
+    C._TYPES.map((t, k) =>
       '    [' + [t[HP], t[SPEED].toFixed(2), t[DMG], t[COST], t[WAVE],
                  t[RAD].toFixed(2), f(t[WOB]), t[FREQ], t[WISP]].join(', ') +
       ', [' + t[COL].join(', ') + '], ' + t[EYE] + ', ' + f(t[HORN]) +
@@ -220,12 +220,12 @@ function dump() {
       ', ' + f(t[CROWN]) + ', ' + t[SOLID] + '],' +
       '  // ' + NAMES[k]).join('\n') +
     '\n  ],\n' +
-    '  EYEY: ' + f(C.EYEY) + ',  EYEH: ' + f(C.EYEH) + ',  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
-    '  SOLIDE: ' + f(C.SOLIDE) + ',  SOLIDEW: ' + f(C.SOLIDEW) + ',\n' +
-    '  GW: ' + f(C.GW) + ',  GDOME: ' + C.GDOME + ',  SPIKE: ' + f(C.SPIKE) + ',\n' +
-    '  GBOB: ' + f(C.GBOB) + ',  GBOBR: ' + f(C.GBOBR) + ',  GY: ' + f(C.GY) + ',\n' +
-    '  GFADE: ' + f(C.GFADE) + ',  GFLASH: ' + f(C.GFLASH) + ',\n' +
-    '  TGTW: ' + f(C.TGTW) + ',  BINDW: ' + f(C.BINDW) + ',';
+    '  _EYEY: ' + f(C._EYEY) + ',  _EYEH: ' + f(C._EYEH) + ',  _EYEBOW: ' + f(C._EYEBOW) + ',\n' +
+    '  _SOLIDE: ' + f(C._SOLIDE) + ',  _SOLIDEW: ' + f(C._SOLIDEW) + ',\n' +
+    '  _GW: ' + f(C._GW) + ',  _GDOME: ' + C._GDOME + ',  _SPIKE: ' + f(C._SPIKE) + ',\n' +
+    '  _GBOB: ' + f(C._GBOB) + ',  _GBOBR: ' + f(C._GBOBR) + ',  _GY: ' + f(C._GY) + ',\n' +
+    '  _GFADE: ' + f(C._GFADE) + ',  _GFLASH: ' + f(C._GFLASH) + ',\n' +
+    '  _TGTW: ' + f(C._TGTW) + ',  _BINDW: ' + f(C._BINDW) + ',';
 }
 dump();
 
