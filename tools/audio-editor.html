@@ -32,6 +32,8 @@
            border-radius:4px;font:11px/1.45 ui-monospace,monospace;padding:6px;resize:vertical}
   #hint{position:fixed;left:370px;bottom:10px;color:#59618a}
   .note{color:#59618a;margin:4px 0 0}
+  .desc{color:#9fe6ff;background:#101c28;border:1px solid #21384a;border-radius:4px;
+        margin:6px 0 0;padding:6px 8px;line-height:1.55}
 </style>
 </head>
 <body>
@@ -60,20 +62,23 @@ for (const t of ['pointerdown', 'pointermove']) panel.addEventListener(t, (e) =>
 // Every sound, in the order the table has them. The name is what goes back into
 // the comment column, so this list and the source stay in step.
 const SFX = [
-  'a shot leaving the horn',
-  'one landing on a ghost',
-  'something dying',
-  'the rainbow wave going off',
-  'something caught in it',
-  'being hit',
-  'a click: taking a card, and any press after it',
-  'something arriving, panned to its bearing',
-  'a Warden shrugging the rainbow off',
-  'a wave cleared',
-  'the run ending',
+  'Every horn shot. Fires several times a second once SHOT RATE is levelled, so it has to stay out of the way.',
+  'A horn landing on a ghost. One per hit, and the ghost flashes white on the same frame.',
+  'A ghost dying.',
+  'The rainbow wave released at the end of the charge - the cast itself, going out across the ground.',
+  'The rainbow CATCHING ghosts: this is the rainbow-hit sound. One chime however many it held, not one each.',
+  'A ghost reaching you and taking a heart. The screen shakes and flashes red on the same frame.',
+  'Any press: taking a card between waves, and the click that starts a new run. More buttons will use it.',
+  'A ghost arriving, panned to the bearing it arrived on. The arena is a full circle and you see 74 degrees of it, so for anything behind you this is the only warning there is.',
+  'A Warden refusing the rainbow. It is the one ghost the bind cannot hold, and that rule is meant to be learned by watching and hearing it shrug it off, not by being told.',
+  'The last ghost of a wave gone, going into the card screen.',
+  'The last heart lost.',
 ];
-const SHORT = ['shot', 'hit', 'kill', 'wave', 'caught', 'hurt', 'click',
-               'spawn', 'shrug', 'cleared', 'game over'];
+// Named for the moment, not for the sound: two of these were impossible to find
+// by ear because 'wave' and 'caught' said nothing about the rainbow.
+const SHORT = ['horn shot', 'ghost hit', 'ghost killed', 'RAINBOW WAVE', 'rainbow catch',
+               'you get hit', 'click', 'ghost spawns', 'warden resists', 'wave cleared',
+               'game over'];
 const FROM = 0, TO = 1, LEN = 2, VOL = 3, WAVE = 4;
 
 let sel = 0;            // the sound the sliders are editing
@@ -148,6 +153,7 @@ const pickBtns = SHORT.map((s, i) => {
     sel = i;
     pickBtns.forEach((q, n) => q.classList.toggle('on', n === i));
     ctl.forEach((f) => f());
+    desc.textContent = SFX[i];
     drawEnv();
     play();
   });
@@ -155,6 +161,11 @@ const pickBtns = SHORT.map((s, i) => {
   return b;
 });
 pickBtns[0].classList.add('on');
+
+const desc = document.createElement('p');
+desc.className = 'desc';
+desc.textContent = SFX[0];
+panel.append(desc);
 
 const env = document.createElement('canvas');
 env.id = 'env'; env.width = 640; env.height = 188;
@@ -167,6 +178,7 @@ slider('to', () => S()[TO], (v) => (S()[TO] = v), 20, 2000, 1, (v) => v + ' Hz')
 slider('length', () => S()[LEN], (v) => (S()[LEN] = v), 0.02, 1.5, 0.005, (v) => v.toFixed(3) + 's');
 slider('volume', () => S()[VOL], (v) => (S()[VOL] = v), 0, 0.6, 0.002, (v) => v.toFixed(3));
 picker('wave', () => S()[WAVE], (v) => (S()[WAVE] = v), C._OSC);
+slider('noise band', () => C._NQ, (v) => (C._NQ = v), 0.2, 12, 0.1, (v) => 'Q ' + v.toFixed(1));
 slider('attack', () => C._ATK, (v) => (C._ATK = v), 0.001, 0.08, 0.001, (v) => v.toFixed(3) + 's');
 slider('pan (preview)', () => pan, (v) => (pan = v), -1, 1, 0.05, (v) => v.toFixed(2));
 
@@ -177,7 +189,7 @@ bar(btn('play', play), btn('play all', async () => {
     await new Promise((r) => setTimeout(r, 480));
   }
 }));
-p('MASTER scales every sound and the music together, so the balance between them survives moving the whole mix. attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
+p('With wave set to noise, from and to sweep a band across a rush of air rather than a pitch - that is what makes a thrust, a whoosh or a beam. noise band is how narrow that band is, and it is shared. MASTER scales every sound and the music together, so the balance between them survives moving the whole mix. attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
 
 // ---------------------------------------------------------------------------
 // The rainbow charge - a series, not a sound
@@ -209,7 +221,7 @@ const runCharge = async () => {
 };
 bar(btn('play the whole charge', runCharge), btn('one tick', () => M.playCharge(0)),
     btn('last tick', () => M.playCharge(1)));
-p('It ticks rather than sweeping because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
+p('Each tick outlasts the gap after it, so early on they are separate pulses and by the end five overlap into one thickening beam. It is still a series because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
 
 // ---------------------------------------------------------------------------
 // Music
@@ -319,6 +331,7 @@ function dump() {
       n3(q[VOL]) + ', ' + q[WAVE] + '],   // ' + pad(i, 2) + '  ' + SFX[i]).join('\n') +
     '\n  ],\n' +
     '  _ATK: ' + n3(C._ATK) + ',\n' +
+    '  _NQ: ' + (+C._NQ).toFixed(1) + ',\n' +
     '  _CHG: [' + C._CHG[FROM] + ', ' + C._CHG[TO] + ', ' + n3(C._CHG[LEN]) + ', ' +
       n3(C._CHG[VOL]) + ', ' + C._CHG[WAVE] + '],\n' +
     '  _CHGUP: ' + (+C._CHGUP).toFixed(2) + ',\n' +

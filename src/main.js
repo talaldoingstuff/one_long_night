@@ -420,12 +420,13 @@ export const C = {
   // Every volume below is relative to the others; this scales the lot at once, so
   // the mix can be moved without thirteen numbers having to agree about it.
   _VOL: 1,
-  _OSC: ['sine', 'square', 'sawtooth', 'triangle'],
+  _OSC: ['sine', 'square', 'sawtooth', 'triangle', 'noise'],
+  _NQ: 1.4,           // how narrow the band swept over the noise is
   _SFX: [
-    [620, 300, 0.045, 0.120, 1],   // 0  a shot leaving the horn
+    [1100, 260, 0.080, 0.150, 4],  // 0  a shot leaving the horn
     [420, 150, 0.050, 0.180, 1],   // 1  one landing
     [300, 90,  0.160, 0.220, 3],   // 2  something dying
-    [90,  430, 0.340, 0.220, 0],   // 3  the rainbow going off
+    [200, 2600, 0.420, 0.260, 4],  // 3  the rainbow wave going off
     [880, 1330, 0.120, 0.104, 0],  // 4  something caught in it
     [170, 50,  0.240, 0.320, 2],   // 5  being hit
     [520, 780, 0.070, 0.152, 3],   // 6  a click: taking a card, and any press after it
@@ -436,13 +437,13 @@ export const C = {
   ],
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
 
-  // The charge is a tick that speeds up and rises as the ring grows, rather than
-  // one long sweep: a charge can be cancelled, and a series of ticks simply stops
-  // where a sustained note would have to be faded out and cleaned up. It also
-  // says how far along you are, which is the thing you actually need to know.
-  _CHG: [300, 900, 0.035, 0.088, 0],   // pitch at the start of the charge, at the end, length, volume, wave
-  _CHGUP: 1.5,        // and each tick lifts by this much across its own length
-  _CHGGAP: [0.3, 0.07],  // seconds between ticks, at the start and at the end
+  // The charge is still a series - a charge can be cancelled, and a series just
+  // stops where a held note would have to be faded and cleaned up - but each tick
+  // now outlasts the gap after it. Early on they are separate pulses; by the end
+  // five overlap and it is one thickening beam. Same machinery, and it builds.
+  _CHG: [260, 1150, 0.220, 0.060, 2],   // pitch at the start of the charge, at the end, length, volume, wave
+  _CHGUP: 1.35,        // and each tick lifts by this much across its own length
+  _CHGGAP: [0.34, 0.045],  // seconds between ticks, at the start and at the end
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
@@ -1543,20 +1544,47 @@ const audio = () => {
   if (A.state === 'suspended') A.resume();
 };
 
+// A second of white noise, made once and replayed. A single oscillator cannot
+// make a rush of air, and thrust, a whoosh and a beam all want one - so 'noise'
+// is a fifth waveform, and f0 and f1 sweep a bandpass over it instead of a pitch.
+// Same five numbers per sound either way, so nothing above here changes.
+let NB;
+const noise = () => {
+  if (!NB) {
+    NB = A.createBuffer(1, A.sampleRate, A.sampleRate);
+    const d = NB.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = random() * 2 - 1;
+  }
+  return NB;
+};
+
 const tone = (f0, f1, dur, vol, wave, pan) => {
   if (!A || muted) return;
   const t0 = A.currentTime;
-  const o = A.createOscillator(), v = A.createGain(), p = A.createStereoPanner();
-  o.type = wave;
-  o.frequency.setValueAtTime(f0, t0);
-  o.frequency.exponentialRampToValueAtTime(max(1, f1), t0 + dur);
+  const v = A.createGain(), p = A.createStereoPanner();
+  let o, f;
+  if (wave === 'noise') {
+    o = A.createBufferSource();
+    o.buffer = noise();
+    f = A.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = C._NQ;
+    o.connect(f).connect(v);
+  } else {
+    o = A.createOscillator();
+    o.type = wave;
+    f = o;                                       // the oscillator IS its own pitch
+    o.connect(v);
+  }
+  f.frequency.setValueAtTime(f0, t0);
+  f.frequency.exponentialRampToValueAtTime(max(1, f1), t0 + dur);
   // Ramped up and down rather than switched: a gain that starts at full clicks,
   // and exponentialRamp cannot reach zero, so it lands just above it.
   v.gain.setValueAtTime(0, t0);
   v.gain.linearRampToValueAtTime(vol * C._VOL, t0 + C._ATK);
   v.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
   p.pan.value = pan || 0;
-  o.connect(v).connect(p).connect(A.destination);
+  v.connect(p).connect(A.destination);
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 };
