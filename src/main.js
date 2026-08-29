@@ -253,7 +253,11 @@ export const C = {
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0],       // Warden, pale gold
   ],
   MOUTHH: 1.2,        // a mouth is this much taller than it is wide
-  MOUTHY: 0.3,        // and sits this far below the middle, in ghost radii
+  MOUTHY: 0.12,       // and its top edge sits this far below the middle, in radii
+  EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
+                      // ghost radii. It hangs down from there, so this is not the
+                      // eye's centre - and the round eye's 0.24 would put the
+                      // whole face a third of a radius too low.
   EYEH: 1.7,          // a scared eye is stretched this much taller than it is wide
   EYEBOW: 1,          // and its lower edge is that height scaled by 1 - EYEBOW, so
                       // 1 is a straight lid, under 1 rounds it out and over 1
@@ -1075,19 +1079,22 @@ const ghostAt = (o) => {
   return { c, s, px: c[0] * s * PX + W / 2, py: c[1] * s * PX + H / 2, r: t[5] * s * PX, t };
 };
 
-// A dome with a straight lower edge, wound as a hole in the body. The Darter's
-// two eyes and its mouth are this same shape at three sizes, which is what makes
-// them read as one face rather than as three unrelated cutouts. bow is the eye's
-// EYEBOW: 1 is the straight edge, under 1 rounds it out, over 1 curves it up in.
+// A straight top edge with a dome hanging under it, wound as a hole in the body.
+// The Darter's two eyes and its mouth are this same shape at three sizes, which
+// is what makes them read as one face rather than as three unrelated cutouts.
+//
+// cy is the flat edge, and the shape hangs BELOW it - so an anchor is the top of
+// the feature, not its middle. bow is EYEBOW: 1 is the straight edge, under 1
+// rounds it out, over 1 curves it down into the shape.
 const domeHole = (cx, cy, hw, hh, bow) => {
   g.moveTo(cx - hw, cy);
   for (let i = 1; i <= 8; i++) {
     const a = PI * (1 + i / 8);
-    g.lineTo(cx + cos(a) * hw, cy + sin(a) * hh);
+    g.lineTo(cx + cos(a) * hw, cy - sin(a) * hh);
   }
   for (let i = 1; i < 8; i++) {
     const u = i / 8;
-    g.lineTo(cx + hw * (1 - 2 * u), cy + hh * (1 - bow) * sin(PI * u));
+    g.lineTo(cx + hw * (1 - 2 * u), cy - hh * (1 - bow) * sin(PI * u));
   }
 };
 
@@ -1166,9 +1173,11 @@ const drawGhost = (o, target) => {
   for (const ex of [-0.34, 0.34]) {                // eye voids, wound as holes
     const cx = v.px + ex * v.r;
     if (t[10]) {
-      // Scared: a tall dome cut off square along the bottom. The eye is left wide
-      // open and the lid comes at it straight, which is the whole expression.
-      domeHole(cx, ey, er, er * C.EYEH, C.EYEBOW);
+      // Scared: a flat top with a tall dome hanging under it. The brow comes at
+      // the eye straight and the eye falls away below it, which is the whole
+      // expression. Anchored off EYEY rather than the round eye's line, because
+      // this one hangs down from its anchor instead of sitting either side.
+      domeHole(cx, v.py - v.r * C.EYEY, er, er * C.EYEH, C.EYEBOW);
     } else {
       g.moveTo(cx + er, ey);
       for (let i = 0; i <= 9; i++) {

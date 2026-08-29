@@ -151,8 +151,10 @@ slider('eyes', () => T()[EYE], (v) => (T()[EYE] = v | 0), 0, 1, 1,
        (v) => ((v | 0) ? 'scared' : 'round'));
 slider('eye height', () => C.EYEH, (v) => (C.EYEH = v), 0.6, 3, 0.05,
        (v) => (+v).toFixed(2) + 'x wide');
-slider('lower lid', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 2, 0.05,
-       (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved up' : 'flat'));
+slider('eye top', () => C.EYEY, (v) => (C.EYEY = v), -0.1, 0.9, 0.01,
+       (v) => (+v).toFixed(2) + ' of radius up');
+slider('top edge', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 2, 0.05,
+       (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved in' : 'flat'));
 slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
 slider('mouth', () => T()[MOUTH], (v) => (T()[MOUTH] = v), 0, 0.6, 0.01,
@@ -200,7 +202,7 @@ function dump() {
       ', ' + f(t[MOUTH]) + '],' +
       '  // ' + NAMES[k]).join('\n') +
     '\n  ],\n' +
-    '  EYEH: ' + f(C.EYEH) + ',  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
+    '  EYEY: ' + f(C.EYEY) + ',  EYEH: ' + f(C.EYEH) + ',  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
     '  MOUTHH: ' + f(C.MOUTHH) + ',  MOUTHY: ' + f(C.MOUTHY) + ',\n' +
     '  GW: ' + f(C.GW) + ',  GDOME: ' + C.GDOME + ',  SPIKE: ' + f(C.SPIKE) + ',\n' +
     '  GBOB: ' + f(C.GBOB) + ',  GBOBR: ' + f(C.GBOBR) + ',  GY: ' + f(C.GY) + ',\n' +
