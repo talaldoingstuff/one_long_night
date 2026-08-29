@@ -45,7 +45,7 @@ const { C } = M;
 
 const NAMES = ['Drifter', 'Darter', 'Hulk', 'Splitter', 'Warden'];
 const HP = 0, SPEED = 1, DMG = 2, COST = 3, WAVE = 4, RAD = 5, WOB = 6, FREQ = 7, WISP = 8,
-      COL = 9, EYE = 10, HORN = 11, MOUTH = 12, TILT = 13, MBOW = 14;
+      COL = 9, EYE = 10, HORN = 11, MOUTH = 12, TILT = 13, MBOW = 14, MH = 15, MY = 16;
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
@@ -159,9 +159,9 @@ slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
 slider('mouth', () => T()[MOUTH], (v) => (T()[MOUTH] = v), 0, 0.6, 0.01,
        (v) => (+v ? (+v).toFixed(2) + ' of radius' : 'none'));
-slider('mouth tall', () => C.MOUTHH, (v) => (C.MOUTHH = v), 0.3, 3, 0.05,
-       (v) => (+v).toFixed(2) + 'x wide');
-slider('mouth drop', () => C.MOUTHY, (v) => (C.MOUTHY = v), -0.2, 0.7, 0.01,
+slider('mouth tall', () => T()[MH], (v) => (T()[MH] = v), -3, 3, 0.05,
+       (v) => (+v < 0 ? 'flipped ' : '') + Math.abs(+v).toFixed(2) + 'x wide');
+slider('mouth drop', () => T()[MY], (v) => (T()[MY] = v), -0.2, 0.9, 0.01,
        (v) => (+v).toFixed(2) + ' of radius');
 slider('eye tilt', () => T()[TILT], (v) => (T()[TILT] = v), -1, 1, 0.05,
        (v) => (+v > 0 ? 'angry ' : +v < 0 ? 'sad ' : 'level ') + (+v).toFixed(2));
@@ -203,11 +203,11 @@ function dump() {
       '    [' + [t[HP], t[SPEED].toFixed(2), t[DMG], t[COST], t[WAVE],
                  t[RAD].toFixed(2), f(t[WOB]), t[FREQ], t[WISP]].join(', ') +
       ', [' + t[COL].join(', ') + '], ' + t[EYE] + ', ' + f(t[HORN]) +
-      ', ' + f(t[MOUTH]) + ', ' + f(t[TILT]) + ', ' + f(t[MBOW]) + '],' +
+      ', ' + f(t[MOUTH]) + ', ' + f(t[TILT]) + ', ' + f(t[MBOW]) +
+      ', ' + f(t[MH]) + ', ' + f(t[MY]) + '],' +
       '  // ' + NAMES[k]).join('\n') +
     '\n  ],\n' +
     '  EYEY: ' + f(C.EYEY) + ',  EYEH: ' + f(C.EYEH) + ',  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
-    '  MOUTHH: ' + f(C.MOUTHH) + ',  MOUTHY: ' + f(C.MOUTHY) + ',\n' +
     '  GW: ' + f(C.GW) + ',  GDOME: ' + C.GDOME + ',  SPIKE: ' + f(C.SPIKE) + ',\n' +
     '  GBOB: ' + f(C.GBOB) + ',  GBOBR: ' + f(C.GBOBR) + ',  GY: ' + f(C.GY) + ',\n' +
     '  GFADE: ' + f(C.GFADE) + ',  GFLASH: ' + f(C.GFLASH) + ',\n' +

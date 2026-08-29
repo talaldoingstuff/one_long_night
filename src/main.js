@@ -232,7 +232,8 @@ export const C = {
   SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
-  //   frequency, wisps, colour, eye shape, horn, mouth, eye tilt, mouth curve
+  //   frequency, wisps, colour, eye shape, horn, mouth, eye tilt, mouth curve,
+  //   mouth height, mouth drop
   // Eye shape 0 is a plain round void; 1 is the scared one - a dome over a lower
   // edge that curves up INTO the eye. Horn is how far a spike stands above the
   // dome, as a fraction of the half width, and 0 is no horn at all. Mouth is its
@@ -243,6 +244,12 @@ export const C = {
   // curve is that mouth's own EYEBOW: 1 is a straight top, over 1 curves it DOWN
   // into the mouth, which with the dome already below gives both edges bending
   // the same way.
+  //
+  // Mouth height is a multiple of that mouth's half width, and a NEGATIVE one
+  // turns the whole shape over - dome up, curved edge along the bottom. Mouth
+  // drop is where its flat edge sits below the middle. Both are per type because
+  // a flipped mouth grows the other way: one shared drop would put the Hulk's
+  // into its eyes while the Darter's sat right.
   // Cost and the unlock wave belong to step 8's threat budget and are carried
   // here because they are properties of the type, not of the spawner.
   GSPEED: 1,          // metres a second at speed 1.0x
@@ -252,14 +259,12 @@ export const C = {
   //
   // Unlocks are the difficulty spikes: 5, 10, 20, 30.
   TYPES: [
-    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1],       // Drifter, pale white
-    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1],  // Darter, sharp cyan
-    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 1, 0, 0.3, 0.55, 1.6],  // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0, 0, 0, 1],        // Splitter, sickly green
-    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1],       // Warden, pale gold
+    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12],       // Drifter, pale white
+    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12],  // Darter, sharp cyan
+    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 1, 0, 0.3, 0.55, 1.6, -1.2, 0.45], // Hulk, angry red
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0, 0, 0, 1, 1.2, 0.12],        // Splitter, sickly green
+    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1, 1.2, 0.12],       // Warden, pale gold
   ],
-  MOUTHH: 1.2,        // a mouth is this much taller than it is wide
-  MOUTHY: 0.12,       // and its top edge sits this far below the middle, in radii
   EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
                       // ghost radii. It hangs down from there, so this is not the
                       // eye's centre - and the round eye's 0.24 would put the
@@ -1199,8 +1204,10 @@ const drawGhost = (o, target) => {
     }
   }
   // The mouth, the same shape again, open under them.
+  // A negative height turns it over: the dome points up and the curved edge runs
+  // along the bottom, which is the Hulk's grimace.
   if (t[12])
-    domeHole(v.px, v.py + v.r * C.MOUTHY, v.r * t[12], v.r * t[12] * C.MOUTHH, t[14], 0);
+    domeHole(v.px, v.py + v.r * t[16], v.r * t[12], v.r * t[12] * t[15], t[14], 0);
   g.fill('evenodd');
   // The bind arriving and failing: a ring of the Warden's own colour pushing out
   // past it and fading. Under lighter, so it reads as light coming off it.
