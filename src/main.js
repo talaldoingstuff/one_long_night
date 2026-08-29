@@ -237,8 +237,10 @@ export const C = {
   // Eye shape 0 is a plain round void; 1 is the scared one - a dome over a lower
   // edge that curves up INTO the eye. Horn is how far a spike stands above the
   // dome, as a fraction of the half width, and 0 is no horn at all. Horn spread
-  // is where those horns sit: 0 puts ONE at the crown, and anything above puts
-  // TWO that far either side of it, out toward the shoulders. Mouth is its
+  // is where those horns sit, measured from the crown: 0 puts ONE there, up to 1
+  // puts TWO that far around the dome, and PAST 1 puts them down the straight
+  // sides instead - 1.35 is a third of the way down, where they read as arms.
+  // Mouth is its
   // half width as a fraction of the ghost's radius, and 0 is no mouth.
   //
   // Eye tilt shears the eye so its outer end rides up and its inner end drops -
@@ -264,7 +266,7 @@ export const C = {
     [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Drifter, pale white
     [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0],   // Darter, sharp cyan
     [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5], // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 0.85],   // Splitter, sickly green
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35],   // Splitter, sickly green
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Warden, pale gold
   ],
   EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
@@ -1153,8 +1155,11 @@ const drawGhost = (o, target) => {
     // body, and the target and bound outlines trace it without knowing it is
     // there. Spread 0 pushes the crown; anything else pushes two points that far
     // either side of it, which puts them out on the shoulders.
-    const mid = C.GDOME >> 1, sp = round(t[17] * mid);
-    const k = t[11] && (sp ? i === mid - sp || i === mid + sp : i === mid) ? 1 + t[11] : 1;
+    // Past a spread of 1 the horns leave the dome entirely and go down the sides,
+    // so nothing here is pushed out.
+    const mid = C.GDOME >> 1, sp = t[17] > 1 ? -1 : round(t[17] * mid);
+    const k = t[11] && sp >= 0 && (sp ? i === mid - sp || i === mid + sp : i === mid)
+      ? 1 + t[11] : 1;
     // k scales BOTH axes, so a horn grows straight out of the surface wherever it
     // sits. Scaling only y made it push upward instead - which is the same thing
     // at the crown, where x is zero, and almost nothing out at the sides, where
@@ -1163,8 +1168,16 @@ const drawGhost = (o, target) => {
   }
   // Down the right side to the first tip, then t[8] tips and the notches between
   // them, ending on the left side. closePath takes it back up to the dome.
+  // Arms: a vertex partway down each straight side, pushed out. The sides have no
+  // vertices of their own - the outline runs from the dome straight to the first
+  // tooth - so a horn down here has to add one. Right side on the way down, left
+  // side on the way back, which is the order the path already travels in.
+  const arm = t[11] && t[17] > 1 ? min(1, t[17] - 1) : 0;
+  const ay = dy + (ny - dy) * arm;
+  if (arm) bp.push([v.px + w * (1 + t[11]), ay]);
   const n = 2 * (t[8] - 1);
   for (let i = 0; i <= n; i++) bp.push([v.px + w - (i / n) * 2 * w, i % 2 ? ny : hy]);
+  if (arm) bp.push([v.px - w * (1 + t[11]), ay]);
   bp.push(bp[0]);
   for (const q of bp) g.lineTo(q[0], q[1]);
   g.closePath();

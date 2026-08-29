@@ -158,8 +158,9 @@ slider('top edge', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 2, 0.05,
        (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved in' : 'flat'));
 slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
-slider('horns apart', () => T()[HSPREAD], (v) => (T()[HSPREAD] = v), 0, 1, 0.05,
-       (v) => (+v ? 'two, ' + (+v).toFixed(2) + ' apart' : 'one, centred'));
+slider('horns apart', () => T()[HSPREAD], (v) => (T()[HSPREAD] = v), 0, 2, 0.05,
+       (v) => (+v > 1 ? 'arms, ' + (+v - 1).toFixed(2) + ' down the side'
+             : +v ? 'two, ' + (+v).toFixed(2) + ' apart' : 'one, centred'));
 slider('mouth', () => T()[MOUTH], (v) => (T()[MOUTH] = v), 0, 0.6, 0.01,
        (v) => (+v ? (+v).toFixed(2) + ' of radius' : 'none'));
 slider('mouth tall', () => T()[MH], (v) => (T()[MH] = v), -3, 3, 0.05,
