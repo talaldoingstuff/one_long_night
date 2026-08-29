@@ -149,7 +149,10 @@ slider('wobble', () => T()[WOB], (v) => (T()[WOB] = v), 0, 0.3, 0.005);
 slider('wobble rate', () => T()[FREQ], (v) => (T()[FREQ] = v | 0), 1, 9, 1, (v) => (v | 0) + '');
 slider('eyes', () => T()[EYE], (v) => (T()[EYE] = v | 0), 0, 1, 1,
        (v) => ((v | 0) ? 'scared' : 'round'));
-slider('eye curve', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 0.9, 0.01);
+slider('eye height', () => C.EYEH, (v) => (C.EYEH = v), 0.6, 3, 0.05,
+       (v) => (+v).toFixed(2) + 'x wide');
+slider('lower lid', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 2, 0.05,
+       (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved up' : 'flat'));
 slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
        (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
 slider('red', () => T()[COL][0], (v) => (T()[COL][0] = v | 0), 0, 255, 1, (v) => (v | 0) + '');

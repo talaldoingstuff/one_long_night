@@ -251,7 +251,11 @@ export const C = {
     [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0],     // Splitter, sickly green
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0],    // Warden, pale gold
   ],
-  EYEBOW: 0.45,       // how far a scared eye's lower edge curves up into it
+  EYEH: 1.7,          // a scared eye is stretched this much taller than it is wide
+  EYEBOW: 1.25,       // and its lower edge is that height scaled by 1 - EYEBOW, so
+                      // 1 is a flat lid and anything over 1 curves up INTO the eye.
+                      // Both are needed: a lid curving up into a short eye closes
+                      // it to a lens, and a lens with a domed top reads as a smile
   SPLIT: 3,           // the Splitter's row: dies into two Drifters
   WARDEN: 4,          // the Warden's row: the bind cannot hold it
   SPLITD: 0.5,        // how far apart the two children appear, metres
@@ -1145,14 +1149,15 @@ const drawGhost = (o, target) => {
       // Scared: a dome over the top, and a lower edge that curves UP into the
       // eye instead of closing it round. The pupil is left wide and the lid
       // comes at it from below, which is the whole expression.
+      const eh = er * C.EYEH;
       g.moveTo(cx - er, ey);
-      for (let i = 1; i <= 8; i++) {
+      for (let i = 1; i <= 8; i++) {              // the dome, tall
         const a = PI * (1 + i / 8);
-        g.lineTo(cx + cos(a) * er, ey + sin(a) * er);
+        g.lineTo(cx + cos(a) * er, ey + sin(a) * eh);
       }
-      for (let i = 1; i < 8; i++) {
+      for (let i = 1; i < 8; i++) {               // and the lid, pushing up under it
         const u = i / 8;
-        g.lineTo(cx + er * (1 - 2 * u), ey - C.EYEBOW * er * sin(PI * u));
+        g.lineTo(cx + er * (1 - 2 * u), ey + eh * (1 - C.EYEBOW) * sin(PI * u));
       }
     } else {
       g.moveTo(cx + er, ey);
