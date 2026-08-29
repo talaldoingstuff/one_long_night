@@ -232,7 +232,10 @@ export const C = {
   SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
-  //   frequency, wisps, colour
+  //   frequency, wisps, colour, eye shape, horn
+  // Eye shape 0 is a plain round void; 1 is the scared one - a dome over a lower
+  // edge that curves up INTO the eye. Horn is how far a spike stands above the
+  // dome, as a fraction of the half width, and 0 is no horn at all.
   // Cost and the unlock wave belong to step 8's threat budget and are carried
   // here because they are properties of the type, not of the spawner.
   GSPEED: 1,          // metres a second at speed 1.0x
@@ -242,12 +245,13 @@ export const C = {
   //
   // Unlocks are the difficulty spikes: 5, 10, 20, 30.
   TYPES: [
-    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240]],  // Drifter, pale white
-    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255]],   // Darter, sharp cyan
-    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76]],    // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118]],   // Splitter, sickly green
-    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130]],  // Warden, pale gold
+    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0],    // Drifter, pale white
+    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55],  // Darter, sharp cyan
+    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76], 0, 0],      // Hulk, angry red
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0],     // Splitter, sickly green
+    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0],    // Warden, pale gold
   ],
+  EYEBOW: 0.45,       // how far a scared eye's lower edge curves up into it
   SPLIT: 3,           // the Splitter's row: dies into two Drifters
   WARDEN: 4,          // the Warden's row: the bind cannot hold it
   SPLITD: 0.5,        // how far apart the two children appear, metres
@@ -1095,7 +1099,11 @@ const drawGhost = (o, target) => {
     // negative across that span and the arc is the upper half.
     const a = PI * (1 + i / C.GDOME);
     const q = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
-    bp.push([v.px + cos(a) * w * q, dy + sin(a) * w * q]);
+    // A horn is the apex pushed further out, so it is part of the outline rather
+    // than a shape sitting on top of one - it wobbles with the body, and the
+    // target and bound outlines trace it without knowing it is there.
+    const k = t[11] && i === (C.GDOME >> 1) ? 1 + t[11] : 1;
+    bp.push([v.px + cos(a) * w * q, dy + sin(a) * w * q * k]);
   }
   // Down the right side to the first tip, then t[8] tips and the notches between
   // them, ending on the left side. closePath takes it back up to the dome.
@@ -1132,10 +1140,26 @@ const drawGhost = (o, target) => {
   // stretched 1.5x vertically, which read as a squint rather than a void.
   const er = v.r * 0.2, ey = v.py - v.r * 0.24;
   for (const ex of [-0.34, 0.34]) {                // eye voids, wound as holes
-    g.moveTo(v.px + ex * v.r + er, ey);
-    for (let i = 0; i <= 9; i++) {
-      const a = (i / 9) * 2 * PI;
-      g.lineTo(v.px + ex * v.r + cos(a) * er, ey + sin(a) * er);
+    const cx = v.px + ex * v.r;
+    if (t[10]) {
+      // Scared: a dome over the top, and a lower edge that curves UP into the
+      // eye instead of closing it round. The pupil is left wide and the lid
+      // comes at it from below, which is the whole expression.
+      g.moveTo(cx - er, ey);
+      for (let i = 1; i <= 8; i++) {
+        const a = PI * (1 + i / 8);
+        g.lineTo(cx + cos(a) * er, ey + sin(a) * er);
+      }
+      for (let i = 1; i < 8; i++) {
+        const u = i / 8;
+        g.lineTo(cx + er * (1 - 2 * u), ey - C.EYEBOW * er * sin(PI * u));
+      }
+    } else {
+      g.moveTo(cx + er, ey);
+      for (let i = 0; i <= 9; i++) {
+        const a = (i / 9) * 2 * PI;
+        g.lineTo(cx + cos(a) * er, ey + sin(a) * er);
+      }
     }
   }
   g.fill('evenodd');

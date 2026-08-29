@@ -44,7 +44,8 @@ const M = await import('/src/main.js');
 const { C } = M;
 
 const NAMES = ['Drifter', 'Darter', 'Hulk', 'Splitter', 'Warden'];
-const HP = 0, SPEED = 1, DMG = 2, COST = 3, WAVE = 4, RAD = 5, WOB = 6, FREQ = 7, WISP = 8, COL = 9;
+const HP = 0, SPEED = 1, DMG = 2, COST = 3, WAVE = 4, RAD = 5, WOB = 6, FREQ = 7, WISP = 8,
+      COL = 9, EYE = 10, HORN = 11;
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
@@ -146,6 +147,11 @@ slider('radius', () => T()[RAD], (v) => (T()[RAD] = v), 0.15, 1.6, 0.01, (v) => 
 slider('wisps', () => T()[WISP], (v) => (T()[WISP] = v | 0), 3, 12, 1, (v) => (v | 0) + ' teeth');
 slider('wobble', () => T()[WOB], (v) => (T()[WOB] = v), 0, 0.3, 0.005);
 slider('wobble rate', () => T()[FREQ], (v) => (T()[FREQ] = v | 0), 1, 9, 1, (v) => (v | 0) + '');
+slider('eyes', () => T()[EYE], (v) => (T()[EYE] = v | 0), 0, 1, 1,
+       (v) => ((v | 0) ? 'scared' : 'round'));
+slider('eye curve', () => C.EYEBOW, (v) => (C.EYEBOW = v), 0, 0.9, 0.01);
+slider('horn', () => T()[HORN], (v) => (T()[HORN] = v), 0, 1.4, 0.05,
+       (v) => (+v ? (+v).toFixed(2) + ' of half width' : 'none'));
 slider('red', () => T()[COL][0], (v) => (T()[COL][0] = v | 0), 0, 255, 1, (v) => (v | 0) + '');
 slider('green', () => T()[COL][1], (v) => (T()[COL][1] = v | 0), 0, 255, 1, (v) => (v | 0) + '');
 slider('blue', () => T()[COL][2], (v) => (T()[COL][2] = v | 0), 0, 255, 1, (v) => (v | 0) + '');
@@ -181,8 +187,10 @@ function dump() {
     C.TYPES.map((t, k) =>
       '    [' + [t[HP], t[SPEED].toFixed(2), t[DMG], t[COST], t[WAVE],
                  t[RAD].toFixed(2), f(t[WOB]), t[FREQ], t[WISP]].join(', ') +
-      ', [' + t[COL].join(', ') + ']],' + '  // ' + NAMES[k]).join('\n') +
+      ', [' + t[COL].join(', ') + '], ' + t[EYE] + ', ' + f(t[HORN]) + '],' +
+      '  // ' + NAMES[k]).join('\n') +
     '\n  ],\n' +
+    '  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
     '  GW: ' + f(C.GW) + ',  GDOME: ' + C.GDOME + ',  SPIKE: ' + f(C.SPIKE) + ',\n' +
     '  GBOB: ' + f(C.GBOB) + ',  GBOBR: ' + f(C.GBOBR) + ',  GY: ' + f(C.GY) + ',\n' +
     '  GFADE: ' + f(C.GFADE) + ',  GFLASH: ' + f(C.GFLASH) + ',\n' +
