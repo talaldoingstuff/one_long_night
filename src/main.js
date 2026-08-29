@@ -1039,15 +1039,14 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
-  // The rim fades in across the arming second and then brightens across the
-  // charge - one continuous ramp, so the second of holding before anything else
-  // happens is not a second of nothing happening. The floor only joins once the
-  // bind is actually running, which is what separates armed from arming.
+  // Nothing is drawn until the bind is genuinely charging: the rim and the floor
+  // arrive together. The rim used to fade in across the arming window as a "keep
+  // holding" cue, which was worth it at ARM 1s and is not at 0.3s - every press
+  // that turned out to be a turn flashed it first, and a ring appearing while you
+  // rotate reads as the bind going off early.
   if (charging) {
     groundBow(bindR());
     rim(C.BINDR, C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG));
-  } else if (armT > 0) {
-    rim(C.BINDR, C.RIMA * 0.35 * min(1, armT / C.ARM));
   }
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();
