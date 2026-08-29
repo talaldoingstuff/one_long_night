@@ -252,8 +252,15 @@ export const C = {
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
   XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
-  XHW: 2,             // and its thickness
+  XHW: 3.5,           // and its thickness
   XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
+  ASSISTR: 3,         // aim assist reaches this many of a ghost's radii - wider
+                      // than the pick, so it pulls you onto things you are only
+                      // near, and stops the moment you are on one
+  ASSIST: 3,          // and closes that much of the gap a second
+  BARSW: 0.15,        // the charging marker, as a fraction of the bar
+  BARSLW: 2,          // its thickness
+  BARSC: '#fff',
   TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
                       // anywhere near it
@@ -915,25 +922,42 @@ const drawGhost = (o, target) => {
   const dy = v.py - r + w;                        // the dome's centre
   const hy = v.py + r;                            // the tooth tips
   const ny = hy - r * C.SPIKE;                    // and the notches between them
+  const bp = [];                                  // the body outline, kept for stroking
   g.beginPath();
   for (let i = 0; i <= C.GDOME; i++) {
     // PI to 2PI, so it runs left, over the top, to right. y is down, so sin is
     // negative across that span and the arc is the upper half.
     const a = PI * (1 + i / C.GDOME);
     const q = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
-    g.lineTo(v.px + cos(a) * w * q, dy + sin(a) * w * q);
+    bp.push([v.px + cos(a) * w * q, dy + sin(a) * w * q]);
   }
   // Down the right side to the first tip, then t[8] tips and the notches between
   // them, ending on the left side. closePath takes it back up to the dome.
   const n = 2 * (t[8] - 1);
-  for (let i = 0; i <= n; i++)
-    g.lineTo(v.px + w - (i / n) * 2 * w, i % 2 ? ny : hy);
+  for (let i = 0; i <= n; i++) bp.push([v.px + w - (i / n) * 2 * w, i % 2 ? ny : hy]);
+  bp.push(bp[0]);
+  for (const q of bp) g.lineTo(q[0], q[1]);
   g.closePath();
   // The target outline goes on here, while the path is still just the body: the
   // eye voids are subpaths of the same path, and stroking after they are added
   // would draw rings round the eyes too. Stroked before the fill, so the fill
   // covers its inner half and what is left is a line hugging the silhouette.
-  if (target === o) {
+  // Held, it wears the rainbow instead: the same outline, walked around the body
+  // rather than held at one colour, so what the bind has caught is unmistakable
+  // and is the same language the floor and the wall speak.
+  if (o[8] > 0) {
+    g.lineWidth = C.TGTW;
+    for (let i = 1; i < bp.length; i++) {
+      g.strokeStyle = css(bow((i - 1) / (bp.length - 1)), 1);
+      g.beginPath();
+      g.moveTo(bp[i - 1][0], bp[i - 1][1]);
+      g.lineTo(bp[i][0], bp[i][1]);
+      g.stroke();
+    }
+    g.beginPath();                                // the fill path, rebuilt
+    for (const q of bp) g.lineTo(q[0], q[1]);
+    g.closePath();
+  } else if (target === o) {
     g.strokeStyle = css(C.GOLD, 1);
     g.lineWidth = C.TGTW;
     g.stroke();
@@ -980,6 +1004,7 @@ const step = (dt) => {
     pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + ky * C.KTURN * dt));
     aim();
   }
+  assist(dt);
   // It lets go by itself at BINDCHG. Waiting for the player to release would let
   // them hold a full ring indefinitely and pick their moment for free.
   if (charging && (bindC += dt) >= C.BINDCHG) cast();
@@ -1116,7 +1141,9 @@ const minimap = () => {
     const d = hypot(bx, bz), c = min(1, reach / (d || 1)) * k;
     g.beginPath();
     g.arc(ox + bx * c, oy - bz * c, C.MAPBLIP * r, 0, 2 * PI);
-    g.fillStyle = o[8] > 0 ? css(C.RIMC, 1) : 'rgb(' + TY(o)[9] + ')';
+    // A blip is too small to carry a rainbow around itself, so a held one runs
+    // through it in time instead - the same cycle the horn and the eyes use.
+    g.fillStyle = o[8] > 0 ? css(RBV[(clock * C.EYERB | 0) % 6], 1) : 'rgb(' + TY(o)[9] + ')';
     g.fill();
   }
 
@@ -1164,15 +1191,24 @@ const hud = () => {
   const bx = W - 16 - bw, by = 18 + hu + hu * C.BARGAP;
   g.fillStyle = C.BARBG;
   g.fillRect(bx, by, bw, bh);
-  // Charging fills it toward the cast; otherwise it is how far the cooldown has
-  // come back. Both are the same question - how close is the next bind - so they
-  // share the bar rather than fighting over it.
-  const fill = charging ? bindC / C.BINDCHG : 1 - bindT / C.BINDCD;
+  // The fill is only ever the passive refill: how much of the bind is back.
+  // Charging is a different thing being answered and it was borrowing the same
+  // gesture, so a charge and a recharge looked identical.
+  const fill = 1 - bindT / C.BINDCD;
   for (let i = 0; i < 6; i++) {                   // in rainbow, left to right
     const a = bw * i / 6, b = min(bw * fill, bw * (i + 1) / 6);
     if (b <= a) break;
     g.fillStyle = css(RBV[i], charging ? 1 : 0.85);
     g.fillRect(bx + a, by, b - a, bh);
+  }
+
+  // Charging says so differently: a white box running left to right along the bar.
+  // Movement rather than level, so it cannot be mistaken for the fill under it.
+  if (charging) {
+    const ww = bw * C.BARSW;
+    g.strokeStyle = C.BARSC;
+    g.lineWidth = C.BARSLW;
+    g.strokeRect(bx + (bw - ww) * min(1, bindC / C.BINDCHG), by, ww, bh);
   }
 
   minimap();
@@ -1235,6 +1271,31 @@ const overScreen = (u) => {
 
 // The one ghost nearest the middle of the screen, so the player can tell what
 // they are aimed at (DESIGN.md 7).
+// Aim assist. The crosshair cannot move: it sits on the horn's line, and the
+// puppet is a viewmodel in camera space, so proj(aimAt()) is the same screen
+// point whatever the camera does. So the assist turns the CAMERA until the ghost
+// arrives under it - the unicorn's pose is untouched, which is also what keeps it
+// honest, since the horn still points exactly where the shots go.
+//
+// Converting a screen gap into a turn: for a point at camera depth z, a small yaw
+// dth moves it -z*dth in camera x, and x reaches the screen multiplied by s*PX.
+// So dth = -dpx / (z*s*PX), and pitch is the same with the sign the other way.
+const assist = (dt) => {
+  const a = proj(aimAt());
+  let bx = 0, by = 0, bd = 1, bz = 0, bs = 0;
+  for (const o of ghosts) {
+    const v = ghostAt(o);
+    if (!v) continue;
+    const d = hypot(v.px - a[0], v.py - a[1]) / (v.r * C.ASSISTR);
+    if (d < bd) { bd = d; bx = a[0] - v.px; by = a[1] - v.py; bz = v.c[2]; bs = v.s; }
+  }
+  if (!bz) return;
+  const k = min(1, C.ASSIST * dt) / (bz * bs * PX);
+  yaw -= bx * k;
+  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + by * k));
+  aim();
+};
+
 const underCrosshair = () => {
   const a = proj(aimAt());
   let best = null, bd = 1;
