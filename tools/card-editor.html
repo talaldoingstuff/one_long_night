@@ -19,6 +19,9 @@
   .row span{width:96px;flex:none;text-align:right;color:#e8ecff}
   canvas{display:block;background:#05060c;border:1px solid #1d2236;border-radius:3px}
   #sheet{margin-bottom:18px}
+  /* The module grabs #c at import time and starts its own loop in it. It has to
+     exist or nothing loads at all; it does not have to be visible. */
+  #c{position:fixed;left:-4000px;top:0;width:900px;height:500px}
   .note{color:#6b7499;margin:6px 0 0}
   textarea{width:100%;height:150px;background:#05060c;color:#9fd3ff;border:1px solid #1d2236;
            font:12px/1.45 ui-monospace,monospace;padding:7px;resize:vertical}
@@ -28,6 +31,7 @@
 </style>
 </head>
 <body>
+<canvas id="c" width="900" height="500"></canvas>
 <div id="wrap">
   <div id="side"></div>
   <div id="main">
@@ -42,6 +46,10 @@
 // Drives the real module, so what is on screen here is what is in the game.
 const M = await import('/src/main.js');
 const C = M.C;
+// The game keeps running in its own hidden canvas. setCtx points it at the stage
+// only for as long as a draw takes, and hands it straight back - JavaScript is
+// single threaded, so the game's next frame cannot land in the middle of that.
+const hostCtx = document.getElementById('c').getContext('2d');
 
 const NAMES = [...C.CARDS.map((c) => c[5]), 'RECOVERY'];
 const IDS = [0, 1, 2, 3, 4, 5, 6, -1];
@@ -122,6 +130,8 @@ const draw = () => {
     '  CARDT: ' + C.CARDT.toFixed(3) + ',  CARDL: ' + C.CARDL.toFixed(3) +
       ',  CARDV: ' + C.CARDV.toFixed(3) + ',\n' +
     '  CARDU: ' + C.CARDU.toFixed(3) + ',  CARDI: ' + C.CARDI.toFixed(3) + ',';
+
+  M.setCtx(hostCtx);
 };
 
 h2('the level shown');
