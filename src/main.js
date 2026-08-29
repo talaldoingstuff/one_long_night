@@ -18,7 +18,7 @@
 //   metres to pixels, so the same scene frames identically at any window size -
 //   that scale factor is the only thing added to the spec's projection.
 
-const { min, max, abs, cos, sin, tan, atan2, hypot, random, PI } = Math;
+const { min, max, abs, cos, sin, tan, atan2, hypot, random, round, PI } = Math;
 
 export const C = {
   // --- Projection ------------------------------------------------------------
@@ -231,22 +231,33 @@ export const C = {
   // Cost and the unlock wave belong to step 8's threat budget and are carried
   // here because they are properties of the type, not of the spawner.
   GSPEED: 1,          // metres a second at speed 1.0x
+  // Costs are priced so hp-per-cost sits in a 2.0-3.6 band. They used to run
+  // 1.0-3.0 with the CHEAPEST ghost the best value on both hp and damage, which
+  // meant the budget was measuring roughly the opposite of threat.
+  //
+  // Unlocks are the difficulty spikes: 5, 10, 20, 30.
   TYPES: [
-    [3,  1.0, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240]],   // Drifter, pale white
-    [2,  1.8, 1, 2,  3, 0.34, 0.04, 4, 4, [34, 201, 255]],    // Darter, sharp cyan
-    [10, 0.5, 3, 5,  5, 0.80, 0.07, 3, 7, [255, 72, 76]],     // Hulk, angry red
-    [6,  0.8, 1, 4, 10, 0.56, 0.08, 5, 6, [96, 214, 118]],    // Splitter, sickly green
-    [8,  0.7, 2, 6, 20, 0.64, 0.04, 3, 6, [235, 205, 130]],   // Warden, pale gold
+    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240]],  // Drifter, pale white
+    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255]],   // Darter, sharp cyan
+    [18, 0.70, 3, 5, 10, 0.80, 0.07, 3, 7, [255, 72, 76]],    // Hulk, angry red
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118]],   // Splitter, sickly green
+    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130]],  // Warden, pale gold
   ],
   SPLIT: 3,           // the Splitter's row: dies into two Drifters
   WARDEN: 4,          // the Warden's row: the bind cannot hold it
   SPLITD: 0.5,        // how far apart the two children appear, metres
 
   // --- Waves (DESIGN.md 8) ----------------------------------------------------
-  // One formula, so the whole difficulty curve is tuned from one place. Wave 1 is
-  // BUD0, and every wave after adds BUDG.
-  BUD0: 6,            // wave 1's threat budget: six Drifters, at a cost of 1 each
-  BUDG: 3,            // and what each later wave adds
+  // Both curves are geometric, and they have to be. The cards multiply - fire
+  // rate and damage together reach x25.6 - so a budget that only ADDS is outrun
+  // by wave 17 and never threatens again. Measured: with a linear budget a run
+  // played well never ends.
+  //
+  // The budget sets how LONG a wave is; the spawn interval sets how HARD it is.
+  // Both move, or waves just get longer.
+  BUD0: 6,            // wave 1: six Drifters at a cost of 1 each
+  BUDR: 1.12,         // and 12% more threat every wave after
+  SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
   WAVEGAP: 2,         // seconds of quiet between a cleared wave and the next
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
@@ -885,7 +896,7 @@ const spawn = (k) => {
   born(cos(a) * C.ARENA, sin(a) * C.ARENA, k);
 };
 
-const budgetFor = (w) => C.BUD0 + C.BUDG * (w - 1);
+const budgetFor = (w) => round(C.BUD0 * C.BUDR ** (w - 1));
 
 // DESIGN.md 8: the spawner buys randomly from what is currently unlocked until
 // the budget is spent. The wave number gates the LIST, never the amount - so a
@@ -1039,7 +1050,7 @@ const step = (dt) => {
   spawnT -= dt;
   if (spawnT <= 0) {
     const k = buy();
-    if (k >= 0) { spawnT = C.SPAWN; budget -= C.TYPES[k][3]; spawn(k); }
+    if (k >= 0) { spawnT = C.SPAWN * C.SPAWNR ** (wave - 1); budget -= C.TYPES[k][3]; spawn(k); }
   }
   // A wave is over when its budget is spent AND the field is clear - so the
   // Splitter's free children, which nothing paid for, still have to be dealt with
