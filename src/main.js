@@ -277,6 +277,9 @@ export const C = {
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 1.15, 0.55, 1], // Warden, near black
   ],
   SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost
+  SOLIDE: 0.34,       // and a faint white edge on it, so a near-black body still
+                      // has a silhouette against a near-black ground
+  SOLIDEW: 1.5,       // px
   EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
                       // ghost radii. It hangs down from there, so this is not the
                       // eye's centre - and the round eye's 0.24 would put the
@@ -1250,6 +1253,12 @@ const drawGhost = (o, target) => {
     // on something already dark.
     g.globalCompositeOperation = 'source-over';
     g.fill();
+    // Traced while the body path is still the current one, and after the fill so
+    // the line is not half swallowed by it. Any target or bind outline was
+    // stroked before that fill and is thicker, so it still reads outside this.
+    g.strokeStyle = 'rgba(255,255,255,' + C.SOLIDE + ')';
+    g.lineWidth = C.SOLIDEW;
+    g.stroke();
     g.beginPath();
     face(v, t);
     g.fillStyle = hit ? 'rgb(' + t[9] + ')' : css(C.SOLIDF, 1);
