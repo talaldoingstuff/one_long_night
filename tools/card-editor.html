@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>cards</title>
+<style>
+  html,body{margin:0;height:100%;background:#07080f;color:#cfd6f5;
+            font:13px/1.5 ui-monospace,monospace;overflow:hidden}
+  #wrap{display:flex;height:100%}
+  #side{width:290px;flex:none;overflow-y:auto;padding:12px 14px;
+        background:#0b0d18;border-right:1px solid #1d2236}
+  #main{flex:1;overflow-y:auto;padding:16px}
+  h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7d86ad;
+     margin:18px 0 8px;border-bottom:1px solid #1d2236;padding-bottom:4px}
+  h2:first-child{margin-top:0}
+  .row{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .row label{width:104px;flex:none;color:#98a2c8}
+  .row input[type=range]{flex:1;min-width:0}
+  .row span{width:96px;flex:none;text-align:right;color:#e8ecff}
+  canvas{display:block;background:#05060c;border:1px solid #1d2236;border-radius:3px}
+  #sheet{margin-bottom:18px}
+  .note{color:#6b7499;margin:6px 0 0}
+  textarea{width:100%;height:150px;background:#05060c;color:#9fd3ff;border:1px solid #1d2236;
+           font:12px/1.45 ui-monospace,monospace;padding:7px;resize:vertical}
+  button{background:#1a2033;color:#cfd6f5;border:1px solid #2b3350;padding:5px 10px;
+         border-radius:3px;cursor:pointer;font:12px ui-monospace,monospace}
+  button:hover{background:#232b45}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="side"></div>
+  <div id="main">
+    <canvas id="sheet" width="1180" height="330"></canvas>
+    <canvas id="zoom" width="1180" height="200"></canvas>
+    <p class="note">Top: every card at the size it is really drawn, at the level you set.<br>
+       Bottom: the icons alone, at 3x, 1x and half - an icon has to survive the small one.</p>
+  </div>
+</div>
+
+<script type="module">
+// Drives the real module, so what is on screen here is what is in the game.
+const M = await import('/src/main.js');
+const C = M.C;
+
+const NAMES = [...C.CARDS.map((c) => c[5]), 'RECOVERY'];
+const IDS = [0, 1, 2, 3, 4, 5, 6, -1];
+
+const sheet = document.getElementById('sheet');
+const zoom = document.getElementById('zoom');
+const sc = sheet.getContext('2d');
+const zc = zoom.getContext('2d');
+const side = document.getElementById('side');
+let level = 0;
+
+const h2 = (t) => { const e = document.createElement('h2'); e.textContent = t; side.append(e); };
+const slider = (label, get, set, lo, hi, step, fmt = (v) => v.toFixed(3)) => {
+  const row = document.createElement('div'); row.className = 'row';
+  const l = document.createElement('label'); l.textContent = label;
+  const r = document.createElement('input');
+  r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = get();
+  const v = document.createElement('span'); v.textContent = fmt(get());
+  r.oninput = () => { set(+r.value); v.textContent = fmt(+r.value); draw(); };
+  row.append(l, r, v); side.append(row);
+};
+
+// The module draws into whatever context setCtx hands it, and reads W/H from the
+// window, so the sheet is rendered at the game's real proportions and then the
+// pieces are lifted out. Anything else would be measuring a different card.
+const GW = 900, GH = 500;
+const stage = document.createElement('canvas');
+stage.width = GW; stage.height = GH;
+const stc = stage.getContext('2d');
+
+const draw = () => {
+  M.setCtx(stc);
+  M.restart();
+  for (let i = 0; i < C.CARDS.length; i++) M.setLv(i, Math.min(level, C.CARDS[i][0] - 1));
+
+  const cw = GW * C.CARDW, ch = GH * C.CARDH;
+  // --- the sheet: every card at its true size ------------------------------------
+  sheet.width = Math.max(1180, IDS.length * (cw + 18) + 20);
+  sheet.height = ch + 62;
+  sc.fillStyle = '#05060c';
+  sc.fillRect(0, 0, sheet.width, sheet.height);
+  for (let n = 0; n < IDS.length; n++) {
+    stc.clearRect(0, 0, GW, GH);
+    M.drawCard(IDS[n], n + 1, 4, 4, cw, ch);
+    sc.drawImage(stage, 0, 0, cw + 8, ch + 40, n * (cw + 18) + 10, 10, cw + 8, ch + 40);
+  }
+
+  // --- the icons alone, three sizes ------------------------------------------------
+  // Size the canvas BEFORE drawing into it: setting width or height on a canvas
+  // clears it, so measuring afterwards wipes the frame that was just made.
+  const base = cw * C.CARDI;
+  const MULS = [[3, '3x'], [1, 'actual'], [0.5, 'half']];
+  const bands = MULS.map(([m]) => base * m * 2 + 26);
+  zoom.width = IDS.length * 140 + 60;
+  zoom.height = bands.reduce((a, b2) => a + b2, 0) + 24;
+  zc.fillStyle = '#05060c';
+  zc.fillRect(0, 0, zoom.width, zoom.height);
+  let y = 0;
+  MULS.forEach(([mul, label], bi) => {
+    const r = base * mul, band = bands[bi];
+    for (let n = 0; n < IDS.length; n++) {
+      stc.clearRect(0, 0, GW, GH);
+      M.cardGlyph(IDS[n], 100, 100, r);
+      zc.drawImage(stage, 100 - r - 6, 100 - r - 6, r * 2 + 12, r * 2 + 12,
+                   n * 140 + 110 - r - 6, y + band / 2 - r - 6, r * 2 + 12, r * 2 + 12);
+    }
+    zc.fillStyle = '#6b7499';
+    zc.font = '11px ui-monospace,monospace';
+    zc.fillText(label, 6, y + band / 2);
+    y += band;
+  });
+  zc.fillStyle = '#6b7499';
+  zc.font = '11px ui-monospace,monospace';
+  for (let n = 0; n < IDS.length; n++) zc.fillText(NAMES[n].slice(0, 13), n * 140 + 46, y + 14);
+
+  out.value =
+    '  CARDW: ' + C.CARDW.toFixed(3) + ',  CARDH: ' + C.CARDH.toFixed(3) + ',\n' +
+    '  CARDT: ' + C.CARDT.toFixed(3) + ',  CARDL: ' + C.CARDL.toFixed(3) +
+      ',  CARDV: ' + C.CARDV.toFixed(3) + ',\n' +
+    '  CARDU: ' + C.CARDU.toFixed(3) + ',  CARDI: ' + C.CARDI.toFixed(3) + ',';
+};
+
+h2('the level shown');
+slider('level', () => level, (v) => (level = v | 0), 0, 7, 1, (v) => 'LV ' + ((v | 0) + 1));
+
+h2('the card');
+slider('width', () => C.CARDW, (v) => (C.CARDW = v), 0.08, 0.34, 0.005,
+       (v) => v.toFixed(3) + ' of W');
+slider('height', () => C.CARDH, (v) => (C.CARDH = v), 0.15, 0.7, 0.005,
+       (v) => v.toFixed(3) + ' of H');
+
+h2('type, as a fraction of the card width');
+slider('title', () => C.CARDT, (v) => (C.CARDT = v), 0.05, 0.25, 0.005);
+slider('level line', () => C.CARDL, (v) => (C.CARDL = v), 0.04, 0.2, 0.005);
+slider('the number', () => C.CARDV, (v) => (C.CARDV = v), 0.04, 0.2, 0.005);
+slider('the unit', () => C.CARDU, (v) => (C.CARDU = v), 0.03, 0.18, 0.005);
+
+h2('the icon');
+slider('radius', () => C.CARDI, (v) => (C.CARDI = v), 0.05, 0.4, 0.005);
+
+h2('paste back into C');
+const out = document.createElement('textarea');
+side.append(out);
+const copy = document.createElement('button');
+copy.textContent = 'copy';
+copy.onclick = () => navigator.clipboard.writeText(out.value);
+side.append(copy);
+
+draw();
+</script>
+</body>
+</html>

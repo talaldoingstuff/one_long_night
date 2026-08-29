@@ -1426,61 +1426,116 @@ const cardBox = (n, i) => {
   return [W / 2 + (i - (n - 1) / 2) * (w + gap) - w / 2, H / 2 - h / 2, w, h];
 };
 
-// A glyph per card, built from what is already here: the heart path for the two
-// that give you hearts, a ring for the three that are about the bind, and a horn
-// for the two that are about shooting.
+// A glyph per card. The rule they were failing: at 27px an icon is a SILHOUETTE,
+// so two cards cannot differ by a detail inside one. Fire rate and horn damage
+// were both a gold triangle; the three bind cards were the same ring with a
+// different speck in it; regen and Recovery were identical. Each one now differs
+// in what shape it is, or how many of them there are.
+const heartAt = (x, y, r) => {
+  g.beginPath();
+  g.moveTo(x, y + r);
+  g.lineTo(x - r, y - r * 0.24);
+  g.lineTo(x - r * 0.5, y - r);
+  g.lineTo(x, y - r * 0.28);
+  g.lineTo(x + r * 0.5, y - r);
+  g.lineTo(x + r, y - r * 0.24);
+  g.fill();
+};
+
+const hornAt = (x, y, r) => {
+  g.beginPath();
+  g.moveTo(x, y - r);
+  g.lineTo(x + r * 0.38, y + r * 0.72);
+  g.lineTo(x - r * 0.38, y + r * 0.72);
+  g.fill();
+};
+
 const cardIcon = (i, x, y, r) => {
-  g.lineWidth = 3;
-  if (i >= 5 || i < 0) {                          // hearts, regen, Recovery
+  g.lineWidth = max(2, r * 0.11);
+  g.lineCap = 'round';
+
+  if (i < 0 || i > 4) {                           // the three about hearts
     g.fillStyle = C.HPC;
-    g.beginPath();
-    g.moveTo(x, y + r);
-    g.lineTo(x - r, y - r * 0.24);
-    g.lineTo(x - r * 0.5, y - r);
-    g.lineTo(x, y - r * 0.28);
-    g.lineTo(x + r * 0.5, y - r);
-    g.lineTo(x + r, y - r * 0.24);
-    g.fill();
-    if (i !== 5) {                                // regen and Recovery carry a plus
+    if (i === 5) {                                // EXTRA HEART: one MORE of them
+      g.globalAlpha = 0.4;
+      heartAt(x - r * 0.46, y + r * 0.1, r * 0.68);
+      g.globalAlpha = 1;
+      heartAt(x + r * 0.36, y - r * 0.05, r * 0.8);
+    } else {
+      heartAt(x, y + r * (i < 0 ? 0.08 : 0.22), r * (i < 0 ? 1 : 0.78));
       g.strokeStyle = '#fff';
       g.beginPath();
-      g.moveTo(x - r * 0.34, y - r * 0.1); g.lineTo(x + r * 0.34, y - r * 0.1);
-      g.moveTo(x, y - r * 0.44); g.lineTo(x, y + r * 0.24);
-      g.stroke();
-    }
-  } else if (i < 2) {                             // the horn: a cone, tip up
-    g.fillStyle = css(C.GOLD, 1);
-    g.beginPath();
-    g.moveTo(x, y - r);
-    g.lineTo(x + r * 0.42, y + r * 0.8);
-    g.lineTo(x - r * 0.42, y + r * 0.8);
-    g.fill();
-    if (i === 0) {                                // fire rate: three of them, stacked
-      g.strokeStyle = css(C.GOLD, 0.55);
-      g.beginPath();
-      for (const d of [0.45, 0.75]) {
-        g.moveTo(x - r * 0.62, y + r * (0.8 + d * 0.5));
-        g.lineTo(x + r * 0.62, y + r * (0.8 + d * 0.5));
+      if (i < 0) {                                // RECOVERY: brimming, a cross
+        g.moveTo(x - r * 0.42, y + r * 0.08); g.lineTo(x + r * 0.42, y + r * 0.08);
+        g.moveTo(x, y - r * 0.34); g.lineTo(x, y + r * 0.5);
+      } else {                                    // REGEN: filling, an arrow into it
+        g.moveTo(x, y - r * 1.05); g.lineTo(x, y - r * 0.42);
+        g.moveTo(x - r * 0.32, y - r * 0.72); g.lineTo(x, y - r * 1.05);
+        g.lineTo(x + r * 0.32, y - r * 0.72);
       }
       g.stroke();
     }
-  } else {                                        // the bind: a ring, in rainbow
-    for (let k = 0; k < 18; k++) {
-      const a0 = (k / 18) * 2 * PI, a1 = ((k + 1) / 18) * 2 * PI;
-      g.strokeStyle = css(bow(k / 18), 1);
+    g.lineCap = 'butt';
+    return;
+  }
+
+  if (i < 2) {                                    // the two about shooting
+    g.fillStyle = css(C.GOLD, 1);
+    if (!i) for (const d of [-1, 0, 1]) hornAt(x + d * r * 0.64, y, r * 0.58);
+    else {                                        // HORN DAMAGE: one, and it lands
+      hornAt(x, y + r * 0.18, r * 0.92);
+      g.strokeStyle = '#fff';
       g.beginPath();
-      g.arc(x, y, r * (i === 2 ? 0.95 : 0.7), a0, a1);
+      for (const a of [-1.15, -PI / 2, -0.42]) {
+        g.moveTo(x + cos(a) * r * 0.62, y - r * 0.74 + sin(a) * r * 0.62);
+        g.lineTo(x + cos(a) * r * 1.05, y - r * 0.74 + sin(a) * r * 1.05);
+      }
       g.stroke();
     }
-    if (i === 3) {                                // cooldown: a clock hand
-      g.strokeStyle = '#fff';
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - r * 0.55); g.stroke();
-    }
-    if (i === 4) {                                // hold: something caught in it
-      g.fillStyle = '#fff';
-      g.beginPath(); g.arc(x, y, r * 0.22, 0, 7); g.fill();
-    }
+    g.lineCap = 'butt';
+    return;
   }
+
+  // the three about the bind: a rainbow ring, and each is a different ring
+  const ring = (rr, from, to) => {
+    for (let k = 0; k < 14; k++) {
+      g.strokeStyle = css(bow(k / 14), 1);
+      g.beginPath();
+      g.arc(x, y, rr, from + (to - from) * k / 14, from + (to - from) * (k + 1) / 14);
+      g.stroke();
+    }
+  };
+  if (i === 2) {                                  // RADIUS: two rings, pushing out
+    ring(r * 0.46, 0, 2 * PI);
+    ring(r, 0, 2 * PI);
+    g.strokeStyle = '#fff';
+    g.beginPath();
+    for (const a of [0, PI / 2, PI, -PI / 2]) {
+      g.moveTo(x + cos(a) * r * 0.6, y + sin(a) * r * 0.6);
+      g.lineTo(x + cos(a) * r * 0.86, y + sin(a) * r * 0.86);
+    }
+    g.stroke();
+  } else if (i === 3) {                           // COOLDOWN: a clock, part run
+    ring(r * 0.92, -PI / 2, PI);
+    g.strokeStyle = '#fff';
+    g.beginPath();
+    g.moveTo(x, y); g.lineTo(x, y - r * 0.58);
+    g.moveTo(x, y); g.lineTo(x + r * 0.44, y + r * 0.1);
+    g.stroke();
+  } else {                                        // HOLD: a ghost caught inside it
+    ring(r, 0, 2 * PI);
+    g.fillStyle = 'rgb(' + C.TYPES[0][9] + ')';
+    const q = r * 0.52;
+    g.beginPath();
+    for (let k = 0; k <= 8; k++) {
+      const a = PI * (1 + k / 8);
+      g.lineTo(x + cos(a) * q * 0.78, y - q * 0.12 + sin(a) * q * 0.78);
+    }
+    for (let k = 0; k <= 4; k++)
+      g.lineTo(x + q * 0.78 - (k / 4) * q * 1.56, y - q * 0.12 + (k % 2 ? q * 0.34 : q * 0.76));
+    g.fill();
+  }
+  g.lineCap = 'butt';
 };
 
 // DESIGN.md 8: three cards between waves, pick one. The run is held while you do.
@@ -1494,8 +1549,18 @@ const cardScreen = () => {
   type(C.CARDT * 1.15);
   g.fillText('WAVE ' + wave + ' CLEARED', W / 2, H / 2 - ch / 2 - cw * 0.16);
 
-  for (let n = 0; n < offer.length; n++) {
-    const i = offer[n], [x, y, w, h] = cardBox(offer.length, n), mx = x + w / 2;
+  for (let n = 0; n < offer.length; n++) cardFace(offer[n], n + 1, ...cardBox(offer.length, n));
+  g.textAlign = 'left';
+};
+
+// One card. Split out so the editor can lay every one of them out side by side
+// without a run in progress - which is the only way to see that two of them look
+// alike.
+const cardFace = (i, key, x, y, w, h) => {
+  const mx = x + w / 2;
+  const type = (f) => { g.font = (w * f | 0) + 'px monospace'; };
+  {
+    g.textAlign = 'center';
     g.fillStyle = C.CARDBG;
     g.fillRect(x, y, w, h);
     g.strokeStyle = i < 0 ? C.HPC : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : C.HPC;
@@ -1525,7 +1590,7 @@ const cardScreen = () => {
     }
     g.fillStyle = '#8b93b8';
     type(C.CARDL);
-    g.fillText('' + (n + 1), mx, y + h + cw * 0.14);
+    g.fillText('' + key, mx, y + h + w * 0.14);
   }
   g.textAlign = 'left';
 };
@@ -1833,6 +1898,8 @@ export const setWave = (w) => { wave = w; budget = budgetFor(w); waveT = 0; spaw
 export const setLv = (i, v) => { lv[i] = v; if (i === 5) { maxhp = C.HEARTS + v; hearts = maxhp; } };
 export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
+export const drawCard = cardFace;               // editor: every card, side by side
+export const cardGlyph = cardIcon;
 
 addEventListener('resize', resize);
 addEventListener('pointerdown', onDown);
