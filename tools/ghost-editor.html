@@ -45,7 +45,7 @@ const { C } = M;
 
 const NAMES = ['Drifter', 'Darter', 'Hulk', 'Splitter', 'Warden'];
 const HP = 0, SPEED = 1, DMG = 2, COST = 3, WAVE = 4, RAD = 5, WOB = 6, FREQ = 7, WISP = 8,
-      COL = 9, EYE = 10, HORN = 11, MOUTH = 12;
+      COL = 9, EYE = 10, HORN = 11, MOUTH = 12, TILT = 13, MBOW = 14;
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
@@ -163,6 +163,10 @@ slider('mouth tall', () => C.MOUTHH, (v) => (C.MOUTHH = v), 0.3, 3, 0.05,
        (v) => (+v).toFixed(2) + 'x wide');
 slider('mouth drop', () => C.MOUTHY, (v) => (C.MOUTHY = v), -0.2, 0.7, 0.01,
        (v) => (+v).toFixed(2) + ' of radius');
+slider('eye tilt', () => T()[TILT], (v) => (T()[TILT] = v), -1, 1, 0.05,
+       (v) => (+v > 0 ? 'angry ' : +v < 0 ? 'sad ' : 'level ') + (+v).toFixed(2));
+slider('mouth curve', () => T()[MBOW], (v) => (T()[MBOW] = v), 0, 2, 0.05,
+       (v) => (+v < 1 ? 'rounded' : +v > 1 ? 'curved down' : 'flat'));
 slider('red', () => T()[COL][0], (v) => (T()[COL][0] = v | 0), 0, 255, 1, (v) => (v | 0) + '');
 slider('green', () => T()[COL][1], (v) => (T()[COL][1] = v | 0), 0, 255, 1, (v) => (v | 0) + '');
 slider('blue', () => T()[COL][2], (v) => (T()[COL][2] = v | 0), 0, 255, 1, (v) => (v | 0) + '');
@@ -199,7 +203,7 @@ function dump() {
       '    [' + [t[HP], t[SPEED].toFixed(2), t[DMG], t[COST], t[WAVE],
                  t[RAD].toFixed(2), f(t[WOB]), t[FREQ], t[WISP]].join(', ') +
       ', [' + t[COL].join(', ') + '], ' + t[EYE] + ', ' + f(t[HORN]) +
-      ', ' + f(t[MOUTH]) + '],' +
+      ', ' + f(t[MOUTH]) + ', ' + f(t[TILT]) + ', ' + f(t[MBOW]) + '],' +
       '  // ' + NAMES[k]).join('\n') +
     '\n  ],\n' +
     '  EYEY: ' + f(C.EYEY) + ',  EYEH: ' + f(C.EYEH) + ',  EYEBOW: ' + f(C.EYEBOW) + ',\n' +
