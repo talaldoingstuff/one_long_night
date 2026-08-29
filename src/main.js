@@ -223,17 +223,30 @@ export const C = {
 
   // --- Player (DESIGN.md 10) -------------------------------------------------
   // --- Minimap (DESIGN.md 11) ------------------------------------------------
-  MAPR: 0.115,        // dish radius as a fraction of screen height. 11 caps the
-                      // whole thing at roughly a quarter of H and says not to
-                      // shrink it for tidiness; 0.23H across sits just under.
+  MAPR: 0.138,        // dish radius as a fraction of screen height. 11 caps the
+                      // whole thing at roughly a quarter of H; this is 0.276H
+                      // across, so it is over that by a tenth. Deliberate - the
+                      // cap is the only direction 11 leaves open ("do not shrink
+                      // it for tidiness"), and a primary display being slightly
+                      // too big is the harmless way to miss.
   MAPPAD: 14,         // pixels in from the top-left corner
   MAPZ: 1.06,         // how far past the spawn ring the dish reaches, so a ghost
                       // arriving sits inside the rim rather than on it
   MAPBLIP: 0.07,      // blip radius, as a fraction of the dish
+  MAPEW: 3,           // the dish edge, px
+  MAPFANW: 2,         // and the two sides of the view fan
   MAPBG: 'rgba(6,8,16,0.72)',
-  MAPEDGE: 'rgba(139,147,184,0.5)',
+  MAPEDGE: 'rgba(139,147,184,0.6)',
   MAPCONE: 'rgba(255,255,255,0.09)',
-  MAPDOT: '#e8ecff',
+  MAPFAN: 'rgba(255,255,255,0.3)',
+
+  // --- HUD -------------------------------------------------------------------
+  HUDU: 0.036,        // the unit everything in the HUD is sized off, a fraction
+                      // of the smaller screen dimension
+  HEARTS2: 2,         // hearts drawn at this multiple of it
+  BARW: 0.9,          // the rainbow bar, as a fraction of the heart row's width
+  BARH: 0.3,          // and of a heart's height
+  BARBG: 'rgba(255,255,255,0.1)',
 
   HEARTS: 3,
   DMGCAP: 3,          // no single contact may take more than this
@@ -449,11 +462,11 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT, bindC, charging, wallT, wallR;
+    rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave;
 
 const reset = () => {
   ghosts = []; horns = [];
-  hearts = C.HEARTS; kills = 0; over = 0;
+  hearts = C.HEARTS; kills = 0; over = 0; wave = 1;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
@@ -902,11 +915,20 @@ const minimap = () => {
 
   // The cone is the real one: its half-angle comes from the same W, PX and F the
   // projection uses, so it stays honest if any of them change.
-  g.beginPath();
-  g.moveTo(ox, oy);
-  g.arc(ox, oy, r, -PI / 2 - atan2(W / 2, PX * C.F), -PI / 2 + atan2(W / 2, PX * C.F));
+  const hf = atan2(W / 2, PX * C.F);
+  const fan = () => {
+    g.beginPath();
+    g.moveTo(ox, oy);
+    g.arc(ox, oy, r, -PI / 2 - hf, -PI / 2 + hf);
+    g.closePath();
+  };
+  fan();
   g.fillStyle = C.MAPCONE;
   g.fill();
+  fan();                                         // and its two sides, drawn
+  g.strokeStyle = C.MAPFAN;
+  g.lineWidth = C.MAPFANW;
+  g.stroke();
 
   // The bind, as the circle it actually is - which is the whole reason 6 says the
   // map is where it reads. On the floor you see an arc sweeping away from you; a
@@ -934,14 +956,17 @@ const minimap = () => {
     g.fill();
   }
 
+  // You are the horn: the dot takes the same colour it does, gold at rest and
+  // running the rainbow while the bind charges. Two readouts of one state, and
+  // the map is the one you can see without looking away from a threat.
   g.beginPath();
   g.arc(ox, oy, C.MAPBLIP * r * 0.8, 0, 2 * PI);
-  g.fillStyle = C.MAPDOT;
+  g.fillStyle = css(charged(C.GOLD), 1);
   g.fill();
 
   dish(r);
   g.strokeStyle = C.MAPEDGE;
-  g.lineWidth = 1.5;
+  g.lineWidth = C.MAPEW;
   g.stroke();
 };
 
@@ -949,24 +974,52 @@ const minimap = () => {
 // Render
 // ---------------------------------------------------------------------------
 const hud = () => {
-  const u = min(W, H) * 0.036;
+  const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
+  let left = 0;
   for (let i = 0; i < C.HEARTS; i++) {            // hearts, top-right
     g.fillStyle = i < hearts ? '#ff3b6b' : '#2a2136';
     g.beginPath();
-    const x = W - 16 - u - i * (u * 1.35), y = 18;
-    g.moveTo(x + u / 2, y + u);
-    g.lineTo(x, y + u * 0.38);
-    g.lineTo(x + u * 0.25, y);
-    g.lineTo(x + u / 2, y + u * 0.26);
-    g.lineTo(x + u * 0.75, y);
-    g.lineTo(x + u, y + u * 0.38);
+    const x = W - 16 - hu - i * (hu * 1.35), y = 18;
+    left = x;
+    g.moveTo(x + hu / 2, y + hu);
+    g.lineTo(x, y + hu * 0.38);
+    g.lineTo(x + hu * 0.25, y);
+    g.lineTo(x + hu / 2, y + hu * 0.26);
+    g.lineTo(x + hu * 0.75, y);
+    g.lineTo(x + hu, y + hu * 0.38);
     g.fill();
   }
+
+  // The rainbow bar under them: how much of the bind is back. DESIGN.md 11 says
+  // no cooldown bar, because the arm's saturation was to carry it - but that arm
+  // was cut, and the mane it moved to is a small thing on a puppet you are not
+  // looking at while something is closing. This says the same thing where the
+  // hearts already have your eye.
+  const bw = (W - 16 - left) * C.BARW, bh = hu * C.BARH;
+  const bx = W - 16 - bw, by = 18 + hu + bh * 0.6;
+  g.fillStyle = C.BARBG;
+  g.fillRect(bx, by, bw, bh);
+  // Charging fills it toward the cast; otherwise it is how far the cooldown has
+  // come back. Both are the same question - how close is the next bind - so they
+  // share the bar rather than fighting over it.
+  const fill = charging ? bindC / C.BINDCHG : 1 - bindT / C.BINDCD;
+  for (let i = 0; i < 6; i++) {                   // in rainbow, left to right
+    const a = bw * i / 6, b = min(bw * fill, bw * (i + 1) / 6);
+    if (b <= a) break;
+    g.fillStyle = css(RBV[i], charging ? 1 : 0.85);
+    g.fillRect(bx + a, by, b - a, bh);
+  }
+
   if (!over) minimap();
+
+  // Wave above, kills below it, both on the centre line.
   g.fillStyle = '#8b93b8';
+  g.textAlign = 'center';
+  g.font = (u * 0.9 | 0) + 'px monospace';
+  g.fillText('WAVE ' + wave, W / 2, 18 + u * 0.9);
   g.font = (u * 0.62 | 0) + 'px monospace';
-  // Under the dish, which now owns the corner it used to sit in.
-  g.fillText('KILLS ' + kills, C.MAPPAD, C.MAPPAD * 2 + C.MAPR * H * 2 + u * 0.62);
+  g.fillText('KILLS ' + kills, W / 2, 18 + u * 1.75);
+  g.textAlign = 'left';
 
   if (!over) {                                    // crosshair, on the horn's line
     const a = proj(aimAt());
@@ -1206,7 +1259,7 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, wave,
                              bindR: bindR() });
 export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
