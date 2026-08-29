@@ -233,15 +233,22 @@ export const C = {
   // DESIGN.md 7: one generator, five parameter rows. Columns are
   //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
   //   frequency, wisps, colour, eye shape, horn, mouth, eye tilt, mouth curve,
-  //   mouth height, mouth drop, horn spread
+  //   mouth height, mouth drop, horn spread, crown horn, solid
   // Eye shape 0 is a plain round void; 1 is the scared one - a dome over a lower
   // edge that curves up INTO the eye. Horn is how far a spike stands above the
   // dome, as a fraction of the half width, and 0 is no horn at all. Horn spread
   // is where those horns sit, measured from the crown: 0 puts ONE there, up to 1
   // puts TWO that far around the dome, and PAST 1 puts them down the straight
   // sides instead - 1.35 is a third of the way down, where they read as arms.
-  // Mouth is its
+  // Crown horn is a second one at the very top, independent of the pair, so a
+  // ghost can wear both. Mouth is its
   // half width as a fraction of the ghost's radius, and 0 is no mouth.
+  //
+  // Solid turns a ghost from additive to opaque, and it has to be a switch rather
+  // than just a dark colour: every other ghost is drawn under lighter, and black
+  // ADDS NOTHING - a black ghost there is not dark, it is invisible. A solid one
+  // is filled normally and its face is painted on in SOLIDF rather than cut out
+  // of it as a hole.
   //
   // Eye tilt shears the eye so its outer end rides up and its inner end drops -
   // an angry brow, and the same shape sheared rather than a second shape. Mouth
@@ -263,12 +270,13 @@ export const C = {
   //
   // Unlocks are the difficulty spikes: 5, 10, 20, 30.
   TYPES: [
-    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Drifter, pale white
-    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0],   // Darter, sharp cyan
-    [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5], // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35],   // Splitter, sickly green
-    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Warden, pale gold
+    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
+    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0, 0, 0],   // Darter, sharp cyan
+    [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5, 0, 0], // Hulk, angry red
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
+    [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 1.15, 0.55, 1], // Warden, near black
   ],
+  SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost
   EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
                       // ghost radii. It hangs down from there, so this is not the
                       // eye's centre - and the round eye's 0.24 would put the
@@ -1118,6 +1126,34 @@ const domeHole = (cx, cy, hw, hh, bow, tilt) => {
   }
 };
 
+// The eyes and the mouth, added to whatever path is open. Cut out of the body as
+// holes on a normal ghost and painted on as their own shape on a solid one - the
+// same geometry either way, which is the only reason both can exist.
+const face = (v, t) => {
+  const er = v.r * 0.2, ey = v.py - v.r * 0.24;
+  for (const ex of [-0.34, 0.34]) {
+    const cx = v.px + ex * v.r;
+    if (t[10]) {
+      // Scared: a flat top with a tall dome hanging under it. The brow comes at
+      // the eye straight and the eye falls away below it, which is the whole
+      // expression. Anchored off EYEY rather than the round eye's line, because
+      // this one hangs down from its anchor instead of sitting either side, and
+      // the outer end rides up, so the tilt flips with the side of the face.
+      domeHole(cx, v.py - v.r * C.EYEY, er, er * C.EYEH, C.EYEBOW, ex < 0 ? t[13] : -t[13]);
+    } else {
+      g.moveTo(cx + er, ey);
+      for (let i = 0; i <= 9; i++) {
+        const a = (i / 9) * 2 * PI;
+        g.lineTo(cx + cos(a) * er, ey + sin(a) * er);
+      }
+    }
+  }
+  // The mouth, the same shape again. A negative height turns it over: the dome
+  // points up and the curved edge runs along the bottom.
+  if (t[12])
+    domeHole(v.px, v.py + v.r * t[16], v.r * t[12], v.r * t[12] * t[15], t[14], 0);
+};
+
 const drawGhost = (o, target) => {
   const v = ghostAt(o);
   if (!v) return;
@@ -1158,8 +1194,9 @@ const drawGhost = (o, target) => {
     // Past a spread of 1 the horns leave the dome entirely and go down the sides,
     // so nothing here is pushed out.
     const mid = C.GDOME >> 1, sp = t[17] > 1 ? -1 : round(t[17] * mid);
-    const k = t[11] && sp >= 0 && (sp ? i === mid - sp || i === mid + sp : i === mid)
-      ? 1 + t[11] : 1;
+    const pair = t[11] && sp >= 0 && (sp ? i === mid - sp || i === mid + sp : i === mid);
+    // The crown is its own column, so a ghost can carry a pair AND a spike.
+    const k = t[18] && i === mid ? 1 + t[18] : pair ? 1 + t[11] : 1;
     // k scales BOTH axes, so a horn grows straight out of the surface wherever it
     // sits. Scaling only y made it push upward instead - which is the same thing
     // at the crown, where x is zero, and almost nothing out at the sides, where
@@ -1207,30 +1244,21 @@ const drawGhost = (o, target) => {
   }
   // Round, large and set wide and high, per the reference. They were ellipses
   // stretched 1.5x vertically, which read as a squint rather than a void.
-  const er = v.r * 0.2, ey = v.py - v.r * 0.24;
-  for (const ex of [-0.34, 0.34]) {                // eye voids, wound as holes
-    const cx = v.px + ex * v.r;
-    if (t[10]) {
-      // Scared: a flat top with a tall dome hanging under it. The brow comes at
-      // the eye straight and the eye falls away below it, which is the whole
-      // expression. Anchored off EYEY rather than the round eye's line, because
-      // this one hangs down from its anchor instead of sitting either side.
-      // The outer end rides up, so the tilt flips with the side of the face.
-      domeHole(cx, v.py - v.r * C.EYEY, er, er * C.EYEH, C.EYEBOW, ex < 0 ? t[13] : -t[13]);
-    } else {
-      g.moveTo(cx + er, ey);
-      for (let i = 0; i <= 9; i++) {
-        const a = (i / 9) * 2 * PI;
-        g.lineTo(cx + cos(a) * er, ey + sin(a) * er);
-      }
-    }
+  if (t[19]) {
+    // Solid: fill the body opaquely, then paint the face on over it. A hit swaps
+    // the two colours rather than whitening everything, so the flash still reads
+    // on something already dark.
+    g.globalCompositeOperation = 'source-over';
+    g.fill();
+    g.beginPath();
+    face(v, t);
+    g.fillStyle = hit ? 'rgb(' + t[9] + ')' : css(C.SOLIDF, 1);
+    g.fill();
+    g.globalCompositeOperation = 'lighter';
+  } else {
+    face(v, t);
+    g.fill('evenodd');
   }
-  // The mouth, the same shape again, open under them.
-  // A negative height turns it over: the dome points up and the curved edge runs
-  // along the bottom, which is the Hulk's grimace.
-  if (t[12])
-    domeHole(v.px, v.py + v.r * t[16], v.r * t[12], v.r * t[12] * t[15], t[14], 0);
-  g.fill('evenodd');
   // The bind arriving and failing: a ring of the Warden's own colour pushing out
   // past it and fading. Under lighter, so it reads as light coming off it.
   if (o[8] < 0) {
