@@ -255,7 +255,7 @@ export const C = {
   XHW: 3.5,           // and its thickness
   XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
   XHO: 'rgba(0,0,0,0.85)',   // a dark halo under it, because the target outline is
-  XHOW: 2,            // gold too - without this the crosshair disappears into the
+  XHOW: 1,            // gold too - without this the crosshair disappears into the
                       // one thing it most needs to be legible against. px each side
   ASSISTR: 1.6,       // aim assist reaches this many of a ghost's radii - wider
                       // than the pick, so it pulls you onto things you are only
@@ -266,7 +266,8 @@ export const C = {
   TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
                       // anywhere near it
-  TGTW: 6,            // the target outline, px. It traces the ghost's own
+  BINDW: 6,           // the rainbow a bound ghost wears, px
+  TGTW: 4.5,          // the target outline, px. It traces the ghost's own
                       // silhouette rather than circling it, so what is lit up is
                       // the thing you are about to shoot and not a hoop near it
 
@@ -948,7 +949,7 @@ const drawGhost = (o, target) => {
   // rather than held at one colour, so what the bind has caught is unmistakable
   // and is the same language the floor and the wall speak.
   if (o[8] > 0) {
-    g.lineWidth = C.TGTW;
+    g.lineWidth = C.BINDW;
     for (let i = 1; i < bp.length; i++) {
       g.strokeStyle = css(bow((i - 1) / (bp.length - 1)), 1);
       g.beginPath();
