@@ -124,12 +124,12 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
-  KTURN: 1.3,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  KTURN: 1.7,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
                       // knob TURN is, in the units a key can be held in. At 2.2
                       // it matched a 524px/s drag sustained forever, which is a
-                      // flick speed, not a panning one.
-  KPITCH: 0.7,        // and its own rate for pitch, because that range is only
+                      // flick speed, not a panning one; 1.3 was a walk.
+  KPITCH: 0.9,        // and its own rate for pitch, because that range is only
                       // 63 degrees end to end - one rate for both put the whole
                       // of it half a second apart.
   ARM: 0.3,           // seconds of holding still before the charge begins. The
@@ -326,6 +326,8 @@ export const C = {
   ASSIST: 3,          // and closes that much of the gap a second
   BARSLW: 3,          // the charging outline, px
   BARSC: '#fff',
+  HINTF: 0.8,         // the how-to line under RAINBOW READY, against the caption
+                      // size - it is an instruction, so it sits below the label
   TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
                       // anywhere near it
@@ -1410,7 +1412,8 @@ const hud = () => {
     g.fillStyle = css(C.RIMC, 1);
     g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
     g.fillStyle = '#fff';
-    g.fillText('Click/Space & Hold', W - 16, by + bh + lbl * 2.6);
+    g.font = (lbl * C.HINTF | 0) + 'px monospace';
+    g.fillText('CLICK/SPACE & HOLD', W - 16, by + bh + lbl * 2.5);
   }
 
   // Wave above, kills below it, both on the centre line. The wave takes the
