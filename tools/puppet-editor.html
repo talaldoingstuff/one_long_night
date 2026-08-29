@@ -226,8 +226,8 @@ slider('max radius', () => C.BINDR, (v) => (C.BINDR = v), 1, 25, 0.5,
        (v) => v.toFixed(1) + 'm');
 slider('holds for', () => C.BINDDUR, (v) => (C.BINDDUR = v), 0.2, 10, 0.1,
        (v) => v.toFixed(1) + 's');
-slider('grows at', () => C.BINDGROW, (v) => (C.BINDGROW = v), 1, 30, 0.5,
-       (v) => v.toFixed(1) + ' m/s');
+slider('charge time', () => C.BINDCHG, (v) => (C.BINDCHG = v), 0.5, 8, 0.1,
+       (v) => v.toFixed(1) + 's, then it fires itself');
 slider('min cast', () => C.BINDMIN, (v) => (C.BINDMIN = v), 0, 6, 0.1,
        (v) => v.toFixed(1) + 'm');
 slider('drag limit', () => C.DRAGPX, (v) => (C.DRAGPX = v), 1, 30, 1,
@@ -242,10 +242,8 @@ slider('crests', () => C.BINDWAV, (v) => (C.BINDWAV = v), 0.5, 6, 0.1,
        (v) => v.toFixed(1) + ' across the radius');
 slider('pulse', () => C.BINDPUL, (v) => (C.BINDPUL = v), 0, 4, 0.1,
        (v) => v.toFixed(1) + '/s outward');
-slider('band width', () => C.BINDLW, (v) => (C.BINDLW = v), 0.002, 0.05, 0.001,
-       (v) => v.toFixed(3) + ' of H');
-slider('ceiling mark', () => C.MAXA, (v) => (C.MAXA = v), 0, 0.6, 0.02,
-       (v) => v.toFixed(2));
+slider('segments', () => C.BINDSEG, (v) => (C.BINDSEG = v), 8, 80, 2,
+       (v) => v + ' around');
 
 h2('the wall');
 slider('height', () => C.WALLH, (v) => (C.WALLH = v), 0.5, 8, 0.1,
@@ -323,11 +321,11 @@ const dump = () => {
       ',  BLINKS: ' + f(C.BLINKS) + ',\n' +
     '  SAT0: ' + f(C.SAT0) + ',  OUTL: ' + f(C.OUTL) + ',  OUTA: ' + f(C.OUTA) + ',\n' +
     '  BINDCD: ' + f(C.BINDCD) + ',  BINDR: ' + f(C.BINDR) + ',  BINDDUR: ' + f(C.BINDDUR) +
-      ',  BINDGROW: ' + f(C.BINDGROW) + ',\n' +
+      ',  BINDCHG: ' + f(C.BINDCHG) + ',\n' +
     '  BINDMIN: ' + f(C.BINDMIN) + ',  DRAGPX: ' + C.DRAGPX + ',\n' +
     '  BINDBAND: ' + C.BINDBAND + ',  BINDA: ' + f(C.BINDA) + ',  BINDWAV: ' + f(C.BINDWAV) +
       ',  BINDPUL: ' + f(C.BINDPUL) + ',\n' +
-    '  BINDLW: ' + f(C.BINDLW) + ',  MAXA: ' + f(C.MAXA) + ',  WALLDUR: ' + f(C.WALLDUR) +
+    '  BINDSEG: ' + C.BINDSEG + ',  WALLDUR: ' + f(C.WALLDUR) +
       ',  WALLH: ' + f(C.WALLH) + ',  WALLA: ' + f(C.WALLA) + ',  EYERB: ' + C.EYERB + ',\n' +
     '  BODY: [' + C.BODY + '],  GOLD: [' + C.GOLD + '],  IRIS: [' + C.IRIS +
       '],';

@@ -117,10 +117,13 @@ export const C = {
   // --- The bind (DESIGN.md 6) ------------------------------------------------
   // Centred on the player, not in front of them. Hold to charge, release to cast
   // at whatever radius you have grown.
-  BINDCD: 3,          // seconds to recharge from empty. An upgrade card.
+  BINDCHG: 3,         // seconds to a full charge. It fires ITSELF at that point -
+                      // holding longer buys nothing, so the charge is a window,
+                      // not a resource you can sit on.
+  BINDCD: 9,          // seconds of cooldown a full-strength cast costs. An upgrade
+                      // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
-  BINDGROW: 7,        // metres of radius per second of holding
   BINDMIN: 1.5,       // below this a cast does nothing and is not spent
   BINDSEG: 44,        // segments in a drawn circle
   EYE: 1.6,           // how high the eye is above the ground the ring lies on
@@ -128,12 +131,11 @@ export const C = {
                       // One pointer has to carry aiming and binding both, and
                       // this is the only thing that separates them.
   // The charge is the rainbow lying on the ground, pulsing outward.
-  BINDBAND: 9,        // concentric bands it is drawn as
+  BINDBAND: 10,       // filled bands it is drawn as, all the same width, edge to
+                      // edge - so the disc is covered rather than ringed
   BINDA: 0.55,        // the brightest a band gets
   BINDWAV: 2.2,       // wave crests across the radius
   BINDPUL: 0.9,       // crests per second, travelling outward
-  BINDLW: 0.014,      // band width, as a fraction of screen height
-  MAXA: 0.16,         // the faint circle marking what the charge could still buy
   // And the cast is a wall of it, sweeping out to the radius it caught.
   WALLDUR: 0.45,      // seconds the wall lives
   WALLH: 2.4,         // how tall it stands, metres
@@ -422,13 +424,13 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
-    rec, blink, nextB, bindT, bindR, charging, wallT, wallR;
+    rec, blink, nextB, bindT, bindC, charging, wallT, wallR;
 
 const reset = () => {
   ghosts = []; horns = [];
   hearts = C.HEARTS; kills = 0; over = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0;
-  rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindR = 0; charging = 0;
+  rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
   yaw = 0; pitch = 0; aim();
 };
@@ -480,16 +482,16 @@ const aimAt = () => {
 // quadratically, so a linear price makes the biggest bind always the best one and
 // there is never a reason to cast a small quick one.
 const bindCost = (r) => ((r / C.BINDR) ** 2) * C.BINDCD;
-// And the inverse: the largest radius the charge left will pay for. This is what
-// the dashed ring shows.
-const bindMax = () => C.BINDR * (max(0, C.BINDCD - bindT) / C.BINDCD) ** 0.5;
+// The charge is a clock: BINDCHG seconds to grow the ring from nothing to BINDR,
+// and the radius is just how far through that you are.
+const bindR = () => C.BINDR * min(1, bindC / C.BINDCHG);
 
 const cast = () => {
-  const r = min(bindR, bindMax());
+  const r = bindR();
   charging = 0;
-  bindR = 0;
+  bindC = 0;
   if (r < C.BINDMIN) return;                     // too small to do anything, so it costs nothing
-  bindT = min(C.BINDCD, bindT + bindCost(r));
+  bindT = bindCost(r);                           // full strength costs the whole BINDCD
   wallT = C.WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
@@ -524,13 +526,13 @@ let travel = 0;
 const onDown = (e) => {
   down = 1; lx = e.clientX; ly = e.clientY; travel = 0;
   if (over) { reset(); return; }
-  charging = 1;                                  // until it turns out to be a drag
+  if (bindT <= 0) charging = 1;                  // until it turns out to be a drag
 };
 const onMove = (e) => {
   if (!down) return;
   const dx = e.clientX - lx, dy = e.clientY - ly;
   travel += hypot(dx, dy);
-  if (travel > C.DRAGPX) { charging = 0; bindR = 0; }   // it is a drag, not a hold
+  if (travel > C.DRAGPX) { charging = 0; bindC = 0; }   // it is a drag, not a hold
   yaw += dx * C.TURN;
   pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - dy * C.TURN));
   lx = e.clientX; ly = e.clientY;
@@ -635,7 +637,7 @@ const eyes = () => {
   // Charging, the eyes run the rainbow. It eases in as the charge crosses the
   // smallest cast that would actually catch anything, so the colour arriving in
   // them is also the signal that letting go is now worth something.
-  const cg = charging ? min(1, bindR / C.BINDMIN) : 0;
+  const cg = charging ? min(1, bindR() / C.BINDMIN) : 0;
   const ic = cg ? mix(C.IRIS, RBV[(clock * C.EYERB | 0) % 6], cg) : C.IRIS;
   for (const sx of [1, -1]) {
     const o = hw * C.EYES[2] * C.HEADS + d / 2;
@@ -775,7 +777,9 @@ const step = (dt) => {
   rec = max(0, rec - dt / C.RECT);
   bindT = max(0, bindT - dt);
   wallT = max(0, wallT - dt);
-  if (charging) bindR = min(bindMax(), bindR + C.BINDGROW * dt);
+  // It lets go by itself at BINDCHG. Waiting for the player to release would let
+  // them hold a full ring indefinitely and pick their moment for free.
+  if (charging && (bindC += dt) >= C.BINDCHG) cast();
   blink = max(0, blink - dt);
   nextB -= dt;
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
@@ -898,29 +902,45 @@ const gpt = (a, r, h) => {
   return c[2] < C.NEAR ? null : proj(c);
 };
 
-const circle = (r, style, w) => {
-  if (r < 0.05) return;
-  g.strokeStyle = style;
-  g.lineWidth = w;
-  let up = 0;
-  g.beginPath();
-  for (let i = 0; i <= C.BINDSEG; i++) {
-    const p = gpt((i / C.BINDSEG) * 2 * PI, r, 0);
-    if (!p) { up = 0; continue; }                // behind the eye: lift the pen
-    if (up) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]);
-    up = 1;
+// One band of the ground rainbow: the ring of floor between r0 and r1, filled.
+// Built as a strip of quads rather than a stroked circle, for two reasons. A
+// stroke has a width in PIXELS, so under perspective the near arc came out fat
+// and the far arc thin off the same radius - and between the strokes the bare
+// floor showed through. A quad has a width in METRES and its neighbours share
+// their edges, so the bands are all one size and the disc is covered.
+//
+// Sharing an edge is only seamless because this is drawn additively: two
+// antialiased half-covered edges sum to exactly one whole. Under source-over the
+// same seam would show as a lighter line.
+const band = (r0, r1, col, a) => {
+  g.fillStyle = css(col, a);
+  for (let i = 0; i < C.BINDSEG; i++) {
+    const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
+    const q = [gpt(a0, r0, 0), gpt(a1, r0, 0), gpt(a1, r1, 0), gpt(a0, r1, 0)];
+    if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
+    g.beginPath();
+    for (const t of q) g.lineTo(t[0], t[1]);
+    g.fill();
   }
-  g.stroke();
+};
+
+// Where along the rainbow a fraction of the radius sits. The six colours are
+// stops, not slots, so any number of bands still reads as one rainbow instead of
+// repeating the palette however many times it happens to divide.
+const bow = (f) => {
+  const x = max(0, min(0.999, f)) * (RBV.length - 1);
+  return mix(RBV[x | 0], RBV[(x | 0) + 1], x - (x | 0));
 };
 
 // The charge: the rainbow faded across the floor out to what you have grown, with
 // a crest travelling outward through it so the whole disc pulses rather than
 // blinking as one.
 const groundBow = (r) => {
+  if (r < 0.05) return;
   for (let b = 0; b < C.BINDBAND; b++) {
-    const f = (b + 0.5) / C.BINDBAND;
-    const w = 0.5 + 0.5 * sin(2 * PI * (f * C.BINDWAV - clock * C.BINDPUL));
-    circle(r * f, css(RBV[b % 6], C.BINDA * w * (1 - f * 0.4)), C.BINDLW * H);
+    const f = b / C.BINDBAND, f1 = (b + 1) / C.BINDBAND, m = (f + f1) / 2;
+    const w = 0.5 + 0.5 * sin(2 * PI * (m * C.BINDWAV - clock * C.BINDPUL));
+    band(r * f, r * f1, bow(m), C.BINDA * w);
   }
 };
 
@@ -960,12 +980,8 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
-  // The charge lies on the floor, under everything standing on it. The faint
-  // outermost circle is the ceiling: the most the charge left would still buy.
-  if (charging || bindR > 0) {
-    circle(bindMax(), css(RBV[5], C.MAXA), 2);
-    groundBow(bindR);
-  }
+  // The charge lies on the floor, under everything standing on it.
+  if (charging) groundBow(bindR());
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();
   g.globalCompositeOperation = 'source-over';
@@ -1037,8 +1053,9 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindR, charging, wallT, wallR });
-export const bindInfo = () => ({ cost: bindCost, max: bindMax(), cd: bindT });
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR,
+                             bindR: bindR() });
+export const bindInfo = () => ({ cost: bindCost, ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 
 addEventListener('resize', resize);
