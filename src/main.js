@@ -295,7 +295,9 @@ export const C = {
   BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
                       // so it runs out past the left of the three that are there
   BARH: 0.3,          // its height, as a fraction of a heart's
-  BARGAP: 0.55,       // and the gap under the hearts, so it does not crowd them
+  BARGAP: 0.55,       // and the gap under the HEALTH label, so it does not crowd it
+  HPC: '#ff3b6b',     // the hearts, and the word under them - one colour, so the
+                      // label and the thing it names read as one block
   BARBG: 'rgba(255,255,255,0.1)',
 
   HEARTS: 3,
@@ -1171,7 +1173,7 @@ const hud = () => {
   const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
   if (over) return overScreen(u);
   for (let i = 0; i < C.HEARTS; i++) {            // hearts, top-right
-    g.fillStyle = i < hearts ? '#ff3b6b' : '#2a2136';
+    g.fillStyle = i < hearts ? C.HPC : '#2a2136';
     g.beginPath();
     const x = W - 16 - hu - i * (hu * 1.35), y = 18;
     g.moveTo(x + hu / 2, y + hu);
@@ -1183,6 +1185,13 @@ const hud = () => {
     g.fill();
   }
 
+  // Both labels are the kill count's size: they are captions, not readouts.
+  const lbl = u * C.KILLF;
+  g.textAlign = 'right';
+  g.font = (lbl | 0) + 'px monospace';
+  g.fillStyle = C.HPC;
+  g.fillText('HEALTH', W - 16, 18 + hu + lbl);
+
   // The rainbow bar under them: how much of the bind is back. DESIGN.md 11 says
   // no cooldown bar, because the arm's saturation was to carry it - but that arm
   // was cut, and the mane it moved to is a small thing on a puppet you are not
@@ -1191,7 +1200,7 @@ const hud = () => {
   // 1.35 is the heart pitch used above, so BARN of 5 is exactly the width five
   // hearts would occupy - which puts its left end well past the three there are.
   const bw = hu * (1 + (C.BARN - 1) * 1.35), bh = hu * C.BARH;
-  const bx = W - 16 - bw, by = 18 + hu + hu * C.BARGAP;
+  const bx = W - 16 - bw, by = 18 + hu + lbl + hu * C.BARGAP;
   g.fillStyle = C.BARBG;
   g.fillRect(bx, by, bw, bh);
   // The fill is only ever the passive refill: how much of the bind is back.
@@ -1234,9 +1243,7 @@ const hud = () => {
   // corner reads as one column.
   if (!charging && bindT <= 0) {
     g.fillStyle = css(C.RIMC, 1);
-    g.textAlign = 'right';
-    g.font = (u * C.KILLF | 0) + 'px monospace';
-    g.fillText('READY', W - 16, by + bh + u * C.KILLF * 1.3);
+    g.fillText('RAINBOW ENERGY READY', W - 16, by + bh + lbl * 1.3);
   }
 
   // Wave above, kills below it, both on the centre line. The wave takes the
