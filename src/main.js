@@ -126,9 +126,6 @@ export const C = {
   BINDDUR: 3,         // how long a caught ghost is held. A card.
   BINDSEG: 44,        // segments in a drawn circle
   EYE: 1.6,           // how high the eye is above the ground the ring lies on
-  DRAGPX: 6,          // pointer travel that makes it a drag rather than a hold.
-                      // One pointer has to carry aiming and binding both, and
-                      // this is the only thing that separates them.
   // The charge is the rainbow lying on the ground, pulsing outward.
   BINDBAND: 10,       // filled bands it is drawn as, all the same width, edge to
                       // edge - so the disc is covered rather than ringed
@@ -530,19 +527,21 @@ const fire = () => {
   nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0);
 };
 
-let travel = 0;
+// One pointer carries aiming and binding at once, and nothing separates them:
+// holding charges, moving turns, and doing both together does both. A threshold
+// used to cancel the charge on a drag, back when letting go early cast a smaller
+// ring and an accidental one was worth guarding against. Now that only the
+// trigger fires anything, an abort is just releasing early - so turning while you
+// charge costs nothing, and is the normal way to play.
 const onDown = (e) => {
-  down = 1; lx = e.clientX; ly = e.clientY; travel = 0;
+  down = 1; lx = e.clientX; ly = e.clientY;
   if (over) { reset(); return; }
-  if (bindT <= 0) charging = 1;                  // until it turns out to be a drag
+  if (bindT <= 0) charging = 1;
 };
 const onMove = (e) => {
   if (!down) return;
-  const dx = e.clientX - lx, dy = e.clientY - ly;
-  travel += hypot(dx, dy);
-  if (travel > C.DRAGPX) { charging = 0; bindC = 0; }   // it is a drag, not a hold
-  yaw += dx * C.TURN;
-  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - dy * C.TURN));
+  yaw += (e.clientX - lx) * C.TURN;
+  pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch - (e.clientY - ly) * C.TURN));
   lx = e.clientX; ly = e.clientY;
   aim();
 };

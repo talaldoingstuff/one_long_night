@@ -217,8 +217,8 @@ slider('drain it', () => cd, (v) => { cd = v; M.setBind(v * C.BINDCD); }, 0, 1, 
 slider('washes to', () => C.SAT0, (v) => (C.SAT0 = v), 0, 1, 0.02,
        (v) => (100 * v).toFixed(0) + '% colour');
 
-// Hold anywhere in the preview to charge it, release to cast. Dragging aims
-// instead - past DRAGPX of travel it stops being a hold.
+// Hold anywhere in the preview to charge it. It fires itself at the trigger;
+// letting go early abandons it. Dragging aims, and charges at the same time.
 h2('the bind');
 slider('recharge', () => C.BINDCD, (v) => (C.BINDCD = v), 0.5, 10, 0.1,
        (v) => v.toFixed(1) + 's');
@@ -229,8 +229,6 @@ slider('holds for', () => C.BINDDUR, (v) => (C.BINDDUR = v), 0.2, 10, 0.1,
 slider('charge time', () => C.BINDCHG, (v) => (C.BINDCHG = v), 0.5, 8, 0.1,
        (v) => v.toFixed(1) + 's, then it fires itself');
 
-slider('drag limit', () => C.DRAGPX, (v) => (C.DRAGPX = v), 1, 30, 1,
-       (v) => v + 'px');
 
 // The charge is the rainbow lying on the ground; the cast stands it up as a wall.
 h2('the rainbow');
@@ -328,7 +326,7 @@ const dump = () => {
     '  SAT0: ' + f(C.SAT0) + ',  OUTL: ' + f(C.OUTL) + ',  OUTA: ' + f(C.OUTA) + ',\n' +
     '  BINDCD: ' + f(C.BINDCD) + ',  BINDR: ' + f(C.BINDR) + ',  BINDDUR: ' + f(C.BINDDUR) +
       ',  BINDCHG: ' + f(C.BINDCHG) + ',\n' +
-    '  DRAGPX: ' + C.DRAGPX + ',  RIMW: ' + f(C.RIMW) + ',  RIMA: ' + f(C.RIMA) + ',\n' +
+    '  RIMW: ' + f(C.RIMW) + ',  RIMA: ' + f(C.RIMA) + ',\n' +
     '  BINDBAND: ' + C.BINDBAND + ',  BINDA: ' + f(C.BINDA) + ',  BINDWAV: ' + f(C.BINDWAV) +
       ',  BINDPUL: ' + f(C.BINDPUL) + ',\n' +
     '  BINDSEG: ' + C.BINDSEG + ',  WALLDUR: ' + f(C.WALLDUR) +
