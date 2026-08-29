@@ -124,7 +124,6 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
-  BINDMIN: 1.5,       // below this a cast does nothing and is not spent
   BINDSEG: 44,        // segments in a drawn circle
   EYE: 1.6,           // how high the eye is above the ground the ring lies on
   DRAGPX: 6,          // pointer travel that makes it a drag rather than a hold.
@@ -134,11 +133,15 @@ export const C = {
   BINDBAND: 10,       // filled bands it is drawn as, all the same width, edge to
                       // edge - so the disc is covered rather than ringed
   BINDA: 0.55,        // the brightest a band gets
+  RIMW: 0.35,         // width of the circle marking where the wave will end, metres
+  RIMA: 0.85,         // and its brightness at the moment it fires
   BINDWAV: 2.2,       // wave crests across the radius
   BINDPUL: 0.9,       // crests per second, travelling outward
   // And the cast is a wall of it, sweeping out to the radius it caught.
   WALLDUR: 0.45,      // seconds the wall lives
-  WALLH: 2.4,         // how tall it stands, metres
+  WALLH: 2.4,         // how tall ONE rainbow stands, metres
+  WALLREP: 2,         // how many times it repeats up the wall, so the whole thing
+                      // is WALLH * WALLREP tall
   WALLA: 0.9,         // its brightness at the moment of the cast
   EYERB: 9,           // rainbow colours a second the eyes run while charging
 
@@ -481,17 +484,21 @@ const aimAt = () => {
 // DESIGN.md 6's balance rule: cooldown scales with r squared, not r. Area grows
 // quadratically, so a linear price makes the biggest bind always the best one and
 // there is never a reason to cast a small quick one.
-const bindCost = (r) => ((r / C.BINDR) ** 2) * C.BINDCD;
 // The charge is a clock: BINDCHG seconds to grow the ring from nothing to BINDR,
-// and the radius is just how far through that you are.
+// and the radius is just how far through that you are. It is what the floor shows
+// while charging; the cast itself is always at BINDR, because letting go early
+// fires nothing at all.
 const bindR = () => C.BINDR * min(1, bindC / C.BINDCHG);
 
+// Only ever reached by holding all the way to BINDCHG, so there is one radius and
+// one price. DESIGN.md 6's cooldown-scales-with-r-squared rule priced a radius the
+// player chose; nothing chooses one any more, so there is nothing left for it to
+// price. It belongs back here the moment a card makes the radius variable again.
 const cast = () => {
-  const r = bindR();
+  const r = C.BINDR;
   charging = 0;
   bindC = 0;
-  if (r < C.BINDMIN) return;                     // too small to do anything, so it costs nothing
-  bindT = bindCost(r);                           // full strength costs the whole BINDCD
+  bindT = C.BINDCD;
   wallT = C.WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
@@ -538,7 +545,9 @@ const onMove = (e) => {
   lx = e.clientX; ly = e.clientY;
   aim();
 };
-const onUp = () => { down = 0; if (charging) cast(); };
+// Letting go early abandons the charge rather than casting a smaller one: the
+// trigger is the only thing that fires it.
+const onUp = () => { down = 0; charging = 0; bindC = 0; };
 
 // ---------------------------------------------------------------------------
 // The puppet (DESIGN.md 6). The recovered head-and-neck mesh, placed in CAMERA
@@ -637,7 +646,7 @@ const eyes = () => {
   // Charging, the eyes run the rainbow. It eases in as the charge crosses the
   // smallest cast that would actually catch anything, so the colour arriving in
   // them is also the signal that letting go is now worth something.
-  const cg = charging ? min(1, bindR() / C.BINDMIN) : 0;
+  const cg = charging ? min(1, bindC / C.BINDCHG) : 0;
   const ic = cg ? mix(C.IRIS, RBV[(clock * C.EYERB | 0) % 6], cg) : C.IRIS;
   for (const sx of [1, -1]) {
     const o = hw * C.EYES[2] * C.HEADS + d / 2;
@@ -932,6 +941,24 @@ const bow = (f) => {
   return mix(RBV[x | 0], RBV[(x | 0) + 1], x - (x | 0));
 };
 
+// Where the wave will end, drawn the whole time it charges. Coloured around its
+// circumference rather than across its width, so it reads as a rainbow ring
+// rather than one more band of the floor - and it brightens as the trigger comes
+// up, so the floor flooding out to meet a ring that is getting louder is the
+// whole readout of when it will go.
+const rim = (r, k) => {
+  const w = C.RIMW / 2;
+  for (let i = 0; i < C.BINDSEG; i++) {
+    const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
+    const q = [gpt(a0, r - w, 0), gpt(a1, r - w, 0), gpt(a1, r + w, 0), gpt(a0, r + w, 0)];
+    if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
+    g.fillStyle = css(bow(i / C.BINDSEG), C.RIMA * (0.35 + 0.65 * k));
+    g.beginPath();
+    for (const t of q) g.lineTo(t[0], t[1]);
+    g.fill();
+  }
+};
+
 // The charge: the rainbow faded across the floor out to what you have grown, with
 // a crest travelling outward through it so the whole disc pulses rather than
 // blinking as one.
@@ -952,13 +979,14 @@ const bindWall = () => {
   const u = 1 - wallT / C.WALLDUR;               // 0 at the cast, 1 as it dies
   const r = wallR * u ** 0.55;                   // out fast, then easing into place
   const a = C.WALLA * (1 - u) ** 0.9;
+  const n = 6 * C.WALLREP;                       // the same rainbow stacked, WALLREP times
   for (let i = 0; i < C.BINDSEG; i++) {
     const a0 = (i / C.BINDSEG) * 2 * PI, a1 = ((i + 1) / C.BINDSEG) * 2 * PI;
-    for (let b = 0; b < 6; b++) {
+    for (let b = 0; b < n; b++) {
       const h0 = C.WALLH * b / 6, h1 = C.WALLH * (b + 1) / 6;
       const q = [gpt(a0, r, h0), gpt(a1, r, h0), gpt(a1, r, h1), gpt(a0, r, h1)];
       if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
-      g.fillStyle = css(RBV[b], a * (1 - b / 8));
+      g.fillStyle = css(RBV[b % 6], a * (1 - b / (n + 2)));
       g.beginPath();
       for (const t of q) g.lineTo(t[0], t[1]);
       g.fill();
@@ -980,8 +1008,13 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
-  // The charge lies on the floor, under everything standing on it.
-  if (charging) groundBow(bindR());
+  // The charge lies on the floor, under everything standing on it. The rim sits
+  // out at BINDR the whole time, so where the wave will reach is known before it
+  // goes, not discovered when it arrives.
+  if (charging) {
+    groundBow(bindR());
+    rim(C.BINDR, bindC / C.BINDCHG);
+  }
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();
   g.globalCompositeOperation = 'source-over';
@@ -1055,7 +1088,7 @@ export const poseCheck = () => {
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR,
                              bindR: bindR() });
-export const bindInfo = () => ({ cost: bindCost, ready: bindT <= 0, cd: bindT });
+export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 
 addEventListener('resize', resize);
