@@ -272,12 +272,12 @@ export const C = {
   // 1 had a pool of one.
   CARDS: [
     [8, 1,  -1, 0, 20,   'FIRE RATE',     'shots a second'],
-    [8, 1,  -1, 0, 20,   'HORN DAMAGE',   'damage a horn'],
+    [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'damage a horn'],
     [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'metres'],
     [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'seconds'],
     [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'seconds'],
     [2, 3,  -1, 0, 10,   'EXTRA HEART',   'hearts'],
-    [2, 1,   5, 1, 10,   'REGEN',         'a wave'],
+    [2, 1,   5, 1, 10,   'HEAL',          'a wave'],
   ],
   // Extra heart's second level waits longer than its first.
   HEART2: 9,          // the wave extra heart level 2 opens on
@@ -300,6 +300,8 @@ export const C = {
   CARDU: 0.085,       // and the unit that number is in
   CARDI: 0.17,        // the icon's radius
   CARDBG: 'rgba(14,16,28,0.96)',
+  HEALC: [96, 214, 118],       // the two cards that give health back
+  SHOTR: [255, 68, 58],        // the top of the shot damage horn
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
@@ -1454,25 +1456,29 @@ const cardIcon = (i, x, y, r) => {
   g.lineWidth = max(2, r * 0.11);
   g.lineCap = 'round';
 
-  if (i < 0 || i > 4) {                           // the three about hearts
-    g.fillStyle = C.HPC;
-    if (i === 5) {                                // EXTRA HEART: one MORE of them
-      g.globalAlpha = 0.4;
-      heartAt(x - r * 0.46, y + r * 0.1, r * 0.68);
-      g.globalAlpha = 1;
-      heartAt(x + r * 0.36, y - r * 0.05, r * 0.8);
-    } else {
-      heartAt(x, y + r * (i < 0 ? 0.08 : 0.22), r * (i < 0 ? 1 : 0.78));
+  if (i < 0 || i > 4) {                           // the three about health
+    if (i === 5) {                                // EXTRA HEART: red, and one more
+      g.fillStyle = C.HPC;
+      heartAt(x, y + r * 0.12, r);
       g.strokeStyle = '#fff';
       g.beginPath();
-      if (i < 0) {                                // RECOVERY: brimming, a cross
-        g.moveTo(x - r * 0.42, y + r * 0.08); g.lineTo(x + r * 0.42, y + r * 0.08);
-        g.moveTo(x, y - r * 0.34); g.lineTo(x, y + r * 0.5);
-      } else {                                    // REGEN: filling, an arrow into it
-        g.moveTo(x, y - r * 1.05); g.lineTo(x, y - r * 0.42);
-        g.moveTo(x - r * 0.32, y - r * 0.72); g.lineTo(x, y - r * 1.05);
-        g.lineTo(x + r * 0.32, y - r * 0.72);
-      }
+      g.moveTo(x - r * 0.4, y + r * 0.06); g.lineTo(x + r * 0.4, y + r * 0.06);
+      g.moveTo(x, y - r * 0.34); g.lineTo(x, y + r * 0.46);
+      g.stroke();
+    } else if (i < 0) {                           // RECOVERY: all of it back
+      g.fillStyle = css(C.HEALC, 1);
+      g.globalAlpha = 0.32;
+      heartAt(x, y + r * 0.02, r * 1.18);
+      g.globalAlpha = 1;
+      heartAt(x, y + r * 0.14, r * 0.8);
+    } else {                                      // HEAL: green, filling
+      g.fillStyle = css(C.HEALC, 1);
+      heartAt(x, y + r * 0.22, r * 0.78);
+      g.strokeStyle = '#fff';
+      g.beginPath();
+      g.moveTo(x, y - r * 1.05); g.lineTo(x, y - r * 0.42);
+      g.moveTo(x - r * 0.32, y - r * 0.72); g.lineTo(x, y - r * 1.05);
+      g.lineTo(x + r * 0.32, y - r * 0.72);
       g.stroke();
     }
     g.lineCap = 'butt';
@@ -1482,7 +1488,12 @@ const cardIcon = (i, x, y, r) => {
   if (i < 2) {                                    // the two about shooting
     g.fillStyle = css(C.GOLD, 1);
     if (!i) for (const d of [-1, 0, 1]) hornAt(x + d * r * 0.64, y, r * 0.58);
-    else {                                        // HORN DAMAGE: one, and it lands
+    else {                                        // SHOT DAMAGE: one, and it lands
+      // Hot at the point, gold at the base - the same horn, carrying more.
+      const grd = g.createLinearGradient(0, y - r * 0.74, 0, y + r * 0.9);
+      grd.addColorStop(0, css(C.SHOTR, 1));
+      grd.addColorStop(1, css(C.GOLD, 1));
+      g.fillStyle = grd;
       hornAt(x, y + r * 0.18, r * 0.92);
       g.strokeStyle = '#fff';
       g.beginPath();
@@ -1505,16 +1516,9 @@ const cardIcon = (i, x, y, r) => {
       g.stroke();
     }
   };
-  if (i === 2) {                                  // RADIUS: two rings, pushing out
-    ring(r * 0.46, 0, 2 * PI);
+  if (i === 2) {                                  // RADIUS: one ring just inside another
+    ring(r * 0.74, 0, 2 * PI);
     ring(r, 0, 2 * PI);
-    g.strokeStyle = '#fff';
-    g.beginPath();
-    for (const a of [0, PI / 2, PI, -PI / 2]) {
-      g.moveTo(x + cos(a) * r * 0.6, y + sin(a) * r * 0.6);
-      g.lineTo(x + cos(a) * r * 0.86, y + sin(a) * r * 0.86);
-    }
-    g.stroke();
   } else if (i === 3) {                           // COOLDOWN: a clock, part run
     ring(r * 0.92, -PI / 2, PI);
     g.strokeStyle = '#fff';
@@ -1563,7 +1567,8 @@ const cardFace = (i, key, x, y, w, h) => {
     g.textAlign = 'center';
     g.fillStyle = C.CARDBG;
     g.fillRect(x, y, w, h);
-    g.strokeStyle = i < 0 ? C.HPC : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : C.HPC;
+    g.strokeStyle = i < 0 || i === 6 ? css(C.HEALC, 1)
+      : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : C.HPC;
     g.lineWidth = 2;
     g.strokeRect(x, y, w, h);
 
@@ -1574,11 +1579,16 @@ const cardFace = (i, key, x, y, w, h) => {
     g.fillText(i < 0 ? 'RECOVERY' : C.CARDS[i][5], mx, y + h * 0.16);
     g.fillStyle = '#8b93b8';
     type(C.CARDL);
-    g.fillText(i < 0 ? 'full health' : 'LV ' + (lv[i] + 1), mx, y + h * 0.28);
+    if (i >= 0) g.fillText('LV ' + (lv[i] + 1), mx, y + h * 0.28);
 
     cardIcon(i, mx, y + h * 0.52, w * C.CARDI);
 
-    if (i >= 0) {
+    if (i < 0) {                                  // Recovery says what it does instead
+      g.fillStyle = '#cfd6f5';
+      type(C.CARDU);
+      g.fillText('FULLY RECOVER', mx, y + h * 0.83);
+      g.fillText('HEALTH', mx, y + h * 0.94);
+    } else {
       const dp = i > 4 ? 0 : 2;
       g.fillStyle = '#cfd6f5';
       type(C.CARDV);
