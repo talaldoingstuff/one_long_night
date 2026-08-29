@@ -218,8 +218,28 @@ export const C = {
   GBOB: 0.09,         // bob amplitude
   GBOBR: 1.7,         // bob rate
   GCONTACT: 1.1,      // metres. Closer than this and it reaches you.
-  GSEG: 22,           // segments in the blob outline
-  DRIFTER: [3, 1.0, 1, 0.44, 0.16, 3, [214, 222, 240]],
+  GSPT: 5,            // outline segments per hem tooth. A multiple of the tooth
+                      // count, so tips and notches land on real vertices instead
+                      // of being rounded off by where the sampling happened to
+                      // fall - which is the difference between spikes and lumps.
+  SPIKE: 0.42,        // how deep a notch cuts, as a fraction of the radius
+  SHRUGD: 0.5,        // seconds a Warden shows the ring failing on it
+  // DESIGN.md 7: one generator, five parameter rows. Columns are
+  //   hp, speed x, damage, cost, unlocks at wave, radius m, wobble, wobble
+  //   frequency, wisps, colour
+  // Cost and the unlock wave belong to step 8's threat budget and are carried
+  // here because they are properties of the type, not of the spawner.
+  GSPEED: 1,          // metres a second at speed 1.0x
+  TYPES: [
+    [3,  1.0, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240]],   // Drifter, pale white
+    [2,  1.8, 1, 2,  3, 0.34, 0.04, 4, 4, [34, 201, 255]],    // Darter, sharp cyan
+    [10, 0.5, 3, 5,  5, 0.80, 0.07, 3, 7, [255, 72, 76]],     // Hulk, angry red
+    [6,  0.8, 1, 4, 10, 0.56, 0.08, 5, 6, [96, 214, 118]],    // Splitter, sickly green
+    [8,  0.7, 2, 6, 20, 0.64, 0.04, 3, 6, [235, 205, 130]],   // Warden, pale gold
+  ],
+  SPLIT: 3,           // the Splitter's row: dies into two Drifters
+  WARDEN: 4,          // the Warden's row: the bind cannot hold it
+  SPLITD: 0.5,        // how far apart the two children appear, metres
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
@@ -542,7 +562,12 @@ const cast = () => {
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
-    if (hypot(o[0], o[2]) <= r) o[8] = C.BINDDUR;
+    if (hypot(o[0], o[2]) > r) continue;
+    // DESIGN.md 7: the Warden is immune, and has to be SEEN shrugging it off, so
+    // the rule is learned by watching rather than by being told. A negative hold
+    // is that: same slot, so nothing else has to know about it, and it cannot be
+    // mistaken for being held because held is strictly positive.
+    o[8] = o[7] === C.WARDEN ? -C.SHRUGD : C.BINDDUR;
   }
 };
 
@@ -810,18 +835,23 @@ const puppet = () => {
 // The eyes are HOLES in the same path rather than dark fills - additive blending
 // cannot darken anything, so a drawn eye would glow instead of reading as a void.
 // ---------------------------------------------------------------------------
-const spawn = () => {
+// Slot 7 is the type, and every number about a ghost is read from its row.
+const TY = (o) => C.TYPES[o[7]];
+
+const born = (x, z, k) =>
+  ghosts.push([x, C.GY, z, C.TYPES[k][0], C.TYPES[k][0], 0, random() * 9, k, 0]);
+
+const spawn = (k) => {
   const a = random() * 2 * PI;
-  ghosts.push([cos(a) * C.ARENA, C.GY, sin(a) * C.ARENA,
-               C.DRIFTER[0], C.DRIFTER[0], 0, random() * 9, 0, 0]);
+  born(cos(a) * C.ARENA, sin(a) * C.ARENA, k);
 };
 
 const ghostAt = (o) => {
-  const t = C.DRIFTER;
+  const t = TY(o);
   const c = cam([o[0], o[1] + sin(clock * C.GBOBR + o[6]) * C.GBOB, o[2]]);
   if (c[2] < C.NEAR) return null;
   const s = C.F / (C.F + c[2]);
-  return { c, s, px: c[0] * s * PX + W / 2, py: c[1] * s * PX + H / 2, r: t[3] * s * PX, t };
+  return { c, s, px: c[0] * s * PX + W / 2, py: c[1] * s * PX + H / 2, r: t[5] * s * PX, t };
 };
 
 const drawGhost = (o, target) => {
@@ -832,26 +862,48 @@ const drawGhost = (o, target) => {
   const k = C.GFADE + (1 - C.GFADE) * (o[3] / o[4]);
   const hit = o[5] > 0;
   g.globalAlpha = min(1, k * 0.85);
-  g.fillStyle = hit ? '#fff' : 'rgb(' + t[6] + ')';
+  g.fillStyle = hit ? '#fff' : 'rgb(' + t[9] + ')';
+  const seg = t[8] * C.GSPT;
   g.beginPath();
-  for (let i = 0; i <= C.GSEG; i++) {
-    const a = (i / C.GSEG) * 2 * PI;
-    // The hem is the bottom: wobble grows toward it, so the top stays a head and
-    // the skirt does the moving.
-    const hem = max(0, sin(a));
-    const rr = v.r * (1 + t[4] * hem * sin(a * t[5] + clock * 2.2 + o[6])) * (1 + 0.16 * hem);
+  for (let i = 0; i <= seg; i++) {
+    const a = (i / seg) * 2 * PI;
+    // The hem is the BOTTOM. This was max(0, sin(a)) against a y of
+    // py - sin(a)*rr, which put the skirt on the crown: both the wobble and the
+    // widening were happening above the eyes.
+    const hem = max(0, -sin(a));
+    // Triangular teeth rather than a sine. DESIGN.md 7 says "sine-deformed wavy
+    // hem" and screenshots/ghost.png shows sharp points; the reference is the
+    // user's own and wins, but the disagreement is real and this is where it is.
+    // Weighted by hem, so the sides stay a smooth dome and only the skirt has
+    // points - which is also what the reference shows.
+    const tri = abs((i / C.GSPT % 1) * 2 - 1);
+    const wob = 1 + t[6] * sin(a * t[7] + clock * 2.2 + o[6]);
+    const rr = v.r * wob * (1 + 0.16 * hem) * (1 - hem * C.SPIKE * (1 - tri));
     g.lineTo(v.px + cos(a) * rr * 0.86, v.py - sin(a) * rr);
   }
   g.closePath();
-  const er = v.r * 0.17;
-  for (const ex of [-0.3, 0.3]) {                 // eye voids, wound as holes
-    g.moveTo(v.px + (ex + 0.12) * v.r, v.py - v.r * 0.28);
-    for (let i = 0; i <= 8; i++) {
-      const a = (i / 8) * 2 * PI;
-      g.lineTo(v.px + ex * v.r + cos(a) * er, v.py - v.r * 0.28 + sin(a) * er * 1.5);
+  // Round, large and set wide and high, per the reference. They were ellipses
+  // stretched 1.5x vertically, which read as a squint rather than a void.
+  const er = v.r * 0.2, ey = v.py - v.r * 0.24;
+  for (const ex of [-0.34, 0.34]) {                // eye voids, wound as holes
+    g.moveTo(v.px + ex * v.r + er, ey);
+    for (let i = 0; i <= 9; i++) {
+      const a = (i / 9) * 2 * PI;
+      g.lineTo(v.px + ex * v.r + cos(a) * er, ey + sin(a) * er);
     }
   }
   g.fill('evenodd');
+  // The bind arriving and failing: a ring of the Warden's own colour pushing out
+  // past it and fading. Under lighter, so it reads as light coming off it.
+  if (o[8] < 0) {
+    const q = 1 + o[8] / C.SHRUGD;
+    g.strokeStyle = 'rgb(' + t[9] + ')';
+    g.globalAlpha = 1 - q;
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.arc(v.px, v.py, v.r * (1.1 + q), 0, 7);
+    g.stroke();
+  }
   g.globalAlpha = 1;
   if (target === o) {                             // the one under the crosshair
     g.strokeStyle = '#fff';
@@ -897,7 +949,10 @@ const step = (dt) => {
   if (auto && !fireT) fire();                     // it fires on its own, at FIRE
 
   spawnT -= dt;
-  if (spawnT <= 0) { spawnT = C.SPAWN; spawn(); }
+  // Step 8 replaces this with the wave's threat budget and the unlock column.
+  // Until then it spawns every type evenly, so all five are visible and playable
+  // rather than five rows of data nothing reaches.
+  if (spawnT <= 0) { spawnT = C.SPAWN; spawn(random() * C.TYPES.length | 0); }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -906,10 +961,21 @@ const step = (dt) => {
     if (h[6] <= 0) { horns.splice(i, 1); continue; }
     for (let j = ghosts.length; j--;) {
       const o = ghosts[j];
-      if (hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) > C.HHIT + C.DRIFTER[3]) continue;
+      if (hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) > C.HHIT + TY(o)[5]) continue;
       o[3]--; o[5] = C.GFLASH;
       horns.splice(i, 1);
-      if (o[3] <= 0) { ghosts.splice(j, 1); kills++; }
+      if (o[3] <= 0) {
+        ghosts.splice(j, 1); kills++;
+        // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a
+        // wide bind worth having - you can hold the children before they scatter.
+        // Placed across the line to the player, so both keep the range the parent
+        // had rather than one being handed a head start.
+        if (o[7] === C.SPLIT) {
+          const d = hypot(o[0], o[2]) || 1;
+          for (const sx of [-1, 1])
+            born(o[0] - o[2] / d * sx * C.SPLITD, o[2] + o[0] / d * sx * C.SPLITD, 0);
+        }
+      }
       break;
     }
   }
@@ -918,17 +984,18 @@ const step = (dt) => {
     const o = ghosts[i];
     o[5] = max(0, o[5] - dt);
     if (o[8] > 0) { o[8] -= dt; continue; }      // held: it neither moves nor reaches you
+    if (o[8] < 0) o[8] = min(0, o[8] + dt);      // shrugging it off, and still coming
     const d = hypot(o[0], o[2]) || 1;
     if (d < C.GCONTACT) {                         // reached you: hits and is gone
       ghosts.splice(i, 1);
       if (!inv) {
-        hearts -= min(C.DMGCAP, C.DRIFTER[2]);
+        hearts -= min(C.DMGCAP, TY(o)[2]);
         inv = C.IFRAME; shake = 1;
         if (hearts <= 0) { hearts = 0; over = 1; }
       }
       continue;
     }
-    const v = C.DRIFTER[1] * dt / d;
+    const v = C.GSPEED * TY(o)[1] * dt / d;
     o[0] -= o[0] * v; o[2] -= o[2] * v;
   }
 };
@@ -992,7 +1059,7 @@ const minimap = () => {
     const d = hypot(bx, bz), c = min(1, reach / (d || 1)) * k;
     g.beginPath();
     g.arc(ox + bx * c, oy - bz * c, C.MAPBLIP * r, 0, 2 * PI);
-    g.fillStyle = o[8] > 0 ? css(C.RIMC, 1) : 'rgb(' + C.DRIFTER[6] + ')';
+    g.fillStyle = o[8] > 0 ? css(C.RIMC, 1) : 'rgb(' + TY(o)[9] + ')';
     g.fill();
   }
 
