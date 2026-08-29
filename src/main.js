@@ -252,10 +252,11 @@ export const C = {
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0],    // Warden, pale gold
   ],
   EYEH: 1.7,          // a scared eye is stretched this much taller than it is wide
-  EYEBOW: 1.25,       // and its lower edge is that height scaled by 1 - EYEBOW, so
-                      // 1 is a flat lid and anything over 1 curves up INTO the eye.
-                      // Both are needed: a lid curving up into a short eye closes
-                      // it to a lens, and a lens with a domed top reads as a smile
+  EYEBOW: 1,          // and its lower edge is that height scaled by 1 - EYEBOW, so
+                      // 1 is a straight lid, under 1 rounds it out and over 1
+                      // curves it up INTO the eye. A curved lid on a tall dome
+                      // still read as a smile, so the Darter takes the flat one:
+                      // a tall dome cut off square is what a wide open eye is.
   SPLIT: 3,           // the Splitter's row: dies into two Drifters
   WARDEN: 4,          // the Warden's row: the bind cannot hold it
   SPLITD: 0.5,        // how far apart the two children appear, metres
