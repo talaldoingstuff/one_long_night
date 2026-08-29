@@ -254,12 +254,11 @@ export const C = {
   XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
   XHW: 3.5,           // and its thickness
   XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
-  ASSISTR: 3,         // aim assist reaches this many of a ghost's radii - wider
+  ASSISTR: 1.6,       // aim assist reaches this many of a ghost's radii - wider
                       // than the pick, so it pulls you onto things you are only
                       // near, and stops the moment you are on one
   ASSIST: 3,          // and closes that much of the gap a second
-  BARSW: 0.15,        // the charging marker, as a fraction of the bar
-  BARSLW: 2,          // its thickness
+  BARSLW: 3,          // the charging outline, px
   BARSC: '#fff',
   TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
@@ -1202,13 +1201,25 @@ const hud = () => {
     g.fillRect(bx + a, by, b - a, bh);
   }
 
-  // Charging says so differently: a white box running left to right along the bar.
-  // Movement rather than level, so it cannot be mistaken for the fill under it.
+  // Charging draws the bar's own outline, laid down left to right as it fills.
+  // One continuous line: in along the top to the left corner, down the left edge,
+  // back out along the bottom. It is the outline rather than another fill, so it
+  // cannot be read as the level underneath it.
+  //
+  // There is no closing right edge, because there is no frame to draw it on: cast()
+  // fires inside step(), before render(), so the frame where f would reach 1 is the
+  // frame charging is already over. The last drawn one is 99.4% across, and a
+  // right edge that can never be seen is just bytes.
   if (charging) {
-    const ww = bw * C.BARSW;
+    const f = min(1, bindC / C.BINDCHG), e = bx + bw * f;
     g.strokeStyle = C.BARSC;
     g.lineWidth = C.BARSLW;
-    g.strokeRect(bx + (bw - ww) * min(1, bindC / C.BINDCHG), by, ww, bh);
+    g.beginPath();
+    g.moveTo(e, by);
+    g.lineTo(bx, by);
+    g.lineTo(bx, by + bh);
+    g.lineTo(e, by + bh);
+    g.stroke();
   }
 
   minimap();
