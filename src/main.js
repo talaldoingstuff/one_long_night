@@ -244,8 +244,12 @@ export const C = {
   HUDU: 0.036,        // the unit everything in the HUD is sized off, a fraction
                       // of the smaller screen dimension
   HEARTS2: 2,         // hearts drawn at this multiple of it
-  BARW: 0.9,          // the rainbow bar, as a fraction of the heart row's width
-  BARH: 0.3,          // and of a heart's height
+  WAVEF: 2.7,         // the wave counter, as a multiple of the unit
+  KILLF: 1.24,        // and the kill count
+  BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
+                      // so it runs out past the left of the three that are there
+  BARH: 0.3,          // its height, as a fraction of a heart's
+  BARGAP: 0.55,       // and the gap under the hearts, so it does not crowd them
   BARBG: 'rgba(255,255,255,0.1)',
 
   HEARTS: 3,
@@ -975,12 +979,10 @@ const minimap = () => {
 // ---------------------------------------------------------------------------
 const hud = () => {
   const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
-  let left = 0;
   for (let i = 0; i < C.HEARTS; i++) {            // hearts, top-right
     g.fillStyle = i < hearts ? '#ff3b6b' : '#2a2136';
     g.beginPath();
     const x = W - 16 - hu - i * (hu * 1.35), y = 18;
-    left = x;
     g.moveTo(x + hu / 2, y + hu);
     g.lineTo(x, y + hu * 0.38);
     g.lineTo(x + hu * 0.25, y);
@@ -995,8 +997,10 @@ const hud = () => {
   // was cut, and the mane it moved to is a small thing on a puppet you are not
   // looking at while something is closing. This says the same thing where the
   // hearts already have your eye.
-  const bw = (W - 16 - left) * C.BARW, bh = hu * C.BARH;
-  const bx = W - 16 - bw, by = 18 + hu + bh * 0.6;
+  // 1.35 is the heart pitch used above, so BARN of 5 is exactly the width five
+  // hearts would occupy - which puts its left end well past the three there are.
+  const bw = hu * (1 + (C.BARN - 1) * 1.35), bh = hu * C.BARH;
+  const bx = W - 16 - bw, by = 18 + hu + hu * C.BARGAP;
   g.fillStyle = C.BARBG;
   g.fillRect(bx, by, bw, bh);
   // Charging fills it toward the cast; otherwise it is how far the cooldown has
@@ -1012,13 +1016,25 @@ const hud = () => {
 
   if (!over) minimap();
 
-  // Wave above, kills below it, both on the centre line.
-  g.fillStyle = '#8b93b8';
+  // READY under the bar, in the bind's own cyan - the colour the rim and the
+  // held blips already use, so it says which thing is ready without a word more.
+  if (!charging && bindT <= 0) {
+    g.fillStyle = css(C.RIMC, 1);
+    g.textAlign = 'center';
+    g.font = (bh * 1.15 | 0) + 'px monospace';
+    g.fillText('READY', bx + bw / 2, by + bh * 2.3);
+  }
+
+  // Wave above, kills below it, both on the centre line. The wave takes the
+  // horn's gold, which is now also the map dot - one colour for the thing the
+  // run is counted in.
   g.textAlign = 'center';
-  g.font = (u * 0.9 | 0) + 'px monospace';
-  g.fillText('WAVE ' + wave, W / 2, 18 + u * 0.9);
-  g.font = (u * 0.62 | 0) + 'px monospace';
-  g.fillText('KILLS ' + kills, W / 2, 18 + u * 1.75);
+  g.fillStyle = css(C.GOLD, 1);
+  g.font = (u * C.WAVEF | 0) + 'px monospace';
+  g.fillText('WAVE ' + wave, W / 2, 18 + u * C.WAVEF);
+  g.fillStyle = '#8b93b8';
+  g.font = (u * C.KILLF | 0) + 'px monospace';
+  g.fillText('KILLS ' + kills, W / 2, 18 + u * (C.WAVEF + C.KILLF * 1.15));
   g.textAlign = 'left';
 
   if (!over) {                                    // crosshair, on the horn's line
