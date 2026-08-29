@@ -124,6 +124,9 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   BINDDUR: 3,         // how long a caught ghost is held. A card.
+  KTURN: 2.2,         // radians a second of keyboard turn. DESIGN.md 12 calls turn
+                      // speed the primary difficulty knob, so this is the same
+                      // knob TURN is, in the units a key can be held in.
   ARM: 0.3,           // seconds of holding still before the charge begins. The
                       // start of every press is free for turning, so a drag never
                       // charges by accident.
@@ -595,6 +598,36 @@ const onMove = (e) => {
 // trigger is the only thing that fires it.
 const onUp = () => { down = 0; charging = 0; bindC = 0; armT = -1; };
 
+// Keyboard. DESIGN.md 12 specifies pointer only; this is an addition rather than
+// a replacement, and every path below ends in the same state the pointer sets.
+//
+// WASD and the arrows turn. They are read as held rather than as events, in
+// step(), so the turn rate is KTURN a second regardless of how fast the OS
+// decides to repeat a key.
+const KEYS = {};
+const TURNK = {
+  KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0],
+  KeyW: [0, 1], ArrowUp: [0, 1], KeyS: [0, -1], ArrowDown: [0, -1],
+};
+
+// Space is the bind, and it skips the arming window. That window exists only
+// because one pointer has to carry turning and binding both; a key that does
+// nothing else has nothing to be told apart from, so there is nothing to wait
+// for. Setting armT to ARM rather than charging directly means the rest -
+// starting the moment a cooldown ends, and one press one cast - is the same
+// machinery the pointer uses, already written and already tested.
+const onKey = (e) => {
+  const d = e.type === 'keydown';
+  if (d && KEYS[e.code]) return;                 // ignore the OS repeating it
+  if (!TURNK[e.code] && e.code !== 'Space') return;
+  KEYS[e.code] = d ? 1 : 0;
+  e.preventDefault();                            // or space scrolls the page
+  if (e.code !== 'Space') return;
+  if (!d) { charging = 0; bindC = 0; armT = -1; return; }
+  if (over) { reset(); return; }
+  if (bindT <= 0) armT = C.ARM;
+};
+
 // ---------------------------------------------------------------------------
 // The puppet (DESIGN.md 6). The recovered head-and-neck mesh, placed in CAMERA
 // space: it is worn, not placed in the world.
@@ -839,6 +872,13 @@ const step = (dt) => {
   rec = max(0, rec - dt / C.RECT);
   bindT = max(0, bindT - dt);
   wallT = max(0, wallT - dt);
+  let kx = 0, ky = 0;
+  for (const c in TURNK) if (KEYS[c]) { kx += TURNK[c][0]; ky += TURNK[c][1]; }
+  if (kx || ky) {
+    yaw += kx * C.KTURN * dt;
+    pitch = min(C.PITCHMAX, max(-C.PITCHMAX, pitch + ky * C.KTURN * dt));
+    aim();
+  }
   // It lets go by itself at BINDCHG. Waiting for the player to release would let
   // them hold a full ring indefinitely and pick their moment for free.
   if (charging && (bindC += dt) >= C.BINDCHG) cast();
@@ -1296,6 +1336,8 @@ addEventListener('pointerdown', onDown);
 addEventListener('pointermove', onMove);
 addEventListener('pointerup', onUp);
 addEventListener('pointercancel', onUp);
+addEventListener('keydown', onKey);
+addEventListener('keyup', onKey);
 
 resize();
 reset();
