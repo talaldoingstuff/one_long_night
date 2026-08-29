@@ -262,7 +262,9 @@ export const C = {
 
   // --- Upgrade cards (DESIGN.md 9) --------------------------------------------
   // Row: cap, gate wave, prerequisite card (-1 for none), the level of that
-  // prerequisite needed, weight, title, and the unit its number is shown in.
+  // prerequisite needed, weight, title, the unit its number is shown in, and the
+  // level you ALREADY have. Everything ships at level 1, so its first card is
+  // level 2 - except extra heart, which you do not have at all until you take one.
   //
   // Gates are what shape the pool, not the weights: regen sitting behind extra
   // heart means hearts are the entry fee for sustain, which is 9's "weight regen
@@ -271,13 +273,13 @@ export const C = {
   // beside the guaranteed fire rate - the gates were staggered so hard that wave
   // 1 had a pool of one.
   CARDS: [
-    [8, 1,  -1, 0, 20,   'FIRE RATE',     'Shots A Second'],
-    [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'Damage A Horn'],
-    [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'Metres'],
-    [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'Seconds'],
-    [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'Seconds'],
-    [2, 3,  -1, 0, 10,   'EXTRA HEART',   'Hearts'],
-    [2, 1,   5, 1, 10,   'HEAL',          'A Wave'],
+    [8, 1,  -1, 0, 20,   'FIRE RATE',     'Shots A Second', 1],
+    [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'Damage A Horn',  1],
+    [4, 1,  -1, 0, 13.3, 'BIND RADIUS',   'Metres',         1],
+    [4, 2,  -1, 0, 13.3, 'BIND COOLDOWN', 'Seconds',        1],
+    [4, 2,  -1, 0, 13.3, 'BIND HOLD',     'Seconds',        1],
+    [2, 3,  -1, 0, 10,   'EXTRA HEART',   'Hearts',         0],
+    [2, 1,   5, 1, 10,   'HEAL',          'A Wave',         1],
   ],
   // Extra heart's second level waits longer than its first.
   HEART2: 9,          // the wave extra heart level 2 opens on
@@ -301,6 +303,8 @@ export const C = {
   CARDI: 0.17,        // the icon's radius
   CARDBG: 'rgba(14,16,28,0.96)',
   HEALC: [96, 214, 118],       // the two cards that give health back
+  HEALP: 2,           // seconds an about-to-be-healed heart pulses before it settles
+  HEALR: 9,           // and how fast it pulses, radians a second
   SHOTR: [255, 68, 58],        // the top of the shot damage horn
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
@@ -350,8 +354,10 @@ export const C = {
                       // so it runs out past the left of the three that are there
   BARH: 0.3,          // its height, as a fraction of a heart's
   BARGAP: 0.55,       // and the gap under the HEALTH label, so it does not crowd it
-  HPC: '#ff3b6b',     // the hearts, and the word under them - one colour, so the
-                      // label and the thing it names read as one block
+  HPC: [255, 59, 107],// the hearts, and the word under them - one colour, so the
+                      // label and the thing it names read as one block. An array
+                      // rather than a hex string, so a healing heart can be mixed
+                      // toward white instead of just blinking between the two.
   BARBG: 'rgba(255,255,255,0.1)',
 
   HEARTS: 3,
@@ -573,7 +579,7 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
-    lv, offer, picking, maxhp;
+    lv, offer, picking, maxhp, healT, healA, healN;
 
 const reset = () => {
   ghosts = []; horns = [];
@@ -581,6 +587,7 @@ const reset = () => {
   maxhp = C.HEARTS;
   hearts = maxhp; kills = 0; over = 0;
   offer = []; picking = 0;
+  healT = 0; healA = 0; healN = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
@@ -1019,7 +1026,12 @@ const take = (i) => {
   else if (++lv[i] && i === 5) { maxhp++; hearts++; }
   picking = 0;
   wave++;
-  hearts = min(maxhp, hearts + sRegen());         // DESIGN.md 9: healed between waves
+  // Healed between waves (DESIGN.md 9), and SEEN to be: the hearts about to come
+  // back pulse white for HEALP before settling to red, so the wave does not just
+  // begin with more health than it ended with.
+  const was = hearts;
+  hearts = min(maxhp, hearts + sRegen());
+  if (hearts > was) { healA = was; healN = hearts - was; healT = C.HEALP; }
   budget = budgetFor(wave);
   spawnT = 0;
 };
@@ -1172,6 +1184,7 @@ const step = (dt) => {
   nextB -= dt;
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
   inv = max(0, inv - dt);
+  healT = max(0, healT - dt);
   if (auto && !fireT) fire();                     // it fires on its own, at FIRE
 
   spawnT -= dt;
@@ -1317,7 +1330,10 @@ const hud = () => {
   const u = min(W, H) * C.HUDU, hu = u * C.HEARTS2;
   if (over) return overScreen(u);
   for (let i = 0; i < maxhp; i++) {               // hearts, top-right
-    g.fillStyle = i < hearts ? C.HPC : '#2a2136';
+    const heal = healT > 0 && i >= healA && i < healA + healN;
+    g.fillStyle = heal
+      ? css(mix(C.HPC, [255, 255, 255], 0.5 + 0.5 * sin(clock * C.HEALR)), 1)
+      : i < hearts ? css(C.HPC, 1) : '#2a2136';
     g.beginPath();
     const x = W - 16 - hu - i * (hu * 1.35), y = 18;
     g.moveTo(x + hu / 2, y + hu);
@@ -1333,7 +1349,7 @@ const hud = () => {
   const lbl = u * C.KILLF;
   g.textAlign = 'right';
   g.font = (lbl | 0) + 'px monospace';
-  g.fillStyle = C.HPC;
+  g.fillStyle = css(C.HPC, 1);
   g.fillText('HEALTH', W - 16, 18 + hu + lbl);
 
   // The rainbow bar under them: how much of the bind is back. DESIGN.md 11 says
@@ -1458,7 +1474,7 @@ const cardIcon = (i, x, y, r) => {
 
   if (i < 0 || i > 4) {                           // the three about health
     if (i === 5) {                                // EXTRA HEART: red, and one more
-      g.fillStyle = C.HPC;
+      g.fillStyle = css(C.HPC, 1);
       heartAt(x, y + r * 0.12, r);
       g.strokeStyle = '#fff';
       g.beginPath();
@@ -1564,7 +1580,7 @@ const cardFace = (i, x, y, w, h) => {
     g.fillStyle = C.CARDBG;
     g.fillRect(x, y, w, h);
     g.strokeStyle = i < 0 || i === 6 ? css(C.HEALC, 1)
-      : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : C.HPC;
+      : i < 2 ? css(C.GOLD, 1) : i < 5 ? css(C.RIMC, 1) : css(C.HPC, 1);
     g.lineWidth = 2;
     g.strokeRect(x, y, w, h);
 
@@ -1575,7 +1591,7 @@ const cardFace = (i, x, y, w, h) => {
     g.fillText(i < 0 ? 'RECOVERY' : C.CARDS[i][5], mx, y + h * 0.16);
     g.fillStyle = '#8b93b8';
     type(C.CARDL);
-    if (i >= 0) g.fillText('LV ' + (lv[i] + 1), mx, y + h * 0.28);
+    if (i >= 0) g.fillText('LV ' + (lv[i] + C.CARDS[i][7] + 1), mx, y + h * 0.28);
 
     cardIcon(i, mx, y + h * 0.52, w * C.CARDI);
 
@@ -1890,6 +1906,7 @@ export const poseCheck = () => {
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
                              wave, budget, waveT, hurtT, shake, lv, offer, picking, maxhp,
+                             healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
                              regen: sRegen(),
                              bindR: bindR() });
