@@ -251,6 +251,9 @@ export const C = {
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   GFLASH: 0.11,       // seconds of white on a hit
+  TGTW: 2.5,          // the target outline, px. It traces the ghost's own
+                      // silhouette rather than circling it, so what is lit up is
+                      // the thing you are about to shoot and not a hoop near it
 
   // --- Player (DESIGN.md 10) -------------------------------------------------
   // --- Minimap (DESIGN.md 11) ------------------------------------------------
@@ -884,7 +887,10 @@ const drawGhost = (o, target) => {
   // Opacity is the health bar (DESIGN.md 7): a nearly-dead ghost is visibly faint.
   const k = C.GFADE + (1 - C.GFADE) * (o[3] / o[4]);
   const hit = o[5] > 0;
-  g.globalAlpha = min(1, k * 0.85);
+  // A hit reads at full strength whatever the fade says. Opacity is the health
+  // bar (7), so a nearly-dead ghost is faint - and the flash confirming you hit it
+  // was fading with it, exactly when it matters most.
+  g.globalAlpha = hit ? 1 : min(1, k * 0.85);
   g.fillStyle = hit ? '#fff' : 'rgb(' + t[9] + ')';
   // A dome with teeth, built as an outline rather than as a modulated circle.
   // Deforming a circle can only ever make a lumpy circle: the dome and the teeth
@@ -913,6 +919,15 @@ const drawGhost = (o, target) => {
   for (let i = 0; i <= n; i++)
     g.lineTo(v.px + w - (i / n) * 2 * w, i % 2 ? ny : hy);
   g.closePath();
+  // The target outline goes on here, while the path is still just the body: the
+  // eye voids are subpaths of the same path, and stroking after they are added
+  // would draw rings round the eyes too. Stroked before the fill, so the fill
+  // covers its inner half and what is left is a line hugging the silhouette.
+  if (target === o) {
+    g.strokeStyle = css(C.GOLD, 1);
+    g.lineWidth = C.TGTW;
+    g.stroke();
+  }
   // Round, large and set wide and high, per the reference. They were ellipses
   // stretched 1.5x vertically, which read as a squint rather than a void.
   const er = v.r * 0.2, ey = v.py - v.r * 0.24;
@@ -936,13 +951,6 @@ const drawGhost = (o, target) => {
     g.stroke();
   }
   g.globalAlpha = 1;
-  if (target === o) {                             // the one under the crosshair
-    g.strokeStyle = '#fff';
-    g.lineWidth = 1.5;
-    g.beginPath();
-    g.arc(v.px, v.py, v.r * 1.15, 0, 7);
-    g.stroke();
-  }
 };
 
 // ---------------------------------------------------------------------------
