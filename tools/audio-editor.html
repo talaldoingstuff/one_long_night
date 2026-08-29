@@ -127,6 +127,8 @@ const enable = btn('CLICK HERE TO START THE SOUND', (b) => {
 }, 'big');
 panel.append(enable);
 
+slider('MASTER', () => C._VOL, (v) => (C._VOL = v), 0, 3, 0.05, (v) => v.toFixed(2) + 'x');
+
 const mute = btn('mute', (b) => { muted ^= 1; M.setMuted(muted); b.classList.toggle('on', !!muted); });
 const quiet = btn('studio', (b) => {
   studio ^= 1;
@@ -163,7 +165,7 @@ const S = () => C._SFX[sel];
 slider('from', () => S()[FROM], (v) => (S()[FROM] = v), 20, 2000, 1, (v) => v + ' Hz');
 slider('to', () => S()[TO], (v) => (S()[TO] = v), 20, 2000, 1, (v) => v + ' Hz');
 slider('length', () => S()[LEN], (v) => (S()[LEN] = v), 0.02, 1.5, 0.005, (v) => v.toFixed(3) + 's');
-slider('volume', () => S()[VOL], (v) => (S()[VOL] = v), 0, 0.2, 0.001, (v) => v.toFixed(3));
+slider('volume', () => S()[VOL], (v) => (S()[VOL] = v), 0, 0.6, 0.002, (v) => v.toFixed(3));
 picker('wave', () => S()[WAVE], (v) => (S()[WAVE] = v), C._OSC);
 slider('attack', () => C._ATK, (v) => (C._ATK = v), 0.001, 0.08, 0.001, (v) => v.toFixed(3) + 's');
 slider('pan (preview)', () => pan, (v) => (pan = v), -1, 1, 0.05, (v) => v.toFixed(2));
@@ -175,7 +177,7 @@ bar(btn('play', play), btn('play all', async () => {
     await new Promise((r) => setTimeout(r, 480));
   }
 }));
-p('attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
+p('MASTER scales every sound and the music together, so the balance between them survives moving the whole mix. attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
 
 // ---------------------------------------------------------------------------
 // The rainbow charge - a series, not a sound
@@ -185,7 +187,7 @@ slider('from', () => C._CHG[FROM], (v) => (C._CHG[FROM] = v), 20, 2000, 1, (v) =
 slider('to', () => C._CHG[TO], (v) => (C._CHG[TO] = v), 20, 2000, 1, (v) => v + ' Hz');
 slider('tick lift', () => C._CHGUP, (v) => (C._CHGUP = v), 0.5, 3, 0.05, (v) => v.toFixed(2) + 'x');
 slider('tick length', () => C._CHG[LEN], (v) => (C._CHG[LEN] = v), 0.01, 0.3, 0.005, (v) => v.toFixed(3) + 's');
-slider('volume', () => C._CHG[VOL], (v) => (C._CHG[VOL] = v), 0, 0.12, 0.001, (v) => v.toFixed(3));
+slider('volume', () => C._CHG[VOL], (v) => (C._CHG[VOL] = v), 0, 0.4, 0.002, (v) => v.toFixed(3));
 picker('wave', () => C._CHG[WAVE], (v) => (C._CHG[WAVE] = v), C._OSC);
 slider('gap at 0%', () => C._CHGGAP[0], (v) => (C._CHGGAP[0] = v), 0.02, 0.8, 0.01, (v) => v.toFixed(2) + 's');
 slider('gap at 100%', () => C._CHGGAP[1], (v) => (C._CHGGAP[1] = v), 0.02, 0.8, 0.01, (v) => v.toFixed(2) + 's');
@@ -213,7 +215,7 @@ p('It ticks rather than sweeping because a charge can be cancelled: a series jus
 // Music
 // ---------------------------------------------------------------------------
 h2('music');
-slider('volume', () => C._MUSV, (v) => (C._MUSV = v), 0, 0.08, 0.001, (v) => v.toFixed(3));
+slider('volume', () => C._MUSV, (v) => (C._MUSV = v), 0, 0.3, 0.002, (v) => v.toFixed(3));
 slider('gap', () => C._MUSGAP, (v) => (C._MUSGAP = v), 0.3, 8, 0.1, (v) => v.toFixed(1) + 's');
 slider('note length', () => C._MUSDUR, (v) => (C._MUSDUR = v), 0.2, 6, 0.1, (v) => v.toFixed(1) + 's');
 slider('root', () => C._MUSROOT, (v) => (C._MUSROOT = v), 55, 330, 1, (v) => v + ' Hz');
@@ -271,7 +273,7 @@ function drawEnv() {
   ec.moveTo(0, h);
   for (let x = 0; x <= w; x++) {
     const t = x / w * span;
-    ec.lineTo(x, h - (h - 14) * Math.min(1, amp(Math.min(t, dur)) / 0.2) * (t > dur ? 0 : 1));
+    ec.lineTo(x, h - (h - 14) * Math.min(1, amp(Math.min(t, dur)) / 0.6) * (t > dur ? 0 : 1));
   }
   ec.lineTo(w, h);
   ec.fill();
@@ -303,12 +305,14 @@ const out = document.createElement('textarea');
 panel.append(out);
 bar(btn('copy', () => navigator.clipboard.writeText(out.value)));
 
+const NL = String.fromCharCode(10);
 const n3 = (v) => (+v).toFixed(3);
 const pad = (s, n) => String(s).padStart(n);
 
 function dump() {
   out.value =
     "  _OSC: ['sine', 'square', 'sawtooth', 'triangle'],\n" +
+    '  _VOL: ' + (+C._VOL).toFixed(2) + ',' + NL +
     '  _SFX: [\n' +
     C._SFX.map((q, i) =>
       '    [' + pad(q[FROM], 3) + ', ' + pad(q[TO], 4) + ', ' + n3(q[LEN]) + ', ' +

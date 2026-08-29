@@ -417,19 +417,22 @@ export const C = {
   //
   // Row: from, to, seconds, volume, wave. A sound is a pitch falling or rising
   // through a shape - that is all a short sound is.
+  // Every volume below is relative to the others; this scales the lot at once, so
+  // the mix can be moved without thirteen numbers having to agree about it.
+  _VOL: 1,
   _OSC: ['sine', 'square', 'sawtooth', 'triangle'],
   _SFX: [
-    [620, 300, 0.045, 0.030, 1],   // 0  a shot leaving the horn
-    [420, 150, 0.050, 0.045, 1],   // 1  one landing
-    [300, 90,  0.160, 0.055, 3],   // 2  something dying
-    [90,  430, 0.340, 0.055, 0],   // 3  the rainbow going off
-    [880, 1330, 0.120, 0.026, 0],  // 4  something caught in it
-    [170, 50,  0.240, 0.080, 2],   // 5  being hit
-    [520, 780, 0.070, 0.038, 3],   // 6  a click: taking a card, and any press after it
-    [320, 275, 0.100, 0.028, 0],   // 7  something arriving, panned to its bearing
-    [230, 185, 0.100, 0.045, 2],   // 8  a Warden shrugging the rainbow off
-    [440, 660, 0.100, 0.042, 3],   // 9  a wave cleared
-    [300, 60,  0.900, 0.070, 3],   // 10 the run ending
+    [620, 300, 0.045, 0.120, 1],   // 0  a shot leaving the horn
+    [420, 150, 0.050, 0.180, 1],   // 1  one landing
+    [300, 90,  0.160, 0.220, 3],   // 2  something dying
+    [90,  430, 0.340, 0.220, 0],   // 3  the rainbow going off
+    [880, 1330, 0.120, 0.104, 0],  // 4  something caught in it
+    [170, 50,  0.240, 0.320, 2],   // 5  being hit
+    [520, 780, 0.070, 0.152, 3],   // 6  a click: taking a card, and any press after it
+    [320, 275, 0.100, 0.112, 0],   // 7  something arriving, panned to its bearing
+    [230, 185, 0.100, 0.180, 2],   // 8  a Warden shrugging the rainbow off
+    [440, 660, 0.100, 0.168, 3],   // 9  a wave cleared
+    [300, 60,  0.900, 0.280, 3],   // 10 the run ending
   ],
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
 
@@ -437,14 +440,14 @@ export const C = {
   // one long sweep: a charge can be cancelled, and a series of ticks simply stops
   // where a sustained note would have to be faded out and cleaned up. It also
   // says how far along you are, which is the thing you actually need to know.
-  _CHG: [300, 900, 0.035, 0.022, 0],   // pitch at the start of the charge, at the end, length, volume, wave
+  _CHG: [300, 900, 0.035, 0.088, 0],   // pitch at the start of the charge, at the end, length, volume, wave
   _CHGUP: 1.5,        // and each tick lifts by this much across its own length
   _CHGGAP: [0.3, 0.07],  // seconds between ticks, at the start and at the end
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
   // Nothing repeats exactly, and there is no melody to get tired of.
-  _MUSV: 0.020,       // how loud a note is - under a shot, and it never rises
+  _MUSV: 0.080,       // how loud a note is - under a shot, and it never rises
   _MUSGAP: 2.4,       // seconds between notes, give or take a third
   _MUSDUR: 1.9,       // and how long one rings
   _MUSROOT: 131,      // C3. The key climbs a semitone every few waves
@@ -1550,7 +1553,7 @@ const tone = (f0, f1, dur, vol, wave, pan) => {
   // Ramped up and down rather than switched: a gain that starts at full clicks,
   // and exponentialRamp cannot reach zero, so it lands just above it.
   v.gain.setValueAtTime(0, t0);
-  v.gain.linearRampToValueAtTime(vol, t0 + C._ATK);
+  v.gain.linearRampToValueAtTime(vol * C._VOL, t0 + C._ATK);
   v.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
   p.pan.value = pan || 0;
   o.connect(v).connect(p).connect(A.destination);
