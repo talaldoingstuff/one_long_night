@@ -264,7 +264,7 @@ export const C = {
     [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Drifter, pale white
     [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0],   // Darter, sharp cyan
     [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5], // Hulk, angry red
-    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0, 0, 0, 1, 1.2, 0.12, 0],         // Splitter, sickly green
+    [10, 1.00, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 0.85],   // Splitter, sickly green
     [16, 0.90, 2, 7, 30, 0.64, 0.04, 3, 6, [235, 205, 130], 0, 0, 0, 0, 1, 1.2, 0.12, 0],        // Warden, pale gold
   ],
   EYEY: 0.42,         // how far above the middle a scared eye's flat top sits, in
@@ -1155,7 +1155,11 @@ const drawGhost = (o, target) => {
     // either side of it, which puts them out on the shoulders.
     const mid = C.GDOME >> 1, sp = round(t[17] * mid);
     const k = t[11] && (sp ? i === mid - sp || i === mid + sp : i === mid) ? 1 + t[11] : 1;
-    bp.push([v.px + cos(a) * w * q, dy + sin(a) * w * q * k]);
+    // k scales BOTH axes, so a horn grows straight out of the surface wherever it
+    // sits. Scaling only y made it push upward instead - which is the same thing
+    // at the crown, where x is zero, and almost nothing out at the sides, where
+    // the surface is nearly vertical. That is why the Splitter's did not appear.
+    bp.push([v.px + cos(a) * w * q * k, dy + sin(a) * w * q * k]);
   }
   // Down the right side to the first tip, then t[8] tips and the notches between
   // them, ending on the left side. closePath takes it back up to the dome.
