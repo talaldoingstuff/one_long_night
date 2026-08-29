@@ -527,6 +527,11 @@ const reset = () => {
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
   rec = 0; blink = 0; nextB = C.BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
+  // armT is input state and outlives a run, so it has to be cleared here too. Die
+  // mid-charge and it is still sitting at ARM; the click that restarts returns
+  // before setting it, and the fresh run arms itself and starts charging with the
+  // pointer never having been held.
+  armT = -1;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -997,6 +1002,11 @@ const drawGhost = (o, target) => {
 // ---------------------------------------------------------------------------
 const step = (dt) => {
   clock += dt;
+  // These two outlive the run. The blow that kills you is the one you most need
+  // to feel, and it was the only one nobody ever saw: they were set on the same
+  // frame as over, and everything below here stops.
+  shake = max(0, shake - dt * 4);
+  hurtT = max(0, hurtT - dt);
   if (over) return;
   fireT = max(0, fireT - dt);
   rec = max(0, rec - dt / C.RECT);
@@ -1024,8 +1034,6 @@ const step = (dt) => {
   nextB -= dt;
   if (nextB <= 0) { blink = C.BLINKD; nextB = C.BLINK0 + random() * (C.BLINK1 - C.BLINK0); }
   inv = max(0, inv - dt);
-  shake = max(0, shake - dt * 4);
-  hurtT = max(0, hurtT - dt);
   if (auto && !fireT) fire();                     // it fires on its own, at FIRE
 
   spawnT -= dt;
@@ -1450,7 +1458,10 @@ const bindWall = () => {
 const render = () => {
   // On the over screen there is nothing to draw but the screen itself - no sky,
   // no ghosts, no puppet. Everything below assumes a run in progress.
-  if (over) return hud();
+  //
+  // Except while the killing blow is still landing: the world stays up for HURTD,
+  // frozen, taking the kick and the red, and the results come after it.
+  if (over && !hurtT) return hud();
 
   // Being hit kicks the whole view, not just the horizon line. It was a jitter
   // applied to hy alone, which moved the join between sky and ground while every
@@ -1517,6 +1528,7 @@ const render = () => {
     g.fillStyle = css(C.HURTC, C.HURTA * hurtT / C.HURTD);
     g.fillRect(0, 0, W, H);
   }
+  if (over) return;                               // dying: the world and the red, no HUD
   hud();
 };
 
