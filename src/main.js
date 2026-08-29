@@ -140,6 +140,9 @@ export const C = {
   BINDA: 0.55,        // the brightest a band gets
   RIMW: 0.35,         // width of the circle marking where the wave will end, metres
   RIMA: 0.85,         // and its brightness at the moment it fires
+  RIMFI: 0.35,        // seconds it fades in over. Hung on the charge rather than
+                      // on the arming window: the fade is worth having, but only
+                      // once there is a charge to announce.
   RIMC: [34, 201, 255],        // cyan - the rainbow's own, so it stays in palette
   BINDWAV: 2.2,       // wave crests across the radius
   BINDPUL: 0.9,       // crests per second, travelling outward
@@ -978,6 +981,7 @@ const bow = (f) => {
 // up, so the floor flooding out to meet a ring that is getting louder is the
 // whole readout of when it will go.
 const rim = (r, a) => {
+  if (a < 0.01) return;                          // nothing to see, and 44 quads to skip
   const w = C.RIMW / 2;
   g.fillStyle = css(C.RIMC, a);
   for (let i = 0; i < C.BINDSEG; i++) {
@@ -1046,7 +1050,10 @@ const render = () => {
   // rotate reads as the bind going off early.
   if (charging) {
     groundBow(bindR());
-    rim(C.BINDR, C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG));
+    // Two ramps in one: a quick fade in over RIMFI so it arrives rather than
+    // appears, then the slow brightening across the whole charge that says how
+    // close the trigger is.
+    rim(C.BINDR, C.RIMA * (0.35 + 0.65 * bindC / C.BINDCHG) * min(1, bindC / C.RIMFI));
   }
   for (const o of ghosts) drawGhost(o, target);
   if (wallT > 0) bindWall();

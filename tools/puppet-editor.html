@@ -251,6 +251,8 @@ slider('rim width', () => C.RIMW, (v) => (C.RIMW = v), 0.05, 2, 0.05,
        (v) => v.toFixed(2) + 'm');
 slider('rim brightness', () => C.RIMA, (v) => (C.RIMA = v), 0.1, 1, 0.05,
        (v) => v.toFixed(2));
+slider('rim fades in', () => C.RIMFI, (v) => (C.RIMFI = v), 0.01, 1.5, 0.01,
+       (v) => v.toFixed(2) + 's');
 
 h2('the wall');
 slider('height', () => C.WALLH, (v) => (C.WALLH = v), 0.5, 8, 0.1,
@@ -333,7 +335,7 @@ const dump = () => {
     '  BINDCD: ' + f(C.BINDCD) + ',  BINDR: ' + f(C.BINDR) + ',  BINDDUR: ' + f(C.BINDDUR) +
       ',  BINDCHG: ' + f(C.BINDCHG) + ',\n' +
     '  ARM: ' + f(C.ARM) + ',  ARMPX: ' + C.ARMPX + ',\n' +
-    '  RIMW: ' + f(C.RIMW) + ',  RIMA: ' + f(C.RIMA) + ',\n' +
+    '  RIMW: ' + f(C.RIMW) + ',  RIMA: ' + f(C.RIMA) + ',  RIMFI: ' + f(C.RIMFI) + ',\n' +
     '  BINDBAND: ' + C.BINDBAND + ',  BINDA: ' + f(C.BINDA) + ',  BINDWAV: ' + f(C.BINDWAV) +
       ',  BINDPUL: ' + f(C.BINDPUL) + ',\n' +
     '  BINDSEG: ' + C.BINDSEG + ',  WALLDUR: ' + f(C.WALLDUR) +
