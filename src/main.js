@@ -53,7 +53,7 @@ export const C = {
   // rainbow, and its width is a fraction of its radius rather than a number of
   // metres so perspective cannot thin it to nothing.
   _RINGC: [255, 255, 255],
-  _RING: [4, 0.02, 0.18],   // radius in metres, width as a fraction of it, alpha
+  _RING: [4, 0.02, 0.6],    // radius in metres, width as a fraction of it, alpha
   // Stars sit at a fixed bearing and height on a far cylinder, so they go through
   // the same projection as the floor and swing with the view instead of being
   // painted on the glass. Anything behind you culls itself.
