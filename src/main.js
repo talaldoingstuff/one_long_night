@@ -426,10 +426,10 @@ export const C = {
   _NQ: 0.8,
   _SFX: [
     [1100, 260, 0.080, 0.450, 4],  // 0  a shot leaving the horn
-    [420, 150, 0.050, 0.180, 1],   // 1  one landing
+    [420, 150, 0.050, 0.130, 3],   // 1  one landing
     [300, 90,  0.160, 0.220, 3],   // 2  something dying
     [170, 50,  0.240, 0.320, 2],   // 3  being hit
-    [520, 780, 0.070, 0.152, 3],   // 4  a click: taking a card, and any press after it
+    [520, 780, 0.070, 0.280, 3],   // 4  a click: taking a card, and any press after it
     [300, 60,  0.900, 0.280, 3],   // 5  the run ending
   ],
 
@@ -444,11 +444,14 @@ export const C = {
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
 
   // The charge is still a series - a charge can be cancelled, and a series just
-  // stops where a held note would have to be faded and cleaned up - but each tick
-  // now outlasts the gap after it. Early on they are separate pulses; by the end
-  // five overlap and it is one thickening beam. Same machinery, and it builds.
-  _CHG: [260, 1150, 0.220, 0.160, 2],   // pitch at the start of the charge, at the end, length, volume, wave
-  _CHGUP: 1.35,        // and each tick lifts by this much across its own length
+  // stops where a held note would have to be faded and cleaned up - but each note
+  // rings far longer than the gap after it, so they pile up into a thickening
+  // shimmer that ends on the chime the cast releases.
+  // Root, how many notes from bottom to top, how long one rings, volume, waveform.
+  // The pitches come off _MUSSCALE a step at a time, wrapping up an octave each
+  // time round, so the charge climbs a scale rather than sliding up a siren -
+  // which is what makes it belong to the chime it releases.
+  _CHG: [523, 12, 0.55, 0.130, 0],
   _CHGGAP: [0.34, 0.045],  // seconds between ticks, at the start and at the end
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
@@ -1602,8 +1605,10 @@ const arp = (i) => {
 // One tick of the charge, k being how far through it is. Returns how long to wait
 // for the next, so the accelerating part is the return value rather than state.
 const chargeTick = (k) => {
-  const q = C._CHG, f = q[0] + (q[1] - q[0]) * k;
-  tone(f, f * C._CHGUP, q[2], q[3], C._OSC[q[4]]);
+  const q = C._CHG, sc = C._MUSSCALE, n = sc.length;
+  const i = min(q[1] - 1, k * q[1] | 0);
+  const f = q[0] * 2 ** ((sc[i % n] + 12 * (i / n | 0)) / 12);
+  tone(f, f, q[2], q[3], C._OSC[q[4]]);
   return C._CHGGAP[0] + (C._CHGGAP[1] - C._CHGGAP[0]) * k;
 };
 

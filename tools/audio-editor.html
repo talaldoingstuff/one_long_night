@@ -208,11 +208,10 @@ p('With wave set to noise, from and to sweep a band across a rush of air rather 
 // The rainbow charge - a series, not a sound
 // ---------------------------------------------------------------------------
 h2('rainbow charge');
-slider('from', () => C._CHG[FROM], (v) => (C._CHG[FROM] = v), 20, 2000, 1, (v) => v + ' Hz');
-slider('to', () => C._CHG[TO], (v) => (C._CHG[TO] = v), 20, 2000, 1, (v) => v + ' Hz');
-slider('tick lift', () => C._CHGUP, (v) => (C._CHGUP = v), 0.5, 3, 0.05, (v) => v.toFixed(2) + 'x');
-slider('tick length', () => C._CHG[LEN], (v) => (C._CHG[LEN] = v), 0.01, 0.3, 0.005, (v) => v.toFixed(3) + 's');
-slider('volume', () => C._CHG[VOL], (v) => (C._CHG[VOL] = v), 0, 0.4, 0.002, (v) => v.toFixed(3));
+slider('root', () => C._CHG[FROM], (v) => (C._CHG[FROM] = v), 180, 1200, 1, (v) => v + ' Hz');
+slider('steps', () => C._CHG[TO], (v) => (C._CHG[TO] = v), 3, 24, 1, (v) => v + ' notes');
+slider('ring', () => C._CHG[LEN], (v) => (C._CHG[LEN] = v), 0.05, 1.5, 0.01, (v) => v.toFixed(2) + 's');
+slider('volume', () => C._CHG[VOL], (v) => (C._CHG[VOL] = v), 0, 0.5, 0.002, (v) => v.toFixed(3));
 picker('wave', () => C._CHG[WAVE], (v) => (C._CHG[WAVE] = v), C._OSC);
 slider('gap at 0%', () => C._CHGGAP[0], (v) => (C._CHGGAP[0] = v), 0.02, 0.8, 0.01, (v) => v.toFixed(2) + 's');
 slider('gap at 100%', () => C._CHGGAP[1], (v) => (C._CHGGAP[1] = v), 0.02, 0.8, 0.01, (v) => v.toFixed(2) + 's');
@@ -234,7 +233,7 @@ const runCharge = async () => {
 };
 bar(btn('play the whole charge', runCharge), btn('one tick', () => M.playCharge(0)),
     btn('last tick', () => M.playCharge(1)));
-p('Each tick outlasts the gap after it, so early on they are separate pulses and by the end five overlap into one thickening beam. It is still a series because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
+p('The pitches come off the music scale a step at a time, wrapping up an octave each time round, so it climbs a scale rather than sliding up a siren - which is what makes it belong to the chime it releases. Each note rings far longer than the gap after it, so they pile into a thickening shimmer. It is still a series because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
 
 // ---------------------------------------------------------------------------
 // The two sounds that are notes rather than a shape
@@ -400,7 +399,6 @@ function dump() {
       '],   // ' + i + '  ' + ARP[i]).join(NL) + NL + '  ],\n' +
     '  _CHG: [' + C._CHG[FROM] + ', ' + C._CHG[TO] + ', ' + n3(C._CHG[LEN]) + ', ' +
       n3(C._CHG[VOL]) + ', ' + C._CHG[WAVE] + '],\n' +
-    '  _CHGUP: ' + (+C._CHGUP).toFixed(2) + ',\n' +
     '  _CHGGAP: [' + (+C._CHGGAP[0]).toFixed(2) + ', ' + (+C._CHGGAP[1]).toFixed(2) + '],\n' +
     '  _MUSV: ' + n3(musV) + ',\n' +
     '  _MUSGAP: ' + (+C._MUSGAP).toFixed(1) + ',\n' +
