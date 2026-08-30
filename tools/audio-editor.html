@@ -65,15 +65,20 @@ const SFX = [
   'Every horn shot. Fires several times a second once SHOT RATE is levelled, so it has to stay out of the way.',
   'A horn landing on a ghost. One per hit, and the ghost flashes white on the same frame.',
   'A ghost dying.',
-  'The rainbow wave released at the end of the charge - the cast itself, going out across the ground. It is also the only sound the rainbow makes now: catching a ghost is silent.',
   'A ghost reaching you and taking a heart. The screen shakes and flashes red on the same frame.',
   'Any press: taking a card between waves, and the click that starts a new run. More buttons will use it.',
   'The last heart lost.',
 ];
 // Named for the moment, not for the sound: two of these were impossible to find
 // by ear because 'wave' and 'caught' said nothing about the rainbow.
-const SHORT = ['horn shot', 'ghost hit', 'ghost killed', 'RAINBOW WAVE',
-               'you get hit', 'click', 'game over'];
+const SHORT = ['horn shot', 'ghost hit', 'ghost killed', 'you get hit', 'click', 'game over'];
+// The two that are more than one note. They live in _ARP, not _SFX, and have
+// their own section - a chime is a list of intervals, not a shape.
+const ARP = ['RAINBOW WAVE', 'wave cleared'];
+const ARPD = [
+  'The rainbow wave landing. Five notes ringing over each other into a shimmer - the ring is far longer than the gap, so they overlap rather than arpeggiate.',
+  'The last ghost of a wave gone, however it went: killed, or having reached you and taken a heart. Going into the card screen.',
+];
 const FROM = 0, TO = 1, LEN = 2, VOL = 3, WAVE = 4;
 
 let sel = 0;            // the sound the sliders are editing
@@ -92,6 +97,7 @@ const slider = (label, get, set, lo, hi, step, fmt) => {
   const sync = () => { i.value = get(); v.textContent = fmt(+get()); };
   i.oninput = () => { set(+i.value); sync(); drawEnv(); dump(); };
   row.append(l, i, v); panel.append(row);
+  sync.row = row;
   ctl.push(sync); sync();
   return sync;
 };
@@ -231,20 +237,53 @@ bar(btn('play the whole charge', runCharge), btn('one tick', () => M.playCharge(
 p('Each tick outlasts the gap after it, so early on they are separate pulses and by the end five overlap into one thickening beam. It is still a series because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
 
 // ---------------------------------------------------------------------------
-// Wave cleared - a fanfare, so it has notes rather than a shape
+// The two sounds that are notes rather than a shape
 // ---------------------------------------------------------------------------
-h2('wave cleared');
-slider('root', () => C._WINR, (v) => (C._WINR = v), 180, 1200, 1, (v) => v + ' Hz');
-slider('spacing', () => C._WINS, (v) => (C._WINS = v), 0.02, 0.4, 0.005, (v) => v.toFixed(3) + 's');
-slider('note length', () => C._WIND, (v) => (C._WIND = v), 0.05, 1.5, 0.01, (v) => v.toFixed(2) + 's');
-slider('volume', () => C._WINV, (v) => (C._WINV = v), 0, 0.8, 0.005, (v) => v.toFixed(3));
-picker('wave', () => C._WINW, (v) => (C._WINW = v), C._OSC);
-for (let n = 0; n < 4; n++) {
-  slider('note ' + (n + 1), () => C._WIN[n], (v) => (C._WIN[n] = v), 0, 24, 1,
-         (v) => '+' + v + ' st');
+h2('chimes');
+let asel = 0;
+const Q = () => C._ARP[asel];
+const adesc = document.createElement('p');
+adesc.className = 'desc';
+adesc.textContent = ARPD[0];
+const arpRow = document.createElement('div'); arpRow.className = 'btns'; panel.append(arpRow);
+const arpBtns = ARP.map((n, i) => {
+  const b = btn(n, () => {
+    asel = i;
+    arpBtns.forEach((q, k) => q.classList.toggle('on', k === i));
+    adesc.textContent = ARPD[i];
+    ctl.forEach((f) => f());
+    noteRows();
+    M.playArp(i);
+  });
+  arpRow.append(b);
+  return b;
+});
+arpBtns[0].classList.add('on');
+panel.append(adesc);
+
+slider('root', () => Q()[1], (v) => (Q()[1] = v), 180, 1600, 1, (v) => v + ' Hz');
+slider('spacing', () => Q()[2], (v) => (Q()[2] = v), 0.01, 0.4, 0.005, (v) => v.toFixed(3) + 's');
+slider('ring', () => Q()[3], (v) => (Q()[3] = v), 0.05, 2, 0.01, (v) => v.toFixed(2) + 's');
+slider('volume', () => Q()[4], (v) => (Q()[4] = v), 0, 0.8, 0.005, (v) => v.toFixed(3));
+picker('wave', () => Q()[5], (v) => (Q()[5] = v), C._OSC);
+const nSync = slider('notes', () => Q()[0].length, (v) => {
+  const a = Q()[0];
+  while (a.length < v) a.push(a[a.length - 1] + 5);
+  while (a.length > v) a.pop();
+  ctl.forEach((f) => f());
+  noteRows();
+}, 1, 6, 1, (v) => v + '');
+const noteS = [];
+for (let n = 0; n < 6; n++) {
+  noteS.push(slider('note ' + (n + 1), () => Q()[0][n] || 0,
+    (v) => { if (n < Q()[0].length) Q()[0][n] = v; }, 0, 36, 1, (v) => '+' + v + ' st'));
 }
-bar(btn('play', () => M.playWin()));
-p('Four notes scheduled ahead on the audio clock in one go, so it keeps time even if a frame is late. 0 4 7 12 is a major arpeggio; 0 3 7 12 is the minor one, and 0 5 7 12 is neither.');
+// A row for an interval the chime does not have would just be a slider that does
+// nothing, so the ones past the count are taken off the panel instead.
+const noteRows = () => noteS.forEach((f, n) => { f.row.style.display = n < Q()[0].length ? '' : 'none'; });
+noteRows();
+bar(btn('play', () => M.playArp(asel)));
+p('Notes are scheduled ahead on the audio clock in one go, so they keep time even if a frame is late. Make the ring much longer than the spacing and they overlap into a shimmer; make it shorter and you get a plain arpeggio. 0 4 7 12 is major, 0 3 7 12 minor, 0 7 12 19 24 is the open one the rainbow uses.');
 
 // ---------------------------------------------------------------------------
 // Music
@@ -355,12 +394,10 @@ function dump() {
     '\n  ],\n' +
     '  _ATK: ' + n3(C._ATK) + ',\n' +
     '  _NQ: ' + (+C._NQ).toFixed(1) + ',\n' +
-    '  _WIN: [' + C._WIN.join(', ') + '],\n' +
-    '  _WINR: ' + C._WINR + ',\n' +
-    '  _WINS: ' + n3(C._WINS) + ',\n' +
-    '  _WIND: ' + (+C._WIND).toFixed(2) + ',\n' +
-    '  _WINV: ' + n3(C._WINV) + ',\n' +
-    '  _WINW: ' + C._WINW + ',\n' +
+    '  _ARP: [' + NL +
+    C._ARP.map((q, i) => '    [[' + q[0].join(', ') + '], ' + q[1] + ', ' +
+      n3(q[2]) + ', ' + (+q[3]).toFixed(2) + ', ' + n3(q[4]) + ', ' + q[5] +
+      '],   // ' + i + '  ' + ARP[i]).join(NL) + NL + '  ],\n' +
     '  _CHG: [' + C._CHG[FROM] + ', ' + C._CHG[TO] + ', ' + n3(C._CHG[LEN]) + ', ' +
       n3(C._CHG[VOL]) + ', ' + C._CHG[WAVE] + '],\n' +
     '  _CHGUP: ' + (+C._CHGUP).toFixed(2) + ',\n' +
