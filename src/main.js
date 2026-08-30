@@ -1635,6 +1635,15 @@ const step = (dt) => {
     }
   }
 
+  // Contacts are collected across the whole frame and settled after it, so that
+  // the WORST of a simultaneous clump lands rather than whichever the loop happened
+  // to reach first. It runs backwards through the list, so 'first' meant 'placed
+  // last': a Hulk arriving beside a Drifter cost 3 or 1 depending on which of them
+  // had spawned earlier, for the same two ghosts at the same instant.
+  //
+  // Anything arriving on a LATER frame is still stopped by inv, which is untouched -
+  // whoever gets there first takes the hit, and a frame is the resolution of first.
+  let worst = 0;
   for (let i = ghosts.length; i--;) {
     const o = ghosts[i];
     o[5] = max(0, o[5] - dt);
@@ -1643,16 +1652,17 @@ const step = (dt) => {
     const d = hypot(o[0], o[2]) || 1;
     if (d < C._GCONTACT) {                         // reached you: hits and is gone
       ghosts.splice(i, 1);
-      if (!inv) {
-        hearts -= min(C._DMGCAP, TY(o)[2]);
-        inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
-        sfx(3);
-        if (hearts <= 0) { hearts = 0; over = 1; sfx(5); }
-      }
+      if (!inv) worst = max(worst, TY(o)[2]);
       continue;
     }
     const v = C._GSPEED * TY(o)[1] * dt / d;
     o[0] -= o[0] * v; o[2] -= o[2] * v;
+  }
+  if (worst) {
+    hearts -= min(C._DMGCAP, worst);
+    inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
+    sfx(3);
+    if (hearts <= 0) { hearts = 0; over = 1; sfx(5); }
   }
 };
 
