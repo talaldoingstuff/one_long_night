@@ -156,12 +156,12 @@ export const C = {
   // 8 waves where a mouse cleared 31, because a half turn took 1.54s and things
   // arrive on every bearing. Parity starts at 5, and 6.5 and 8 buy nothing more.
   //
-  // 5 was then too fast to AIM with - a tap overshot the ghost. The simulation
-  // could not have found that: its player settles on a bearing exactly, so it
-  // measures how fast you can face a thing and never how hard it is to stop on
-  // one. 3.75 is 25% off that, and the same sweep had 3.5 at a median of 28, so
-  // it costs almost nothing of what the raise bought.
-  _KTURN: 3.75,        // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  // Set from the gesture rather than the rate: a half turn in 0.6s, a full one in
+  // 1.2s. That is 5.24, which is a shade above the 5 that overshot when it was
+  // tried against the old faster mouse - the mouse has since gone to a screen
+  // fraction and is slower on most displays, so the two were judged against each
+  // other again rather than in isolation.
+  _KTURN: 5.24,        // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
                       // knob TURN is, in the units a key can be held in. At 2.2
                       // it matched a 524px/s drag sustained forever, which is a
