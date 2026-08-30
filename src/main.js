@@ -385,6 +385,7 @@ export const C = {
   _CARDSC: '#fff',     // the square round the one the keyboard is on
   _CARDSW: 3,          // px
   _CARDSO: 12,         // and how far outside the card it sits
+  _CARDSP: [0.35, 6],  // and it breathes: dimmest it goes, and radians a second
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -2132,10 +2133,14 @@ const cardScreen = () => {
   g.fillText('Pick a Power Up', W / 2, H / 2 - ch / 2 - cw * 0.13);
 
   for (let n = 0; n < offer.length; n++) cardFace(offer[n], ...cardBox(offer.length, n));
-  const [sx, sy, sw, sh] = cardBox(offer.length, sel), o = C._CARDSO;
+  // It pulses so the eye finds it: a still white box on a screen of cards is one
+  // more rectangle, and a moving one is the answer to 'where am I'.
+  const [sx, sy, sw, sh] = cardBox(offer.length, sel), o = C._CARDSO, p = C._CARDSP;
+  g.globalAlpha = p[0] + (1 - p[0]) * (0.5 + 0.5 * sin(clock * p[1]));
   g.strokeStyle = C._CARDSC;
   g.lineWidth = C._CARDSW;
   g.strokeRect(sx - o, sy - o, sw + o * 2, sh + o * 2);
+  g.globalAlpha = 1;
   g.textAlign = 'left';
 };
 
