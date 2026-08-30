@@ -148,12 +148,12 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   _BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   _BINDDUR: 3,         // how long a caught ghost is held. A card.
-  _KTURN: 1.7,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  _KTURN: 2.04,        // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
                       // knob TURN is, in the units a key can be held in. At 2.2
                       // it matched a 524px/s drag sustained forever, which is a
                       // flick speed, not a panning one; 1.3 was a walk.
-  _KPITCH: 0.9,        // and its own rate for pitch, because that range is only
+  _KPITCH: 1.08,       // and its own rate for pitch, because that range is only
                       // 63 degrees end to end - one rate for both put the whole
                       // of it half a second apart.
   _ARM: 0.3,           // seconds of holding still before the charge begins. The
@@ -389,7 +389,9 @@ export const C = {
   // One list serves three effects, because a death, a glimmer inside the charging
   // ring and motes lifting where the wall passes are the same thing with different
   // numbers: a dot with a velocity, gravity and a life. Rows, like the sounds.
-  _PART: [260, 0.025, 0.85],      // cap, radius in metres, peak alpha
+  // Streaks, not dots: each one is drawn from where it is back to where it was a
+  // moment ago, so the length is its own speed and a fast fragment reads as fast.
+  _PART: [260, 0.05, 0.85, 0.18],  // cap, width in metres, peak alpha, tail in seconds
   _PDIE: [24, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
   _PGLI: [0.05, 0.7, 0.55],       // charging: seconds between one, life, lift
   // Four a frame across the wall's 0.45s life is about 110 fragments, and they
@@ -2319,17 +2321,24 @@ const partStep = (dt) => {
 
 const drawParts = () => {
   const q = C._PART;
+  g.lineCap = 'round';                            // so a slow one is still a dot
   for (const p of parts) {
     const c = cam([p[0], p[1], p[2]]);
-    if (c[2] < C._NEAR) continue;
-    const s = C._F / (C._F + c[2]);
+    // Both ends go through the projection, so a streak coming at you foreshortens
+    // instead of being a flat line of the same length wherever it is pointing.
+    const b = cam([p[0] - p[3] * q[3], p[1] - p[4] * q[3], p[2] - p[5] * q[3]]);
+    if (c[2] < C._NEAR || b[2] < C._NEAR) continue;
     g.globalAlpha = p[6] * q[2];
-    g.fillStyle = css(p[8], 1);
+    g.strokeStyle = css(p[8], 1);
+    g.lineWidth = q[1] * C._F / (C._F + c[2]) * PX;
     g.beginPath();
-    g.arc(c[0] * s * PX + W / 2, c[1] * s * PX + H / 2, q[1] * s * PX, 0, 7);
-    g.fill();
+    const e0 = proj(c), e1 = proj(b);
+    g.moveTo(e0[0], e0[1]);
+    g.lineTo(e1[0], e1[1]);
+    g.stroke();
   }
   g.globalAlpha = 1;
+  g.lineCap = 'butt';                             // it is a shared context
 };
 
 const render = () => {
