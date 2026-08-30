@@ -373,7 +373,11 @@ export const C = {
   // rather than a small number because the timer is polled once a frame: anything
   // under a frame fires every frame anyway, and 0.02 - which looks faster than a
   // frame - actually fired every OTHER one and gave half as many.
-  _PMOT: [0, 4, 0.8, 1.4],        // the wall: seconds between, dots, life, lift
+  // Mid-screen is eye level, so a fragment only crosses it once it has risen more
+  // than _EYE off the ground - 1.6m. At 0.8s and 1.4m/s the fastest managed 1.12m
+  // and none of them ever got there. 2s and 2.2m/s puts the slowest at 1.76m and
+  // the fastest at 4.4m, so the ring passes through the horizon and keeps going.
+  _PMOT: [0, 4, 2, 2.2],          // the wall: seconds between, dots, life, lift
   _XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
   _XHW: 3.5,           // and its thickness
   _XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
