@@ -351,7 +351,8 @@ export const C = {
   //
   // The budget sets how LONG a wave is; the spawn interval sets how HARD it is.
   // Both move, or waves just get longer.
-  _SPAWNTRY: 8,        // bearings tried per spawn; the roomiest one wins
+  _SPAWNTRY: 8,        // bearings tried per spawn, until one is clear
+  _SPAWNGAP: 0.14,     // radians - 8 degrees, past the 5.7 two of the widest take up
   _BUD0: 6,            // wave 1: six Drifters at a cost of 1 each
   _BUDR: 1.12,         // and 12% more threat every wave after
   _SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
@@ -383,7 +384,7 @@ export const C = {
   _CARDN: 3,           // cards offered between waves
   _CARDSC: '#fff',     // the square round the one the keyboard is on
   _CARDSW: 3,          // px
-  _CARDSO: 7,          // and how far outside the card it sits
+  _CARDSO: 12,         // and how far outside the card it sits
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -1200,15 +1201,21 @@ const TY = (o) => C._TYPES[o[7]];
 const born = (x, z, k) =>
   ghosts.push([x, C._GY, z, C._TYPES[k][0], C._TYPES[k][0], 0, random() * 9, k, 0]);
 
-// Best of SPAWNTRY bearings rather than the first one drawn: the one furthest
-// from anything already on the field wins. Two arriving on the same bearing hide
-// behind each other and only one of them can be shot.
+// A bearing that is not on top of anything already out there - and no more than
+// that. Two ghosts on one bearing hide behind each other and only one of them can
+// be shot; two that are merely close are fine, and are supposed to be, because a
+// ring of evenly spaced arrivals is a pattern the player can read.
 //
-// Best-of rather than reject-and-retry, because retrying cannot always succeed.
-// Measured: wave 1 has at most 6 alive at once, which is 60 degrees each, but
-// wave 30 has 27 - 13 degrees each, so ANY fixed minimum gap is unsatisfiable by
-// then and a retry loop would spin until it gave up anyway. This degrades: when
-// the ring is packed it still picks the roomiest gap left, which is all there is.
+// So: take the FIRST bearing clear of everything by SPAWNGAP, keeping the best
+// seen in case none is. Taking the best of all of them instead - which is what
+// this did first - maximises the gap every time, and measured that way the
+// spawns landed within a few percent of perfectly regular. The fallback matters
+// because a minimum gap cannot always be met: wave 1 has at most 6 alive, 60
+// degrees each, but wave 30 has 27, which is 13 degrees each.
+//
+// SPAWNGAP is 8 degrees because that is what stops them OVERLAPPING: the widest
+// ghost is 0.8m across at a 16m ring, which is 5.7 degrees of it, so 8 clears any
+// pair with a little to spare.
 const spawn = (k) => {
   let a = 0, best = -1;
   for (let i = 0; i < C._SPAWNTRY; i++) {
@@ -1226,6 +1233,7 @@ const spawn = (k) => {
       if (d < near) near = d;
     }
     if (near > best) { best = near; a = t; }
+    if (near >= C._SPAWNGAP) break;               // clear of everything: stop looking
   }
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
 };
