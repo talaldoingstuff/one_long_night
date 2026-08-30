@@ -46,21 +46,19 @@ export const C = {
   _HORIZ: '#1b2036',
 
   // --- The world ----------------------------------------------------------------
-  // A flat fill gives no distance at all: a ghost at 12m and one at 6m stand on
-  // identical ground, so range could only ever be read off their size. Rings fix
-  // that, and the arena edge shows where the world stops and where things arrive
-  // from. Achromatic on purpose - 14 keeps the strong colour for the rainbow.
-  _RINGC: [120, 140, 190],
-  // Width is a FRACTION of the radius, not a fixed number of metres. Measured: a
-  // fixed 0.035m band is 2.5px deep at 4m and 0.2px at 16m - the arena edge, the
-  // one ring that most needs to be seen, was invisible. As a fraction it runs
-  // 5.7px, 3.6, 2.7, 2.1, so they still thin with distance without vanishing.
-  _RING: [4, 0.02, 0.10, 0.30, 0.045],  // metres apart, width as a fraction of r, alpha, edge alpha, edge width
+  // One ring on the floor, close in. A set of them every 4m out to the arena did
+  // not earn its keep - four faint circles read as pattern rather than as scale -
+  // and one at arm's length does: it is the distance at which a ghost has become
+  // your problem. White, because it is the only thing on the floor that is not a
+  // rainbow, and its width is a fraction of its radius rather than a number of
+  // metres so perspective cannot thin it to nothing.
+  _RINGC: [255, 255, 255],
+  _RING: [4, 0.02, 0.18],   // radius in metres, width as a fraction of it, alpha
   // Stars sit at a fixed bearing and height on a far cylinder, so they go through
   // the same projection as the floor and swing with the view instead of being
   // painted on the glass. Anything behind you culls itself.
   _STAR: [70, 60, 0.03, 0.75, 0.5],  // how many, how far, lowest elevation, span, alpha
-  _STARS: 1.4,        // and how big, in pixels
+  _STARS: 2.8,        // and how big, in pixels
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
   // The mesh is the unicorn head and neck from the previous game, recovered from
@@ -2204,15 +2202,6 @@ const band = (r0, r1, col, a) => {
   }
 };
 
-// Distance rings, and the edge of the arena. Drawn with the same band() the
-// ground rainbow uses, so their width is in METRES: a stroked circle would have
-// come out fat near and thin far off the same radius.
-const rings = () => {
-  const q = C._RING;
-  for (let r = q[0]; r < C._ARENA; r += q[0]) band(r * (1 - q[1]), r * (1 + q[1]), C._RINGC, q[2]);
-  band(C._ARENA * (1 - q[4]), C._ARENA * (1 + q[4]), C._RINGC, q[3]);
-};
-
 // Where along the rainbow a fraction of the radius sits. The six colours are
 // stops, not slots, so any number of bands still reads as one rainbow instead of
 // repeating the palette however many times it happens to divide.
@@ -2352,7 +2341,10 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
-  rings();                                        // floor, so under everything on it
+  // The floor ring, under everything standing on it. Drawn with the same band()
+  // the ground rainbow uses, so its width is in metres and a stroked circle's
+  // fat-near-thin-far problem never arises.
+  band(C._RING[0] * (1 - C._RING[1]), C._RING[0] * (1 + C._RING[1]), C._RINGC, C._RING[2]);
   // Nothing is drawn until the bind is genuinely charging: the rim and the floor
   // arrive together. The rim used to fade in across the arming window as a "keep
   // holding" cue, which was worth it at ARM 1s and is not at 0.3s - every press
