@@ -41,9 +41,16 @@ export const C = {
   _PITCHMAX: 0.55,     // radians up and down
 
   // --- The world (DESIGN.md 14: dark field, dark sky, faint horizon) --------
-  _SKY: '#05060e',
-  _GND: '#0a0b10',
-  _HORIZ: '#1b2036',
+  // The time of day, and it runs down over a run. Two palettes and a blend
+  // between them rather than one palette a stop: measured, two-and-a-blend costs
+  // 61 bytes against 113 for six stops, because the cost is the DATA and six
+  // palettes is three times as much of it. The blend can be quantised into steps
+  // for the same 61 if a hard change per five waves ever reads better.
+  //
+  // Each row is skyTop, skyHorizon, groundFar, groundNear, horizonLine.
+  _ENV0: [[46, 20, 74], [130, 42, 70], [40, 33, 30], [84, 70, 56], [150, 80, 80]],
+  _ENV1: [[3, 4, 9], [8, 8, 18], [7, 7, 10], [16, 15, 18], [27, 32, 54]],
+  _ENVW: 30,          // the wave the night is complete on
 
   // --- The world ----------------------------------------------------------------
   // One ring on the floor, close in. A set of them every 4m out to the arena did
@@ -57,7 +64,9 @@ export const C = {
   // Stars sit at a fixed bearing and height on a far cylinder, so they go through
   // the same projection as the floor and swing with the view instead of being
   // painted on the glass. Anything behind you culls itself.
-  _STAR: [70, 60, 0.03, 0.75, 0.5],  // how many, how far, lowest elevation, span, alpha
+  // The last number is how much of that alpha survives at wave 1: an early
+  // evening sky washes most of them out, and full dark brings them all up.
+  _STAR: [70, 60, 0.03, 0.75, 0.5, 0.25],
   _STARS: 2.8,        // and how big, in pixels
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
@@ -2160,6 +2169,12 @@ const gpt = (a, r, h) => {
   return c[2] < C._NEAR ? null : proj(c);
 };
 
+// How far through the evening this run is: 0 on wave 1, 1 from _ENVW on. One
+// number, read by the sky, the ground and the stars, so they can never disagree
+// about what time it is.
+const night = () => min(1, (wave - 1) / (C._ENVW - 1));
+const envC = (i) => mix(C._ENV0[i], C._ENV1[i], night());
+
 // A fixed sky, made once. Elevation is a tangent rather than a height so the
 // spread is even in ANGLE - taking the height straight piles most of them up
 // near the horizon, where the projection is squashed.
@@ -2171,10 +2186,11 @@ const sky = () => {
       STARS.push([random() * 2 * PI, C._EYE + q[1] * tan(q[2] + random() * q[3]),
                   q[4] * (0.3 + random() * 0.7)]);
   g.fillStyle = '#fff';
+  const dark = q[5] + (1 - q[5]) * night();
   for (const t of STARS) {
     const p = gpt(t[0], q[1], t[1]);
     if (!p) continue;
-    g.globalAlpha = t[2];
+    g.globalAlpha = t[2] * dark;
     g.fillRect(p[0], p[1], C._STARS, C._STARS);
   }
   g.globalAlpha = 1;
@@ -2331,12 +2347,24 @@ const render = () => {
   // the same vanishing height, so the horizon is one straight line whose only
   // input is pitch. Overdrawn by the kick, so the shake cannot expose an edge.
   const hy = H / 2 + tan(pitch) * C._F * PX;
-  g.fillStyle = C._SKY;
+  // Both gradients are anchored to the HORIZON rather than to the screen, so the
+  // warm band stays welded to the skyline when the view pitches instead of
+  // sliding up and down it.
+  const ramp = (y0, y1, a, b) => {
+    const q = g.createLinearGradient(0, y0, 0, y1);
+    q.addColorStop(0, css(envC(a), 1));
+    q.addColorStop(1, css(envC(b), 1));
+    return q;
+  };
+  g.fillStyle = ramp(hy - H, hy, 0, 1);
   g.fillRect(-m, -m, W + 2 * m, H + 2 * m);
   sky();                                          // before the ground, which clips them
-  g.fillStyle = C._GND;
+  // Ground brightness is distance: the floor under you catches the last of the
+  // light and it falls away toward the skyline. Screen y IS distance on a ground
+  // plane, so a vertical ramp is a radial one for free.
+  g.fillStyle = ramp(hy, H + m, 2, 3);
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
-  g.fillStyle = C._HORIZ;
+  g.fillStyle = css(envC(4), 1);
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
 
   const target = underCrosshair();
