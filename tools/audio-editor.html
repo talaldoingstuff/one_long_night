@@ -178,8 +178,13 @@ const musBtn = btn('music off', (b) => {
   b.classList.toggle('on', !!musOff);
   b.textContent = musOff ? 'music OFF' : 'music off';
 });
-bar(mute, musBtn, quiet, btn('clear the field', () => M.place([])), btn('restart', () => M.restart()));
-p('music off leaves the music volume alone. studio stops the puppet auto-firing.');
+const sfxBtn = btn('sfx off', (b) => {
+  C._SFXV ^= 1;                                   // a master for the sounds alone
+  b.classList.toggle('on', !C._SFXV);
+  b.textContent = C._SFXV ? 'sfx off' : 'sfx OFF';
+});
+bar(mute, musBtn, sfxBtn, quiet, btn('clear the field', () => M.place([])), btn('restart', () => M.restart()));
+p('music off and sfx off leave every volume alone - they are masters, not the sliders. studio stops the puppet auto-firing.');
 
 // ---------------------------------------------------------------------------
 // One sound at a time
@@ -315,11 +320,37 @@ p('Ring much longer than spacing shimmers; shorter arpeggiates. 0 4 7 12 major, 
 // Music
 // ---------------------------------------------------------------------------
 h2('music');
+const MODES = ['random', 'figure', '+ pulse', '+ threat'];
+const MODED = [
+  'What it has been: a random note off the scale every couple of seconds, panned at random. Random pitch AND random pan means every note is a small event the ear has to dismiss, which is most of why it reads as noise instead of as background.',
+  'A fixed four-step figure, centred, repeating - so the ear stops attending to it. The tension is in the harmony instead: the interval marked -1 darkens as the waves climb, fifth to minor sixth to tritone to minor second. The key climbing a semitone never did that; it only transposed.',
+  'And a pulse on every beat with a drone under it, all on one clock, the tempo rising with the wave. A regular pulse carries no information, so it adds pressure without adding clutter.',
+  'And the tension follows the FIELD instead of the wave number - what is alive, and what it has already cost you. The density never changes, so it never gets noisier, only tenser. This is also the one that partly covers the off-screen threat the spawn cue used to.',
+];
+const mdesc = document.createElement('p');
+mdesc.className = 'desc';
+const modeRow = document.createElement('div'); modeRow.className = 'btns'; group.append(modeRow);
+const modeBtns = MODES.map((n, i) => {
+  const b = btn(n, () => {
+    C._MUSM = i;
+    modeBtns.forEach((q, k) => q.classList.toggle('on', k === i));
+    mdesc.textContent = MODED[i];
+    ctl.forEach((f) => f());
+    modeRows();
+    dump();
+  });
+  modeRow.append(b);
+  return b;
+});
+modeBtns[C._MUSM].classList.add('on');
+mdesc.textContent = MODED[C._MUSM];
+group.append(mdesc);
+
 slider('volume', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.6, 0.005, (v) => v.toFixed(3));
-slider('gap', () => C._MUSGAP, (v) => (C._MUSGAP = v), 0.3, 8, 0.1, (v) => v.toFixed(1) + 's');
+const gapS = slider('gap', () => C._MUSGAP, (v) => (C._MUSGAP = v), 0.3, 8, 0.1, (v) => v.toFixed(1) + 's');
 slider('note length', () => C._MUSDUR, (v) => (C._MUSDUR = v), 0.2, 6, 0.1, (v) => v.toFixed(1) + 's');
 slider('root', () => C._MUSROOT, (v) => (C._MUSROOT = v), 55, 330, 1, (v) => v + ' Hz');
-slider('spread', () => C._MUSPAN, (v) => (C._MUSPAN = v), 0, 2, 0.05, (v) => v.toFixed(2));
+const panS = slider('spread', () => C._MUSPAN, (v) => (C._MUSPAN = v), 0, 2, 0.05, (v) => v.toFixed(2));
 
 // The scale is the one thing here that is not a number on a line.
 const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -338,11 +369,46 @@ const scaleBtns = NOTE.map((n, i) => {
   return b;
 });
 
+// Mode 0 keeps the old knobs; the rest are driven by the beat clock. Showing all
+// of them at once would be showing two music engines at the same time.
+const only0 = [gapS, panS];
+const only1 = [
+  slider('BPM at wave 1', () => C._MUSBPM[0], (v) => (C._MUSBPM[0] = v), 24, 160, 1, (v) => v + ''),
+  slider('BPM at wave ' + C._MUSW, () => C._MUSBPM[1], (v) => (C._MUSBPM[1] = v), 24, 200, 1, (v) => v + ''),
+];
+for (let n = 0; n < 4; n++) {
+  only1.push(slider('step ' + (n + 1), () => C._MUSFIG[n], (v) => (C._MUSFIG[n] = v), -1, 24, 1,
+    (v) => (v < 0 ? 'tension' : '+' + v + ' st')));
+}
+const TEN = ['calm', 'wary', 'bad', 'worst'];
+for (let n = 0; n < 4; n++) {
+  only1.push(slider(TEN[n], () => C._MUSTEN[n], (v) => (C._MUSTEN[n] = v), 1, 12, 1, (v) => '+' + v + ' st'));
+}
+const only2 = [
+  slider('pulse note', () => C._MUSP[0], (v) => (C._MUSP[0] = v), -24, 12, 1, (v) => v + ' st'),
+  slider('pulse length', () => C._MUSP[1], (v) => (C._MUSP[1] = v), 0.03, 0.6, 0.01, (v) => v.toFixed(2) + 's'),
+  slider('pulse volume', () => C._MUSP[2], (v) => (C._MUSP[2] = v), 0, 0.5, 0.005, (v) => v.toFixed(3)),
+  slider('drone note', () => C._MUSD[0], (v) => (C._MUSD[0] = v), -24, 12, 1, (v) => v + ' st'),
+  slider('drone length', () => C._MUSD[1], (v) => (C._MUSD[1] = v), 1, 12, 0.1, (v) => v.toFixed(1) + 's'),
+  slider('drone volume', () => C._MUSD[2], (v) => (C._MUSD[2] = v), 0, 0.4, 0.005, (v) => v.toFixed(3)),
+];
+const only3 = [
+  slider('full tension at', () => C._MUSTHR, (v) => (C._MUSTHR = v), 1, 16, 1, (v) => v + ' ghosts'),
+];
+const modeRows = () => {
+  const show = (list, on) => list.forEach((f) => { f.row.style.display = on ? '' : 'none'; });
+  show(only0, C._MUSM === 0);
+  show(only1, C._MUSM > 0);
+  show(only2, C._MUSM > 1);
+  show(only3, C._MUSM > 2);
+};
+
 let wv = 1;
 slider('wave (key)', () => wv, (v) => { wv = v; M.setWave(v); }, 1, 36, 1,
        (v) => v + '  +' + ((v / 3 | 0) % 12));
 bar(btn('play a note now', () => M.stepMusic(1e9)));
-p('One note every couple of seconds, root under every fourth, key climbing a semitone every three waves.');
+modeRows();
+p('Modes stack: each contains the one before it, and only the controls a mode uses are shown.');
 
 // ---------------------------------------------------------------------------
 // The envelope, drawn
@@ -413,6 +479,7 @@ function dump() {
   out.value =
     "  _OSC: ['sine', 'square', 'sawtooth', 'triangle'],\n" +
     '  _VOL: ' + (+C._VOL).toFixed(2) + ',' + NL +
+    '  _SFXV: ' + (+C._SFXV).toFixed(2) + ',' + NL +
     '  _SFX: [\n' +
     C._SFX.map((q, i) =>
       '    [' + pad(q[FROM], 3) + ', ' + pad(q[TO], 4) + ', ' + n3(q[LEN]) + ', ' +
@@ -432,7 +499,15 @@ function dump() {
     '  _MUSDUR: ' + (+C._MUSDUR).toFixed(1) + ',\n' +
     '  _MUSROOT: ' + C._MUSROOT + ',\n' +
     '  _MUSSCALE: [' + C._MUSSCALE.join(', ') + '],\n' +
-    '  _MUSPAN: ' + (+C._MUSPAN).toFixed(2) + ',';
+    '  _MUSPAN: ' + (+C._MUSPAN).toFixed(2) + ',' + NL +
+    '  _MUSM: ' + C._MUSM + ',' + NL +
+    '  _MUSFIG: [' + C._MUSFIG.join(', ') + '],' + NL +
+    '  _MUSTEN: [' + C._MUSTEN.join(', ') + '],' + NL +
+    '  _MUSBPM: [' + C._MUSBPM.join(', ') + '],' + NL +
+    '  _MUSW: ' + C._MUSW + ',' + NL +
+    '  _MUSTHR: ' + C._MUSTHR + ',' + NL +
+    '  _MUSP: [' + C._MUSP[0] + ', ' + n3(C._MUSP[1]) + ', ' + n3(C._MUSP[2]) + ', ' + C._MUSP[3] + '],' + NL +
+    '  _MUSD: [' + C._MUSD[0] + ', ' + n3(C._MUSD[1]) + ', ' + n3(C._MUSD[2]) + ', ' + C._MUSD[3] + '],';
 }
 
 // ---------------------------------------------------------------------------
