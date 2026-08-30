@@ -421,6 +421,12 @@ export const C = {
   // the mix can be moved without thirteen numbers having to agree about it.
   _VOL: 1,      // the mix below is already at the level it is meant to play at
   _SFXV: 1,     // and this one is the sounds alone, so music can be judged without them
+  // A limiter across the whole output. Without one the mix has no headroom left
+  // to put music into: the sounds alone peak at 0.96 of the 1.0 the destination
+  // clamps at, so anything audible underneath them clips. Threshold, knee, ratio,
+  // attack, release - a brickwall, so nothing below it is touched at all and the
+  // sounds already tuned by ear sound exactly as they did.
+  _LIM: [-2, 0, 20, 0.002, 0.1],
   _OSC: ['sine', 'square', 'sawtooth', 'triangle', 'noise'],
   // A bandpass throws away everything outside the band, so a noise sound at the
   // same gain as a pitched one is far quieter. Wide enough to keep the weight.
@@ -474,7 +480,7 @@ export const C = {
   _MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]],
   _BPM: [120, 160],   // the grid, at wave 1 and at _MUSW
   _MUSW: 30,
-  _MUSV: 0.300,       // the music bus; every layer below is a fraction of it
+  _MUSV: 0.720,       // the music bus; every layer below is a fraction of it
   // The lead is NOISE - the tune played by a band swept across a rush of air
   // rather than by a pitch. A sine was a music box and was the single thing
   // making this sound like a toy. Its gain is over 1 because a bandpass throws
@@ -1563,8 +1569,19 @@ const minimap = () => {
 // one made outside a gesture, and complains about it in the console, which
 // DESIGN.md 2 says has to stay empty.
 let A, muted = 0, mT = 0, mS = 0, mI = 0, mW = 0, mP = 0, chgT = 0, chgN = 0;
+let bus;
 const audio = () => {
-  if (!A) A = new AudioContext();
+  if (!A) {
+    A = new AudioContext();
+    bus = A.createDynamicsCompressor();
+    const q = C._LIM;
+    bus.threshold.value = q[0];
+    bus.knee.value = q[1];
+    bus.ratio.value = q[2];
+    bus.attack.value = q[3];
+    bus.release.value = q[4];
+    bus.connect(A.destination);
+  }
   if (A.state === 'suspended') A.resume();
 };
 
@@ -1610,7 +1627,7 @@ const tone = (f0, f1, dur, vol, wave, pan, at) => {
   v.gain.linearRampToValueAtTime(vol * C._VOL, t0 + C._ATK);
   v.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
   p.pan.value = pan || 0;
-  v.connect(p).connect(A.destination);
+  v.connect(p).connect(bus);
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 };

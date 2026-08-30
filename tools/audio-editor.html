@@ -184,7 +184,7 @@ const sfxBtn = btn('sfx off', (b) => {
   b.textContent = C._SFXV ? 'sfx off' : 'sfx OFF';
 });
 bar(mute, musBtn, sfxBtn, quiet, btn('clear the field', () => M.place([])), btn('restart', () => M.restart()));
-p('music off and sfx off leave every volume alone - they are masters, not the sliders. studio stops the puppet auto-firing.');
+p('music off and sfx off leave every volume alone - they are masters, not the sliders. studio stops the puppet auto-firing. A limiter across the output means nothing here can clip, only flatten.');
 
 // ---------------------------------------------------------------------------
 // One sound at a time
@@ -328,7 +328,7 @@ h2('music');
 const DRIVE = [[0, 1], [0, 1], [8, 0], [10, 0], [0, 1], [0, 1], [3, 0], [7, 0]];
 const PIECES = [
   ['Grit', 'The chosen one. The lead is noise rather than a pitch - the tune is played by a band swept across a rush of air, so it has grit instead of tone. Its level is over 1 because a bandpass throws most of a noise away; measured, it lands level with the bass.',
-   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [120, 160], V: 0.300,
+   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [120, 160], V: 0.720,
      BASS: [110, 4, 0.55, 2], LEAD: [330, 1.10, 4], HAT: [9000, 0.10, 4, 0], KEY: [4, 6] }],
   ['Saw', 'The straight fix: a sawtooth lead an octave down from the sine, with a saw bass under it. Buzzy where the sine was glassy, and the same tune. Start here.',
    { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
@@ -376,7 +376,7 @@ pieceBtns[0].classList.add('on');
 pdesc.textContent = PIECES[0][1];
 group.append(score, pdesc);
 
-slider('music vol', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.6, 0.005, (v) => v.toFixed(3));
+slider('music vol', () => musV, (v) => { musV = v; applyMus(); }, 0, 1.5, 0.01, (v) => v.toFixed(2));
 slider('BPM at wave 1', () => C._BPM[0], (v) => (C._BPM[0] = v), 40, 160, 1, (v) => v + '');
 slider('BPM at wave 30', () => C._BPM[1], (v) => (C._BPM[1] = v), 40, 200, 1, (v) => v + '');
 slider('key lift', () => C._MKEY[1], (v) => (C._MKEY[1] = v), 0, 12, 1, (v) => '+' + v + ' st');
@@ -471,6 +471,7 @@ function dump() {
     "  _OSC: ['sine', 'square', 'sawtooth', 'triangle'],\n" +
     '  _VOL: ' + (+C._VOL).toFixed(2) + ',' + NL +
     '  _SFXV: ' + (+C._SFXV).toFixed(2) + ',' + NL +
+    '  _LIM: [' + C._LIM.join(', ') + '],' + NL +
     '  _SFX: [\n' +
     C._SFX.map((q, i) =>
       '    [' + pad(q[FROM], 3) + ', ' + pad(q[TO], 4) + ', ' + n3(q[LEN]) + ', ' +
