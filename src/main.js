@@ -365,10 +365,10 @@ export const C = {
   // One list serves three effects, because a death, a glimmer inside the charging
   // ring and motes lifting where the wall passes are the same thing with different
   // numbers: a dot with a velocity, gravity and a life. Rows, like the sounds.
-  _PART: [70, 0.05, 0.85, 3.2],   // cap, radius in metres, peak alpha, gravity
-  _PDIE: [12, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
+  _PART: [140, 0.025, 0.85],      // cap, radius in metres, peak alpha
+  _PDIE: [24, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
   _PGLI: [0.05, 0.7, 0.55],       // charging: seconds between one, life, lift
-  _PMOT: [0.03, 2, 0.8, 1.4],     // the wall: seconds between, dots, life, lift
+  _PMOT: [0.03, 4, 0.8, 1.4],     // the wall: seconds between, dots, life, lift
   _XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
   _XHW: 3.5,           // and its thickness
   _XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
@@ -2216,12 +2216,17 @@ const bindWall = () => {
 // Particles. In world space, so they go through the same projection as
 // everything else and a burst behind you is behind you. Drawn additively with
 // the ghosts, which is also why nothing has to be sorted.
+//
+// Nothing falls. Every effect here rises and fades, so the gravity term went -
+// it was a multiply and an add per particle per frame to arrive at zero.
 // ---------------------------------------------------------------------------
 const burst = (x, z, n, spd, life, col, up, y) => {
   for (let i = 0; i < n && parts.length < C._PART[0]; i++) {
     const a = random() * 2 * PI, e = 0.3 + random() * 0.7;
-    // +y is DOWN, so lifting is negative and gravity is positive.
-    parts.push([x, y, z, cos(a) * spd * e, -up * random(), sin(a) * spd * e,
+    // +y is DOWN, so lifting is negative. Every one of them rises: the multiplier
+    // starts at 0.4 rather than 0, or a third of any burst would hang where it was
+    // made instead of leaving.
+    parts.push([x, y, z, cos(a) * spd * e, -up * (0.4 + random() * 0.6), sin(a) * spd * e,
                 1, 1 / life, col]);
   }
 };
@@ -2231,7 +2236,6 @@ const partStep = (dt) => {
     const p = parts[i];
     if ((p[6] -= p[7] * dt) <= 0) { parts.splice(i, 1); continue; }
     p[0] += p[3] * dt; p[1] += p[4] * dt; p[2] += p[5] * dt;
-    p[4] += C._PART[3] * dt;
   }
 };
 
