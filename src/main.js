@@ -419,18 +419,18 @@ export const C = {
   // through a shape - that is all a short sound is.
   // Every volume below is relative to the others; this scales the lot at once, so
   // the mix can be moved without thirteen numbers having to agree about it.
-  _VOL: 1,
+  _VOL: 1,      // the mix below is already at the level it is meant to play at
   _OSC: ['sine', 'square', 'sawtooth', 'triangle', 'noise'],
   // A bandpass throws away everything outside the band, so a noise sound at the
   // same gain as a pitched one is far quieter. Wide enough to keep the weight.
   _NQ: 0.8,
   _SFX: [
-    [1100, 260, 0.080, 0.450, 4],  // 0  a shot leaving the horn
-    [420, 150, 0.050, 0.130, 3],   // 1  one landing
-    [300, 90,  0.160, 0.220, 3],   // 2  something dying
-    [170, 50,  0.240, 0.320, 2],   // 3  being hit
-    [520, 780, 0.070, 0.280, 3],   // 4  a click: taking a card, and any press after it
-    [300, 60,  0.900, 0.280, 3],   // 5  the run ending
+    [1100, 260, 0.080, 0.900, 4],  // 0  a shot leaving the horn
+    [420, 150, 0.050, 0.440, 3],   // 1  one landing
+    [300, 90,  0.160, 0.440, 3],   // 2  something dying
+    [170, 50,  0.240, 0.640, 2],   // 3  being hit
+    [520, 780, 0.070, 0.560, 3],   // 4  a click: taking a card, and any press after it
+    [300, 60,  0.900, 0.560, 3],   // 5  the run ending
   ],
 
   // The two sounds that are more than one note. Same shape as _SFX, one row each:
@@ -438,8 +438,8 @@ export const C = {
   // volume, waveform. Overlapping rings is what makes it shimmer rather than
   // arpeggiate - the ring is much longer than the gap in both.
   _ARP: [
-    [[0, 7, 12, 19, 24], 784, 0.045, 0.65, 0.180, 0],  // 0  the rainbow wave landing
-    [[0, 4, 7, 12], 523, 0.085, 0.34, 0.230, 3],       // 1  a wave cleared
+    [[0, 7, 12, 19, 24], 784, 0.045, 0.65, 0.360, 0],  // 0  the rainbow wave landing
+    [[0, 4, 7, 12], 523, 0.085, 0.34, 0.460, 3],       // 1  a wave cleared
   ],
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
 
@@ -451,13 +451,13 @@ export const C = {
   // The pitches come off _MUSSCALE a step at a time, wrapping up an octave each
   // time round, so the charge climbs a scale rather than sliding up a siren -
   // which is what makes it belong to the chime it releases.
-  _CHG: [523, 12, 0.55, 0.130, 0],
+  _CHG: [523, 12, 0.65, 0.260, 0],
   _CHGGAP: [0.34, 0.045],  // seconds between ticks, at the start and at the end
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
   // Nothing repeats exactly, and there is no melody to get tired of.
-  _MUSV: 0.080,       // how loud a note is - under a shot, and it never rises
+  _MUSV: 0.160,       // how loud a note is - under a shot, and it never rises
   _MUSGAP: 2.4,       // seconds between notes, give or take a third
   _MUSDUR: 1.9,       // and how long one rings
   _MUSROOT: 131,      // C3. The key climbs a semitone every few waves
@@ -1375,7 +1375,7 @@ const step = (dt) => {
   // the timer, so every way a charge can end - cast, release, death - re-arms the
   // first tick of the next one without any of them having to know about sound.
   if (charging) { if ((chgT -= dt) <= 0) chgT = chargeTick(min(1, bindC / C._BINDCHG)); }
-  else chgT = 0;
+  else { chgT = 0; chgN = 0; }
   if (charging && (bindC += dt) >= C._BINDCHG) cast();
   // Arming runs after that, so the frame which finishes arming does not also
   // charge - the charge starts from zero on the next one.
@@ -1536,7 +1536,7 @@ const minimap = () => {
 // The context is built on the first press rather than at load: a browser blocks
 // one made outside a gesture, and complains about it in the console, which
 // DESIGN.md 2 says has to stay empty.
-let A, muted = 0, mT = 0, mI = 0, chgT = 0;
+let A, muted = 0, mT = 0, mI = 0, chgT = 0, chgN = 0;
 const audio = () => {
   if (!A) A = new AudioContext();
   if (A.state === 'suspended') A.resume();
@@ -1606,10 +1606,18 @@ const arp = (i) => {
 // for the next, so the accelerating part is the return value rather than state.
 const chargeTick = (k) => {
   const q = C._CHG, sc = C._MUSSCALE, n = sc.length;
-  const i = min(q[1] - 1, k * q[1] | 0);
+  const g = C._CHGGAP[0] + (C._CHGGAP[1] - C._CHGGAP[0]) * k;
+  // One rung per tick, and silence once the ladder runs out. Indexing the ladder
+  // by progress instead handed out the top rung four times in the last fifth of a
+  // second - the ticks accelerate and the rungs do not - and identical pitches
+  // starting together stack in phase, which is what the synthetic swell at the end
+  // was. The ladder now finishes around 2.4s and its last notes ring the rest of
+  // the way, so the shimmer holds into the chime the cast releases.
+  const i = chgN++;
+  if (i >= q[1]) return g;
   const f = q[0] * 2 ** ((sc[i % n] + 12 * (i / n | 0)) / 12);
   tone(f, f, q[2], q[3], C._OSC[q[4]]);
-  return C._CHGGAP[0] + (C._CHGGAP[1] - C._CHGGAP[0]) * k;
+  return g;
 };
 
 // One note every couple of seconds, from a pentatonic that never resolves, with a
@@ -2234,6 +2242,7 @@ export const cardGlyph = cardIcon;
 export const startAudio = audio;
 export const playSfx = sfx;
 export const playCharge = chargeTick;
+export const resetCharge = () => { chgN = 0; };
 export const playArp = arp;
 export const stepMusic = musicStep;
 export const setMuted = (v) => { muted = v; };

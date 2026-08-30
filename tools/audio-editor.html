@@ -189,7 +189,7 @@ const S = () => C._SFX[sel];
 slider('from', () => S()[FROM], (v) => (S()[FROM] = v), 20, 2000, 1, (v) => v + ' Hz');
 slider('to', () => S()[TO], (v) => (S()[TO] = v), 20, 2000, 1, (v) => v + ' Hz');
 slider('length', () => S()[LEN], (v) => (S()[LEN] = v), 0.02, 1.5, 0.005, (v) => v.toFixed(3) + 's');
-slider('volume', () => S()[VOL], (v) => (S()[VOL] = v), 0, 0.6, 0.002, (v) => v.toFixed(3));
+slider('volume', () => S()[VOL], (v) => (S()[VOL] = v), 0, 1.4, 0.005, (v) => v.toFixed(3));
 picker('wave', () => S()[WAVE], (v) => (S()[WAVE] = v), C._OSC);
 slider('noise band', () => C._NQ, (v) => (C._NQ = v), 0.2, 12, 0.1, (v) => 'Q ' + v.toFixed(1));
 slider('attack', () => C._ATK, (v) => (C._ATK = v), 0.001, 0.08, 0.001, (v) => v.toFixed(3) + 's');
@@ -202,7 +202,7 @@ bar(btn('play', play), btn('play all', async () => {
     await new Promise((r) => setTimeout(r, 480));
   }
 }));
-p('With wave set to noise, from and to sweep a band across a rush of air rather than a pitch - that is what makes a thrust, a whoosh or a beam. noise band is how narrow that band is, and it is shared. MASTER scales every sound and the music together, so the balance between them survives moving the whole mix. attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
+p('With wave set to noise, from and to sweep a band across a rush of air rather than a pitch - that is what makes a thrust, a whoosh or a beam. noise band is how narrow that band is, and it is shared. MASTER is 1x because the mix is already at the level it plays at - it is here to audition the whole thing louder or quieter, not to hold a correction, so bake whatever you settle on back into the numbers rather than leaving it on the slider. It scales every sound and the music together, so the balance between them survives being moved. attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
 
 // ---------------------------------------------------------------------------
 // The rainbow charge - a series, not a sound
@@ -211,7 +211,7 @@ h2('rainbow charge');
 slider('root', () => C._CHG[FROM], (v) => (C._CHG[FROM] = v), 180, 1200, 1, (v) => v + ' Hz');
 slider('steps', () => C._CHG[TO], (v) => (C._CHG[TO] = v), 3, 24, 1, (v) => v + ' notes');
 slider('ring', () => C._CHG[LEN], (v) => (C._CHG[LEN] = v), 0.05, 1.5, 0.01, (v) => v.toFixed(2) + 's');
-slider('volume', () => C._CHG[VOL], (v) => (C._CHG[VOL] = v), 0, 0.5, 0.002, (v) => v.toFixed(3));
+slider('volume', () => C._CHG[VOL], (v) => (C._CHG[VOL] = v), 0, 1, 0.005, (v) => v.toFixed(3));
 picker('wave', () => C._CHG[WAVE], (v) => (C._CHG[WAVE] = v), C._OSC);
 slider('gap at 0%', () => C._CHGGAP[0], (v) => (C._CHGGAP[0] = v), 0.02, 0.8, 0.01, (v) => v.toFixed(2) + 's');
 slider('gap at 100%', () => C._CHGGAP[1], (v) => (C._CHGGAP[1] = v), 0.02, 0.8, 0.01, (v) => v.toFixed(2) + 's');
@@ -222,6 +222,7 @@ let running = 0;
 const runCharge = async () => {
   if (running) return;
   running = 1;
+  M.resetCharge();                                // the ladder is a counter now
   const t0 = performance.now();
   for (let k = 0; k < 1;) {
     k = Math.min(1, (performance.now() - t0) / (C._BINDCHG * 1000));
@@ -231,8 +232,9 @@ const runCharge = async () => {
   M.playSfx(3);                                   // and the wave it has been building to
   running = 0;
 };
-bar(btn('play the whole charge', runCharge), btn('one tick', () => M.playCharge(0)),
-    btn('last tick', () => M.playCharge(1)));
+bar(btn('play the whole charge', runCharge),
+    btn('first note', () => { M.resetCharge(); M.playCharge(0); }),
+    btn('next note', () => M.playCharge(1)));
 p('The pitches come off the music scale a step at a time, wrapping up an octave each time round, so it climbs a scale rather than sliding up a siren - which is what makes it belong to the chime it releases. Each note rings far longer than the gap after it, so they pile into a thickening shimmer. It is still a series because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
 
 // ---------------------------------------------------------------------------
@@ -263,7 +265,7 @@ panel.append(adesc);
 slider('root', () => Q()[1], (v) => (Q()[1] = v), 180, 1600, 1, (v) => v + ' Hz');
 slider('spacing', () => Q()[2], (v) => (Q()[2] = v), 0.01, 0.4, 0.005, (v) => v.toFixed(3) + 's');
 slider('ring', () => Q()[3], (v) => (Q()[3] = v), 0.05, 2, 0.01, (v) => v.toFixed(2) + 's');
-slider('volume', () => Q()[4], (v) => (Q()[4] = v), 0, 0.8, 0.005, (v) => v.toFixed(3));
+slider('volume', () => Q()[4], (v) => (Q()[4] = v), 0, 1.4, 0.005, (v) => v.toFixed(3));
 picker('wave', () => Q()[5], (v) => (Q()[5] = v), C._OSC);
 const nSync = slider('notes', () => Q()[0].length, (v) => {
   const a = Q()[0];
@@ -288,7 +290,7 @@ p('Notes are scheduled ahead on the audio clock in one go, so they keep time eve
 // Music
 // ---------------------------------------------------------------------------
 h2('music');
-slider('volume', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.3, 0.002, (v) => v.toFixed(3));
+slider('volume', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.6, 0.005, (v) => v.toFixed(3));
 slider('gap', () => C._MUSGAP, (v) => (C._MUSGAP = v), 0.3, 8, 0.1, (v) => v.toFixed(1) + 's');
 slider('note length', () => C._MUSDUR, (v) => (C._MUSDUR = v), 0.2, 6, 0.1, (v) => v.toFixed(1) + 's');
 slider('root', () => C._MUSROOT, (v) => (C._MUSROOT = v), 55, 330, 1, (v) => v + ' Hz');
@@ -346,7 +348,7 @@ function drawEnv() {
   ec.moveTo(0, h);
   for (let x = 0; x <= w; x++) {
     const t = x / w * span;
-    ec.lineTo(x, h - (h - 14) * Math.min(1, amp(Math.min(t, dur)) / 0.6) * (t > dur ? 0 : 1));
+    ec.lineTo(x, h - (h - 14) * Math.min(1, amp(Math.min(t, dur)) / 1.4) * (t > dur ? 0 : 1));
   }
   ec.lineTo(w, h);
   ec.fill();
