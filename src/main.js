@@ -421,19 +421,17 @@ export const C = {
   // the mix can be moved without thirteen numbers having to agree about it.
   _VOL: 1,
   _OSC: ['sine', 'square', 'sawtooth', 'triangle', 'noise'],
-  _NQ: 1.4,           // how narrow the band swept over the noise is
+  // A bandpass throws away everything outside the band, so a noise sound at the
+  // same gain as a pitched one is far quieter. Wide enough to keep the weight.
+  _NQ: 0.8,
   _SFX: [
-    [1100, 260, 0.080, 0.150, 4],  // 0  a shot leaving the horn
+    [1100, 260, 0.080, 0.450, 4],  // 0  a shot leaving the horn
     [420, 150, 0.050, 0.180, 1],   // 1  one landing
     [300, 90,  0.160, 0.220, 3],   // 2  something dying
-    [200, 2600, 0.420, 0.260, 4],  // 3  the rainbow wave going off
-    [880, 1330, 0.120, 0.104, 0],  // 4  something caught in it
-    [170, 50,  0.240, 0.320, 2],   // 5  being hit
-    [520, 780, 0.070, 0.152, 3],   // 6  a click: taking a card, and any press after it
-    [320, 275, 0.100, 0.112, 0],   // 7  something arriving, panned to its bearing
-    [230, 185, 0.100, 0.180, 2],   // 8  a Warden shrugging the rainbow off
-    [440, 660, 0.100, 0.168, 3],   // 9  a wave cleared
-    [300, 60,  0.900, 0.280, 3],   // 10 the run ending
+    [200, 2600, 0.420, 0.700, 4],  // 3  the rainbow wave going off
+    [170, 50,  0.240, 0.320, 2],   // 4  being hit
+    [520, 780, 0.070, 0.152, 3],   // 5  a click: taking a card, and any press after it
+    [300, 60,  0.900, 0.280, 3],   // 6  the run ending
   ],
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
 
@@ -444,6 +442,16 @@ export const C = {
   _CHG: [260, 1150, 0.220, 0.060, 2],   // pitch at the start of the charge, at the end, length, volume, wave
   _CHGUP: 1.35,        // and each tick lifts by this much across its own length
   _CHGGAP: [0.34, 0.045],  // seconds between ticks, at the start and at the end
+
+  // Finishing a wave, which wanted to be an event rather than a blip: a rising
+  // major arpeggio, each note scheduled on the audio clock rather than on a timer
+  // of its own, so it keeps time even if a frame is late.
+  _WIN: [0, 4, 7, 12],   // semitones off the root
+  _WINR: 523,            // C5
+  _WINS: 0.085,          // seconds between them
+  _WIND: 0.34,           // how long one rings
+  _WINV: 0.230,
+  _WINW: 3,              // triangle
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
@@ -759,7 +767,6 @@ const cast = () => {
   bindT = sCd();
   wallT = C._WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   sfx(3);
-  let got = 0, shrugged = 0;
   for (const o of ghosts) {
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
@@ -768,12 +775,8 @@ const cast = () => {
     // the rule is learned by watching rather than by being told. A negative hold
     // is that: same slot, so nothing else has to know about it, and it cannot be
     // mistaken for being held because held is strictly positive.
-    if (o[7] === C._WARDEN) { o[8] = -C._SHRUGD; shrugged = 1; } else { o[8] = sDur(); got = 1; }
+    if (o[7] === C._WARDEN) o[8] = -C._SHRUGD; else o[8] = sDur();
   }
-  // One sound each however many it caught - a chime per ghost would be a chord
-  // nobody asked for.
-  if (got) sfx(4);
-  if (shrugged) sfx(8);
 };
 
 const fire = () => {
@@ -813,7 +816,7 @@ const fire = () => {
 const onDown = (e) => {
   audio();
   down = 1; lx = e.clientX; ly = e.clientY;
-  if (over) { sfx(6); reset(); return; }
+  if (over) { sfx(5); reset(); return; }
   if (picking) {                                  // a card, if the pointer is on one
     for (let n = 0; n < offer.length; n++) {
       const [x, y, w, h] = cardBox(offer.length, n);
@@ -1068,12 +1071,6 @@ const born = (x, z, k) =>
 const spawn = (k) => {
   const a = random() * 2 * PI;
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
-  // DESIGN.md 13 calls this required: with threats on every bearing and no way to
-  // move, being hit by something you never had a chance to perceive is the main
-  // way this design can feel unfair. Panned by where it actually is, so a spawn
-  // behind your left shoulder arrives in your left ear.
-  const c = cam([cos(a) * C._ARENA, 0, sin(a) * C._ARENA]);
-  sfx(7, c[0] / (hypot(c[0], c[2]) || 1));
 };
 
 const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
@@ -1137,7 +1134,7 @@ const take = (i) => {
   if (i < 0) hearts = maxhp;                      // Recovery
   else if (++lv[i] && i === 5) { maxhp++; hearts++; }
   picking = 0;
-  sfx(6);
+  sfx(5);
   wave++;
   // Healed between waves (DESIGN.md 9), and SEEN to be: the hearts about to come
   // back pulse white for HEALP before settling to red, so the wave does not just
@@ -1402,7 +1399,7 @@ const step = (dt) => {
   // Splitter's free children, which nothing paid for, still have to be dealt with
   // before the next wave starts.
   if (budget <= 0 && !ghosts.length && !waveT) waveT = C._WAVEGAP;
-  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; sfx(9); }
+  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; fanfare(); }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -1443,8 +1440,8 @@ const step = (dt) => {
       if (!inv) {
         hearts -= min(C._DMGCAP, TY(o)[2]);
         inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
-        sfx(5);
-        if (hearts <= 0) { hearts = 0; over = 1; sfx(10); }
+        sfx(4);
+        if (hearts <= 0) { hearts = 0; over = 1; sfx(6); }
       }
       continue;
     }
@@ -1558,9 +1555,9 @@ const noise = () => {
   return NB;
 };
 
-const tone = (f0, f1, dur, vol, wave, pan) => {
+const tone = (f0, f1, dur, vol, wave, pan, at) => {
   if (!A || muted) return;
-  const t0 = A.currentTime;
+  const t0 = A.currentTime + (at || 0);
   const v = A.createGain(), p = A.createStereoPanner();
   let o, f;
   if (wave === 'noise') {
@@ -1593,6 +1590,13 @@ const sfx = (i, pan) => {
   const q = C._SFX[i];
   tone(q[0], q[1], q[2], q[3], C._OSC[q[4]], pan);
 };
+
+// The wave-cleared fanfare. Scheduled ahead on the audio clock in one go, so it
+// needs no state and cannot be interrupted by anything the game does next.
+const fanfare = () => C._WIN.forEach((n, i) => {
+  const f = C._WINR * 2 ** (n / 12);
+  tone(f, f, C._WIND, C._WINV, C._OSC[C._WINW], 0, i * C._WINS);
+});
 
 // One tick of the charge, k being how far through it is. Returns how long to wait
 // for the next, so the accelerating part is the return value rather than state.
@@ -2224,6 +2228,7 @@ export const cardGlyph = cardIcon;
 export const startAudio = audio;
 export const playSfx = sfx;
 export const playCharge = chargeTick;
+export const playWin = fanfare;
 export const stepMusic = musicStep;
 export const setMuted = (v) => { muted = v; };
 
