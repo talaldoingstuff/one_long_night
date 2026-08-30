@@ -425,12 +425,12 @@ export const C = {
   // same gain as a pitched one is far quieter. Wide enough to keep the weight.
   _NQ: 0.8,
   _SFX: [
-    [1100, 260, 0.080, 0.900, 4],  // 0  a shot leaving the horn
-    [420, 150, 0.050, 0.440, 3],   // 1  one landing
-    [300, 90,  0.160, 0.440, 3],   // 2  something dying
-    [170, 50,  0.240, 0.640, 2],   // 3  being hit
-    [520, 780, 0.070, 0.560, 3],   // 4  a click: taking a card, and any press after it
-    [300, 60,  0.900, 0.560, 3],   // 5  the run ending
+    [1100, 260, 0.080, 1.350, 4],  // 0  a shot leaving the horn
+    [420, 150, 0.050, 0.660, 3],   // 1  one landing
+    [300, 90,  0.160, 0.660, 3],   // 2  something dying
+    [170, 50,  0.240, 0.960, 2],   // 3  being hit
+    [520, 780, 0.070, 0.840, 3],   // 4  a click: taking a card, and any press after it
+    [300, 60,  0.900, 0.840, 3],   // 5  the run ending
   ],
 
   // The two sounds that are more than one note. Same shape as _SFX, one row each:
@@ -438,8 +438,8 @@ export const C = {
   // volume, waveform. Overlapping rings is what makes it shimmer rather than
   // arpeggiate - the ring is much longer than the gap in both.
   _ARP: [
-    [[0, 7, 12, 19, 24], 784, 0.045, 0.65, 0.360, 0],  // 0  the rainbow wave landing
-    [[0, 4, 7, 12], 523, 0.085, 0.34, 0.460, 3],       // 1  a wave cleared
+    [[0, 7, 12, 19, 24], 784, 0.045, 0.65, 0.540, 0],  // 0  the rainbow wave landing
+    [[0, 4, 7, 12], 523, 0.085, 0.34, 0.690, 3],       // 1  a wave cleared
   ],
   _ATK: 0.006,        // seconds of attack, so nothing clicks on its own edge
 
@@ -451,13 +451,13 @@ export const C = {
   // The pitches come off _MUSSCALE a step at a time, wrapping up an octave each
   // time round, so the charge climbs a scale rather than sliding up a siren -
   // which is what makes it belong to the chime it releases.
-  _CHG: [523, 12, 0.65, 0.260, 0],
+  _CHG: [523, 12, 0.65, 0.390, 0],
   _CHGGAP: [0.34, 0.045],  // seconds between ticks, at the start and at the end
 
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
   // Nothing repeats exactly, and there is no melody to get tired of.
-  _MUSV: 0.160,       // how loud a note is - under a shot, and it never rises
+  _MUSV: 0.240,       // how loud a note is - under a shot, and it never rises
   _MUSGAP: 2.4,       // seconds between notes, give or take a third
   _MUSDUR: 1.9,       // and how long one rings
   _MUSROOT: 131,      // C3. The key climbs a semitone every few waves
