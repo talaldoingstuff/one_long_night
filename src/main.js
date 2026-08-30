@@ -148,7 +148,13 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   _BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   _BINDDUR: 3,         // how long a caught ghost is held. A card.
-  _KTURN: 2.04,        // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  // Measured against a played run: at 2.04 a keyboard player cleared a median of
+  // 8 waves where a mouse cleared 31, because a half turn took 1.54s and things
+  // arrive on every bearing. Parity starts at 5 - 30 waves - and 6.5 and 8 buy
+  // nothing more. The low end of parity on purpose: a faster key is harder to
+  // settle on a target with, and the simulated player has perfect fine control
+  // where a real one does not.
+  _KTURN: 5,           // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
                       // knob TURN is, in the units a key can be held in. At 2.2
                       // it matched a 524px/s drag sustained forever, which is a
@@ -355,7 +361,12 @@ export const C = {
   // Extra heart's second level waits longer than its first.
   _HEART2: 9,          // the wave extra heart level 2 opens on
   _CARDN: 3,           // cards offered between waves
-  _ADAPT: 2,           // the lagging half of horn-vs-bind draws at this weight
+  // Measured over a thousand draws with one side four levels up: at 2 the lagging
+  // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
+  // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
+  // the ceiling there, because only two of the seven cards ARE horn cards, so two
+  // thirds of a three-card offer is all the horn can ever be.
+  _ADAPT: 6,           // the lagging half of horn-vs-bind draws at this weight
   _REGEN: 1,           // hearts healed between waves before any card
   _FIREG: 1.2,         // each fire rate level, compounding
   _DMGG: 1.25,         // each horn damage level
