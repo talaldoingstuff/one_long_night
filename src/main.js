@@ -228,6 +228,19 @@ export const C = {
   _HL: 0.3,            // and its length, metres
   _HN: 7,              // sides on it. It is a cone - a horn is round - and a box
                       // swept to a point is a pyramid, which is what it was.
+  // The convergence range is EASED rather than switched. The crosshair sits where
+  // the shots meet, and the muzzle is over a metre off the camera axis - so the
+  // screen position depends on the RANGE, and every time that range changed in one
+  // frame the crosshair flicked. Measured: 93px in a single frame when a ghost
+  // reaches you and the range snaps back to CONV, 14px when one crosses the line,
+  // and a flip back and forth when two sit at similar bearings and different
+  // depths. Easing turns all three into a slide.
+  // And it never converges closer than this. The muzzle is at MUZZ, so a ghost at
+  // contact put the convergence point barely past it, where a centimetre of range
+  // is a dozen pixels of screen - which is why easing alone still left a 15px step
+  // when one reached you. Point blank does not need a convergence anyway.
+  _CONVMIN: 2.5,       // metres
+  _CONVS: 6,           // how much of the way to the new range it moves a second
   _CONV: 9,            // metres. Where a shot goes when nothing is under the
                       // crosshair. The muzzle sits over a metre off the camera
                       // axis - a worn puppet has to sit where a hand is - so a
@@ -425,10 +438,10 @@ export const C = {
   _XHO: 'rgba(0,0,0,0.85)',   // a dark halo under it, because the target outline is
   _XHOW: 1,            // gold too - without this the crosshair disappears into the
                       // one thing it most needs to be legible against. px each side
-  _ASSISTR: 1.6,       // aim assist reaches this many of a ghost's radii - wider
+  _ASSISTR: 1.9,       // aim assist reaches this many of a ghost's radii - wider
                       // than the pick, so it pulls you onto things you are only
                       // near, and stops the moment you are on one
-  _ASSIST: 3,          // and closes that much of the gap a second
+  _ASSIST: 5,          // and closes that much of the gap a second
   _BARSLW: 3,          // the charging outline, px
   _BARSC: '#fff',
   _HINTF: 0.8,         // the how-to line under RAINBOW READY, against the caption
@@ -773,7 +786,7 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
-    lv, offer, picking, maxhp, healT, healA, healN, parts, glT, moT;
+    lv, offer, picking, maxhp, healT, healA, healN, parts, glT, moT, conv;
 
 const reset = () => {
   ghosts = []; horns = [];
@@ -786,7 +799,7 @@ const reset = () => {
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
   rec = 0; blink = 0; nextB = C._BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
-  parts = []; glT = 0; moT = 0;
+  parts = []; glT = 0; moT = 0; conv = C._CONV;
   // armT is input state and outlives a run, so it has to be cleared here too. Die
   // mid-charge and it is still sitting at ARM; the click that restarts returns
   // before setting it, and the fresh run arms itself and starts charging with the
@@ -832,13 +845,15 @@ const targetRange = () => {
     const off = hypot(w[0] - u[0] * t, w[1] - u[1] * t, w[2] - u[2] * t) / t;
     if (off < bd) { bd = off; r = t; }
   }
-  return r;
+  return max(C._CONVMIN, r);
 };
 
-// The point the crosshair marks and the shots converge on.
+// The point the crosshair marks and the shots converge on. conv is the eased
+// range, stepped once a frame, so the crosshair, the assist and the shots all
+// agree about where 'there' is within a frame.
 const aimAt = () => {
-  const [o, u] = aimRay(), r = targetRange();
-  return [o[0] + u[0] * r, o[1] + u[1] * r, o[2] + u[2] * r];
+  const [o, u] = aimRay();
+  return [o[0] + u[0] * conv, o[1] + u[1] * conv, o[2] + u[2] * conv];
 };
 
 // DESIGN.md 6's balance rule: cooldown scales with r squared, not r. Area grows
@@ -1496,6 +1511,7 @@ const step = (dt) => {
     pitch = min(C._PITCHMAX, max(-C._PITCHMAX, pitch + ky * C._KPITCH * dt));
     aim();
   }
+  conv += (targetRange() - conv) * min(1, C._CONVS * dt);
   assist(dt);
   // It lets go by itself at BINDCHG. Waiting for the player to release would let
   // them hold a full ring indefinitely and pick their moment for free.
@@ -2489,7 +2505,7 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts,
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
                              wave, budget, waveT, hurtT, shake, lv, offer, picking, maxhp,
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
