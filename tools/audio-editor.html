@@ -320,144 +320,89 @@ p('Ring much longer than spacing shimmers; shorter arpeggiates. 0 4 7 12 major, 
 // Music
 // ---------------------------------------------------------------------------
 h2('music');
-// Six finished loops. Everything below them is what these are made of, for
-// afterwards - nobody should have to build one from sliders to hear one.
-// T marks the tension step: the note that darkens as things get worse.
-const T = -99;
-const LOOPS = [
-  ['Hollow', 'Cold and almost empty. Two notes, very slow, no pulse at all - the arena and nothing else. The quietest of these, and the one that gets out of the way most.',
-   { M: 1, ROOT: 131, FIG: [0, T, 12, T], TEN: [7, 8, 6, 1], BPM: [40, 56], DUR: 2.8, V: 0.240,
-     P: [0, 0.14, 0.130, 3], D: [-12, 6.5, 0.060, 3], THR: 6 }],
-  ['Heartbeat', 'A low thump on every beat with a drone under it, and barely any tune - the figure sits on the root and only leaves it to lean on the tension note. Pure pressure. The beat speeds up from 52 to 84 across thirty waves.',
-   { M: 2, ROOT: 110, FIG: [0, 0, T, 0], TEN: [7, 8, 6, 1], BPM: [52, 84], DUR: 2.2, V: 0.160,
-     P: [0, 0.14, 0.130, 3], D: [-12, 6.5, 0.060, 3], THR: 6 }],
-  ['Descent', 'A figure that falls: an octave, down to a fifth, down to a third, then the tension note. Sinking rather than driving, with a soft sine pulse under it.',
-   { M: 2, ROOT: 147, FIG: [12, 7, 3, T], TEN: [7, 8, 6, 1], BPM: [44, 64], DUR: 2.6, V: 0.220,
-     P: [-12, 0.18, 0.090, 0], D: [-12, 7, 0.050, 3], THR: 6 }],
-  ['Clockwork', 'Mechanical and relentless. A square-wave tick on every beat, short notes, and the fastest tempo climb here - 66 up to 104. The busiest of the six; try it against a late wave before deciding.',
-   { M: 2, ROOT: 131, FIG: [0, 0, T, 12], TEN: [7, 8, 6, 1], BPM: [66, 104], DUR: 1.4, V: 0.200,
-     P: [-12, 0.09, 0.140, 1], D: [-12, 5, 0.040, 3], THR: 6 }],
-  ['Vigil', 'A long drone with a high bell over it, answering itself two octaves down. Eerie rather than urgent, and it reads the field: it tightens when ghosts are on you and lets go when you clear them.',
-   { M: 3, ROOT: 131, FIG: [24, T, 19, T], TEN: [7, 8, 6, 1], BPM: [38, 54], DUR: 3.4, V: 0.180,
-     P: [-12, 0.30, 0.050, 0], D: [-12, 8, 0.070, 3], THR: 5 }],
-  ['Pursuit', 'The aggressive one. A sawtooth pulse, short notes, and a tritone from wave one rather than earned - it never sounds safe. Also reads the field, and goes to a minor second when four ghosts are on you.',
-   { M: 3, ROOT: 165, FIG: [0, T, 0, T], TEN: [6, 6, 1, 1], BPM: [72, 116], DUR: 1.2, V: 0.200,
-     P: [-12, 0.10, 0.160, 2], D: [-12, 4, 0.060, 2], THR: 4 }],
+// Five pieces, not five moods. Each is a chord progression with a motif written
+// against it - the motif is transposed onto whichever chord is under it, which is
+// what makes one short tune sound different eight bars running without ever being
+// random. Degrees are scale steps, so degree 4 is the fifth of whatever chord it
+// lands on; durations are sixteenths and add up to sixteen, one bar.
+const PIECES = [
+  ['Aeolian eight', 'Am G F G / Am F C E. Eight bars, the widest set of chords here, and the one the previous game used. Driving, and the tune moves on every chord.',
+   { PROG: [[0, 1], [10, 0], [8, 0], [10, 0], [0, 1], [8, 0], [3, 0], [7, 0]],
+     MOTIF: [[4, 4], [3, 2], [2, 2], [4, 8]], BPM: [72, 104], V: 0.240,
+     BASS: [110, 8, 0.85, 3], LEAD: [330, 1, 0], HAT: [7500, 0.12, 4, 0.5], KEY: [5, 5] }],
+  ['Four chords', 'Am F C G, twice round. The plainest progression there is, which is the point - nothing about it asks for attention. An even four-note tune over the top.',
+   { PROG: [[0, 1], [8, 0], [3, 0], [10, 0], [0, 1], [8, 0], [3, 0], [10, 0]],
+     MOTIF: [[2, 4], [4, 4], [3, 4], [0, 4]], BPM: [64, 88], V: 0.220,
+     BASS: [110, 8, 0.90, 3], LEAD: [330, 0.9, 0], HAT: [7500, 0.10, 4, 0.6], KEY: [6, 4] }],
+  ['Phrygian pair', 'Am Bb, over and over. Two chords a semitone apart is the darkest thing you can do with two chords, and the tune is three long notes a bar - the sparsest of the five by a distance.',
+   { PROG: [[0, 1], [1, 0], [0, 1], [1, 0], [0, 1], [1, 0], [0, 1], [1, 0]],
+     MOTIF: [[0, 8], [1, 4], [0, 4]], BPM: [56, 76], V: 0.240,
+     BASS: [110, 16, 0.95, 3], LEAD: [330, 0.85, 0], HAT: [7500, 0.10, 4, 0.45], KEY: [6, 4] }],
+  ['Lament', 'Am G F E, twice. The bass walks down four steps and lands on the dominant, which never resolves - the oldest trick for sounding like something is closing in. The tune falls with it.',
+   { PROG: [[0, 1], [10, 0], [8, 0], [7, 0], [0, 1], [10, 0], [8, 0], [7, 0]],
+     MOTIF: [[7, 4], [6, 2], [5, 2], [4, 8]], BPM: [60, 84], V: 0.230,
+     BASS: [110, 8, 0.90, 3], LEAD: [330, 0.95, 0], HAT: [7500, 0.12, 4, 0.5], KEY: [5, 5] }],
+  ['Drive', 'Am Am F G / Am Am C E, six notes a bar, and the hat is on from the start rather than arriving. The fastest and busiest here - the one to try if the others feel too polite.',
+   { PROG: [[0, 1], [0, 1], [8, 0], [10, 0], [0, 1], [0, 1], [3, 0], [7, 0]],
+     MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
+     BASS: [110, 4, 0.80, 3], LEAD: [330, 0.9, 0], HAT: [7500, 0.09, 4, 0], KEY: [4, 6] }],
 ];
-const ldesc = document.createElement('p');
-ldesc.className = 'desc';
-const loopRow = document.createElement('div'); loopRow.className = 'btns'; group.append(loopRow);
-const loopBtns = LOOPS.map(([name, why, v], i) => {
-  const b = btn(name, () => {
-    C._MUSM = v.M; C._MUSROOT = v.ROOT; C._MUSDUR = v.DUR; C._MUSV = v.V; C._MUSTHR = v.THR;
-    C._MUSFIG = v.FIG.slice(); C._MUSTEN = v.TEN.slice();
-    C._MUSBPM = v.BPM.slice(); C._MUSP = v.P.slice(); C._MUSD = v.D.slice();
-    musV = v.V; applyMus();                       // the music mute holds the real value
-    loopBtns.forEach((q, k) => q.classList.toggle('on', k === i));
-    modeBtns.forEach((q, k) => q.classList.toggle('on', k === v.M));
-    ldesc.textContent = why;
-    mdesc.textContent = MODED[v.M];
-    ctl.forEach((f) => f());
-    modeRows();
-    dump();
-  });
-  loopRow.append(b);
-  return b;
-});
-group.append(ldesc);
-ldesc.textContent = 'Pick one and listen while you play. Everything under here is what they are built from - the loop buttons set all of it at once.';
 
-const MODES = ['random', 'figure', '+ pulse', '+ threat'];
-const MODED = [
-  'What it has been: a random note off the scale every couple of seconds, panned at random. Random pitch AND random pan means every note is a small event the ear has to dismiss, which is most of why it reads as noise instead of as background.',
-  'A fixed four-step figure, centred, repeating - so the ear stops attending to it. The tension is in the harmony instead: the interval marked -1 darkens as the waves climb, fifth to minor sixth to tritone to minor second. The key climbing a semitone never did that; it only transposed.',
-  'And a pulse on every beat with a drone under it, all on one clock, the tempo rising with the wave. A regular pulse carries no information, so it adds pressure without adding clutter.',
-  'And the tension follows the FIELD instead of the wave number - what is alive, and what it has already cost you. The density never changes, so it never gets noisier, only tenser. This is also the one that partly covers the off-screen threat the spawn cue used to.',
-];
-const mdesc = document.createElement('p');
-mdesc.className = 'desc';
-const modeRow = document.createElement('div'); modeRow.className = 'btns'; group.append(modeRow);
-const modeBtns = MODES.map((n, i) => {
-  const b = btn(n, () => {
-    C._MUSM = i;
-    modeBtns.forEach((q, k) => q.classList.toggle('on', k === i));
-    mdesc.textContent = MODED[i];
-    ctl.forEach((f) => f());
-    modeRows();
-    dump();
-  });
-  modeRow.append(b);
-  return b;
-});
-modeBtns[C._MUSM].classList.add('on');
-mdesc.textContent = MODED[C._MUSM];
-group.append(mdesc);
-
-slider('volume', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.6, 0.005, (v) => v.toFixed(3));
-const gapS = slider('gap', () => C._MUSGAP, (v) => (C._MUSGAP = v), 0.3, 8, 0.1, (v) => v.toFixed(1) + 's');
-slider('note length', () => C._MUSDUR, (v) => (C._MUSDUR = v), 0.2, 6, 0.1, (v) => v.toFixed(1) + 's');
-slider('root', () => C._MUSROOT, (v) => (C._MUSROOT = v), 55, 330, 1, (v) => v + ' Hz');
-const panS = slider('spread', () => C._MUSPAN, (v) => (C._MUSPAN = v), 0, 2, 0.05, (v) => v.toFixed(2));
-
-// The scale is the one thing here that is not a number on a line.
 const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const scaleRow = document.createElement('div'); scaleRow.className = 'btns'; group.append(scaleRow);
-const scaleBtns = NOTE.map((n, i) => {
-  const b = btn(n, () => {
-    const at = C._MUSSCALE.indexOf(i);
-    if (at < 0) C._MUSSCALE.push(i);
-    else if (C._MUSSCALE.length > 1) C._MUSSCALE.splice(at, 1);   // never leave it empty
-    C._MUSSCALE.sort((a, b2) => a - b2);
-    scaleBtns.forEach((q, k) => q.classList.toggle('on', C._MUSSCALE.includes(k)));
+const chord = (ch) => NOTE[(9 + ch[0]) % 12] + (ch[1] ? 'm' : '');
+const score = document.createElement('p');
+score.className = 'desc';
+const pdesc = document.createElement('p');
+pdesc.className = 'note';
+const showScore = () => {
+  score.textContent = C._PROG.map(chord).join(' - ') + '   |   ' +
+    C._MOTIF.map(([d, n]) => 'deg ' + d + ' x' + n).join(', ');
+};
+const pieceRow = document.createElement('div'); pieceRow.className = 'btns'; group.append(pieceRow);
+const pieceBtns = PIECES.map(([name, why, v], i2) => {
+  const b = btn(name, () => {
+    C._PROG = v.PROG.map((r) => r.slice());
+    C._MOTIF = v.MOTIF.map((r) => r.slice());
+    C._BPM = v.BPM.slice(); C._MBASS = v.BASS.slice();
+    C._MLEAD = v.LEAD.slice(); C._MHAT = v.HAT.slice(); C._MKEY = v.KEY.slice();
+    musV = v.V; applyMus();
+    pieceBtns.forEach((q, k) => q.classList.toggle('on', k === i2));
+    pdesc.textContent = why;
+    showScore();
+    ctl.forEach((f) => f());
     dump();
   });
-  b.classList.toggle('on', C._MUSSCALE.includes(i));
-  scaleRow.append(b);
+  pieceRow.append(b);
   return b;
 });
+pieceBtns[0].classList.add('on');
+pdesc.textContent = PIECES[0][1];
+group.append(score, pdesc);
 
-// Mode 0 keeps the old knobs; the rest are driven by the beat clock. Showing all
-// of them at once would be showing two music engines at the same time.
-const only0 = [gapS, panS];
-const only1 = [
-  slider('BPM at wave 1', () => C._MUSBPM[0], (v) => (C._MUSBPM[0] = v), 24, 160, 1, (v) => v + ''),
-  slider('BPM at wave ' + C._MUSW, () => C._MUSBPM[1], (v) => (C._MUSBPM[1] = v), 24, 200, 1, (v) => v + ''),
-];
-for (let n = 0; n < 4; n++) {
-  only1.push(slider('step ' + (n + 1),
-    () => (C._MUSFIG[n] < -90 ? 25 : C._MUSFIG[n]),
-    (v) => (C._MUSFIG[n] = v > 24 ? -99 : v), -24, 25, 1,
-    (v) => (v > 24 ? 'tension' : (v > 0 ? '+' : '') + v + ' st')));
-}
-const TEN = ['calm', 'wary', 'bad', 'worst'];
-for (let n = 0; n < 4; n++) {
-  only1.push(slider(TEN[n], () => C._MUSTEN[n], (v) => (C._MUSTEN[n] = v), 1, 12, 1, (v) => '+' + v + ' st'));
-}
-const only2 = [
-  slider('pulse note', () => C._MUSP[0], (v) => (C._MUSP[0] = v), -24, 12, 1, (v) => v + ' st'),
-  slider('pulse length', () => C._MUSP[1], (v) => (C._MUSP[1] = v), 0.03, 0.6, 0.01, (v) => v.toFixed(2) + 's'),
-  slider('pulse volume', () => C._MUSP[2], (v) => (C._MUSP[2] = v), 0, 0.5, 0.005, (v) => v.toFixed(3)),
-  slider('drone note', () => C._MUSD[0], (v) => (C._MUSD[0] = v), -24, 12, 1, (v) => v + ' st'),
-  slider('drone length', () => C._MUSD[1], (v) => (C._MUSD[1] = v), 1, 12, 0.1, (v) => v.toFixed(1) + 's'),
-  slider('drone volume', () => C._MUSD[2], (v) => (C._MUSD[2] = v), 0, 0.4, 0.005, (v) => v.toFixed(3)),
-];
-const only3 = [
-  slider('full tension at', () => C._MUSTHR, (v) => (C._MUSTHR = v), 1, 16, 1, (v) => v + ' ghosts'),
-];
-const modeRows = () => {
-  const show = (list, on) => list.forEach((f) => { f.row.style.display = on ? '' : 'none'; });
-  show(only0, C._MUSM === 0);
-  show(only1, C._MUSM > 0);
-  show(only2, C._MUSM > 1);
-  show(only3, C._MUSM > 2);
-};
+slider('music vol', () => musV, (v) => { musV = v; applyMus(); }, 0, 0.6, 0.005, (v) => v.toFixed(3));
+slider('BPM at wave 1', () => C._BPM[0], (v) => (C._BPM[0] = v), 40, 160, 1, (v) => v + '');
+slider('BPM at wave 30', () => C._BPM[1], (v) => (C._BPM[1] = v), 40, 200, 1, (v) => v + '');
+slider('key lift', () => C._MKEY[1], (v) => (C._MKEY[1] = v), 0, 12, 1, (v) => '+' + v + ' st');
+slider('lift every', () => C._MKEY[0], (v) => (C._MKEY[0] = v), 1, 12, 1, (v) => v + ' waves');
+
+slider('bass note', () => C._MBASS[0], (v) => (C._MBASS[0] = v), 55, 330, 1, (v) => v + ' Hz');
+slider('bass every', () => C._MBASS[1], (v) => (C._MBASS[1] = v), 1, 16, 1, (v) => v + '/16');
+slider('bass level', () => C._MBASS[2], (v) => (C._MBASS[2] = v), 0, 1.5, 0.05, (v) => v.toFixed(2));
+picker('bass wave', () => C._MBASS[3], (v) => (C._MBASS[3] = v), C._OSC);
+
+slider('lead note', () => C._MLEAD[0], (v) => (C._MLEAD[0] = v), 130, 660, 1, (v) => v + ' Hz');
+slider('lead level', () => C._MLEAD[1], (v) => (C._MLEAD[1] = v), 0, 1.5, 0.05, (v) => v.toFixed(2));
+picker('lead wave', () => C._MLEAD[2], (v) => (C._MLEAD[2] = v), C._OSC);
+
+slider('hat level', () => C._MHAT[1], (v) => (C._MHAT[1] = v), 0, 0.5, 0.005, (v) => v.toFixed(3));
+slider('hat enters at', () => C._MHAT[3], (v) => (C._MHAT[3] = v), 0, 1, 0.05,
+       (v) => (v ? Math.round(v * C._MUSTHR) + ' ghosts' : 'always'));
+slider('full threat at', () => C._MUSTHR, (v) => (C._MUSTHR = v), 1, 16, 1, (v) => v + ' ghosts');
 
 let wv = 1;
-slider('wave (key)', () => wv, (v) => { wv = v; M.setWave(v); }, 1, 36, 1,
-       (v) => v + '  +' + ((v / 3 | 0) % 12));
-bar(btn('play a note now', () => M.stepMusic(1e9)));
-modeRows();
-p('The loops above set everything here at once. Modes stack - each contains the one before it - and only the controls a mode uses are shown.');
+slider('wave', () => wv, (v) => { wv = v; M.setWave(v); }, 1, 36, 1, (v) => v + '');
+p('The hat is a layer that arrives: it comes in when the field is against you and drops out when you clear it. Drag wave to hear the key lift and the tempo climb.');
+showScore();
 
 // ---------------------------------------------------------------------------
 // The envelope, drawn
@@ -543,20 +488,19 @@ function dump() {
     '  _CHG: [' + C._CHG[FROM] + ', ' + C._CHG[TO] + ', ' + n3(C._CHG[LEN]) + ', ' +
       n3(C._CHG[VOL]) + ', ' + C._CHG[WAVE] + '],\n' +
     '  _CHGGAP: [' + (+C._CHGGAP[0]).toFixed(2) + ', ' + (+C._CHGGAP[1]).toFixed(2) + '],\n' +
-    '  _MUSV: ' + n3(musV) + ',\n' +
-    '  _MUSGAP: ' + (+C._MUSGAP).toFixed(1) + ',\n' +
-    '  _MUSDUR: ' + (+C._MUSDUR).toFixed(1) + ',\n' +
-    '  _MUSROOT: ' + C._MUSROOT + ',\n' +
-    '  _MUSSCALE: [' + C._MUSSCALE.join(', ') + '],\n' +
-    '  _MUSPAN: ' + (+C._MUSPAN).toFixed(2) + ',' + NL +
-    '  _MUSM: ' + C._MUSM + ',' + NL +
-    '  _MUSFIG: [' + C._MUSFIG.join(', ') + '],' + NL +
-    '  _MUSTEN: [' + C._MUSTEN.join(', ') + '],' + NL +
-    '  _MUSBPM: [' + C._MUSBPM.join(', ') + '],' + NL +
+    '  _MUSV: ' + n3(musV) + ',' + NL +
+    '  _MAJ: [' + C._MAJ.join(', ') + '],' + NL +
+    '  _MIN: [' + C._MIN.join(', ') + '],' + NL +
+    '  _PROG: [' + C._PROG.map((c) => '[' + c.join(', ') + ']').join(', ') + '],' + NL +
+    '  _MOTIF: [' + C._MOTIF.map((c) => '[' + c.join(', ') + ']').join(', ') + '],' + NL +
+    '  _BPM: [' + C._BPM.join(', ') + '],' + NL +
     '  _MUSW: ' + C._MUSW + ',' + NL +
+    '  _MKEY: [' + C._MKEY.join(', ') + '],' + NL +
+    '  _MBASS: [' + C._MBASS[0] + ', ' + C._MBASS[1] + ', ' + (+C._MBASS[2]).toFixed(2) + ', ' + C._MBASS[3] + '],' + NL +
+    '  _MLEAD: [' + C._MLEAD[0] + ', ' + (+C._MLEAD[1]).toFixed(2) + ', ' + C._MLEAD[2] + '],' + NL +
+    '  _MHAT: [' + C._MHAT[0] + ', ' + n3(C._MHAT[1]) + ', ' + C._MHAT[2] + ', ' + (+C._MHAT[3]).toFixed(2) + '],' + NL +
     '  _MUSTHR: ' + C._MUSTHR + ',' + NL +
-    '  _MUSP: [' + C._MUSP[0] + ', ' + n3(C._MUSP[1]) + ', ' + n3(C._MUSP[2]) + ', ' + C._MUSP[3] + '],' + NL +
-    '  _MUSD: [' + C._MUSD[0] + ', ' + n3(C._MUSD[1]) + ', ' + n3(C._MUSD[2]) + ', ' + C._MUSD[3] + '],';
+    '  _MUSSCALE: [' + C._MUSSCALE.join(', ') + '],';
 }
 
 // ---------------------------------------------------------------------------

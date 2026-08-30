@@ -18,7 +18,7 @@
 //   metres to pixels, so the same scene frames identically at any window size -
 //   that scale factor is the only thing added to the spec's projection.
 
-const { min, max, abs, cos, sin, tan, atan2, hypot, random, round, PI } = Math;
+const { min, max, abs, cos, sin, tan, atan2, hypot, random, round, floor, PI } = Math;
 
 export const C = {
   // --- Projection ------------------------------------------------------------
@@ -458,35 +458,29 @@ export const C = {
   // Music, and the brief was subtle: it is one note every couple of seconds from
   // a minor pentatonic, quiet and low, with a root underneath it every fourth.
   // Nothing repeats exactly, and there is no melody to get tired of.
-  _MUSV: 0.240,       // how loud a note is - under a shot, and it never rises
-  _MUSGAP: 2.4,       // seconds between notes, give or take a third (mode 0 only)
-  _MUSDUR: 1.9,       // and how long one rings
-  _MUSROOT: 131,      // C3. The key climbs a semitone every few waves
-  _MUSSCALE: [0, 3, 5, 7, 10],
-  _MUSPAN: 0.5,       // notes drift across the stereo field by this much (mode 0 only)
-
-  // Which music this is. Each mode contains the one before it:
-  //   0  random notes off the scale. What it has been. Random pitch AND random
-  //      pan means every note is a small event the ear has to dismiss, which is
-  //      the whole of why it reads as noise rather than as background.
-  //   1  a fixed figure, centred, with the tension in the harmony instead. It
-  //      repeats, so the ear stops attending to it - and the interval marked -1
-  //      darkens as the waves climb, so wave 30 is uneasy where wave 1 is not.
-  //      The key climbing a semitone never did that: it only transposed.
-  //   2  and a pulse on every beat with a drone under it, on one clock, tempo
-  //      rising with the wave. Pressure carries no information, so it cannot
-  //      add clutter.
-  //   3  and the tension follows the FIELD rather than the wave number: what is
-  //      alive and what it has cost you. Density never changes, so it never gets
-  //      noisier, only tenser.
-  _MUSM: 0,
-  _MUSFIG: [0, -99, 12, -99], // the figure, a note every second beat; -99 is the tension interval
-  _MUSTEN: [7, 8, 6, 1],      // fifth, minor sixth, tritone, minor second
-  _MUSBPM: [48, 76],          // beats a minute at wave 1 and at _MUSW
+  // --- Music -------------------------------------------------------------------
+  // Built the way the previous game's was, because that one was music and the
+  // ambient version that replaced it was a texture: a chord progression, and a
+  // motif transposed onto whichever chord is under it. The motif is one bar long
+  // so it always sits on one chord, which is what makes the same seven notes
+  // sound different eight times over without ever being random.
+  //
+  // Everything is on one sixteenth-note grid. PROG is a chord a bar: semitones
+  // off the key, and whether it is minor. MOTIF is the tune: scale degree, and
+  // how many sixteenths the note lasts - they add up to sixteen, one bar.
+  _MAJ: [0, 2, 4, 5, 7, 9, 11],
+  _MIN: [0, 2, 3, 5, 7, 8, 10],
+  _PROG: [[0, 1], [10, 0], [8, 0], [10, 0], [0, 1], [8, 0], [3, 0], [7, 0]],
+  _MOTIF: [[4, 4], [3, 2], [2, 2], [4, 8]],
+  _BPM: [72, 104],    // the grid, at wave 1 and at _MUSW
   _MUSW: 30,
-  _MUSTHR: 6,                 // ghosts on the field that count as full tension
-  _MUSP: [-12, 0.16, 0.090, 3],   // the pulse: semitones off the root, length, volume, wave
-  _MUSD: [-12, 5.2, 0.060, 3],    // the drone, retriggered every eight beats
+  _MUSV: 0.240,       // the music bus; every layer below is a fraction of it
+  _MBASS: [110, 8, 0.85, 3],    // root Hz, a note every N sixteenths, level, waveform
+  _MLEAD: [330, 1, 0],          // root Hz, level, waveform
+  _MKEY: [5, 5],      // the key lifts a semitone every N waves, this many at most
+  _MHAT: [7500, 0.12, 4, 0.5],  // Hz, level, waveform, and the threat it enters at
+  _MUSTHR: 6,         // ghosts on the field that count as full threat
+  _MUSSCALE: [0, 3, 5, 7, 10],  // the charge ladder, which is not part of the music
 
   _HEARTS: 3,
   _DMGCAP: 3,          // no single contact may take more than this
@@ -725,6 +719,9 @@ const reset = () => {
   // before setting it, and the fresh run arms itself and starts charging with the
   // pointer never having been held.
   armT = -1;
+  // The sequencer outlives a run otherwise, so a new one starts halfway through a
+  // phrase on whichever chord the last one died on. A run gets its own beginning.
+  mS = mI = mW = mP = 0;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -1560,7 +1557,7 @@ const minimap = () => {
 // The context is built on the first press rather than at load: a browser blocks
 // one made outside a gesture, and complains about it in the console, which
 // DESIGN.md 2 says has to stay empty.
-let A, muted = 0, mT = 0, mI = 0, chgT = 0, chgN = 0;
+let A, muted = 0, mT = 0, mS = 0, mI = 0, mW = 0, mP = 0, chgT = 0, chgN = 0;
 const audio = () => {
   if (!A) A = new AudioContext();
   if (A.state === 'suspended') A.resume();
@@ -1649,34 +1646,47 @@ const chargeTick = (k) => {
 // One note every couple of seconds, from a pentatonic that never resolves, with a
 // root under every fourth. The key climbs as the waves do, which is the only
 // thing that escalates - it never gets louder or busier.
+// A scale degree, on a chord, in the key: the one function the whole thing turns
+// on. Degrees run past 7 and below 0 and wrap into the octaves above and below,
+// so a motif can be written as a shape and land wherever the chord puts it.
+const nf = (ch, d, base) => {
+  const sc = ch[1] ? C._MIN : C._MAJ;
+  const s = sc[((d % 7) + 7) % 7] + 12 * floor(d / 7);
+  // The key lifts over a run, but only a little: the old game climbed twelve
+  // semitones and this one has three times the waves, so the same rate walked the
+  // tune up to a C8 by wave 30 - shrill, and the shape stops being recognisable
+  // once it is that far off the register it was written in.
+  return base * 2 ** ((ch[0] + s + min(C._MKEY[1], wave / C._MKEY[0] | 0)) / 12);
+};
+
 const musicStep = (dt) => {
   if (!A || muted || (mT -= dt) > 0) return;
-  const root = C._MUSROOT * 2 ** ((wave / 3 | 0) % 12 / 12);
-  if (!C._MUSM) {
-    mT = C._MUSGAP * (0.7 + random() * 0.6);
-    const n = C._MUSSCALE[random() * C._MUSSCALE.length | 0] + (random() < 0.3 ? 12 : 0);
-    const f = root * 2 ** (n / 12);
-    tone(f, f, C._MUSDUR, C._MUSV, 'sine', (random() - 0.5) * C._MUSPAN);
-    if (!(mI++ % 4)) tone(root / 2, root / 2, C._MUSDUR * 1.6, C._MUSV * 0.7, 'triangle', 0);
-    return;
+  const st = 60 / (C._BPM[0] + (C._BPM[1] - C._BPM[0]) *
+    min(1, (wave - 1) / (C._MUSW - 1))) / 4;      // one sixteenth, and it shortens
+  mT = st;
+  const i = mS++, ch = C._PROG[(i >> 4) % C._PROG.length];
+  const B = C._MBASS, H = C._MHAT, L = C._MLEAD, v = C._MUSV;
+  if (!(i % B[1])) {
+    const f = nf(ch, 0, B[0]);
+    tone(f, f, B[1] * st, v * B[2], C._OSC[B[3]]);
   }
-  // One clock for all of it. The pulse IS the beat, the figure is every second
-  // beat and the drone every eighth, so nothing can drift out of step with
-  // anything else and there is a single timer rather than three.
-  const w = min(1, (wave - 1) / (C._MUSW - 1));
-  mT = 60 / (C._MUSBPM[0] + (C._MUSBPM[1] - C._MUSBPM[0]) * w);
-  const b = mI++;
-  const th = C._MUSM > 2 ? max(ghosts.length / C._MUSTHR, (maxhp - hearts) / maxhp) : w;
-  const ten = C._MUSTEN[min(3, th * 4 | 0)];
-  if (C._MUSM > 1) {
-    const P = C._MUSP, D = C._MUSD;
-    tone(root * 2 ** (P[0] / 12), root * 2 ** (P[0] / 12), P[1], P[2], C._OSC[P[3]]);
-    if (!(b % 8)) tone(root * 2 ** (D[0] / 12), root * 2 ** (D[0] / 12), D[1], D[2], C._OSC[D[3]]);
-  }
-  if (b % 2) return;
-  const n = C._MUSFIG[(b / 2 | 0) % C._MUSFIG.length];
-  const f = root * 2 ** ((n < -90 ? ten : n) / 12);
-  tone(f, f, C._MUSDUR, C._MUSV, 'sine');         // centred: a wandering note reads as an event
+  // The hat is a layer that ARRIVES rather than one that is always there: it
+  // comes in when the field is against you and drops out when you clear it, so
+  // the arrangement says something the HUD does not.
+  if (H[1] && max(ghosts.length / C._MUSTHR, (maxhp - hearts) / maxhp) >= H[3])
+    tone(H[0], H[0] * 0.6, 0.03, v * H[1] * (i % 2 ? 0.5 : 1), C._OSC[H[2]]);
+  if (mW > 0) { mW--; return; }
+  let [d, dur] = C._MOTIF[mI];
+  // The cadence of every other pass is lifted an octave. Inverting it instead is
+  // inversion by the book and drops the line under the tonic, where it reads as a
+  // wrong note against the three phrases before it - the chords carry the variety.
+  if (mP % 2 && mI === C._MOTIF.length - 1) d += 7;
+  const f = nf(ch, d, L[0]);
+  // A note has to last as long as it is written for, or a phrase that ends on a
+  // long note finishes with a hole in it.
+  tone(f, f, dur * st * 0.92, v * L[1], C._OSC[L[2]]);
+  mW = dur - 1;
+  if (++mI >= C._MOTIF.length) { mI = 0; mP++; }
 };
 
 // ---------------------------------------------------------------------------
