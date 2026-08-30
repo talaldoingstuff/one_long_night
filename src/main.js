@@ -472,16 +472,18 @@ export const C = {
   _MIN: [0, 2, 3, 5, 7, 8, 10],
   _PROG: [[0, 1], [0, 1], [8, 0], [10, 0], [0, 1], [0, 1], [3, 0], [7, 0]],
   _MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]],
-  _BPM: [88, 126],    // the grid, at wave 1 and at _MUSW
+  _BPM: [120, 160],   // the grid, at wave 1 and at _MUSW
   _MUSW: 30,
-  _MUSV: 0.200,       // the music bus; every layer below is a fraction of it
-  // A sawtooth, not a sine. A pure sine is a music box - it was the single thing
-  // making this sound like a toy - and a saw at the same gain is heard as much
-  // louder for the same peak, which is why the levels below are well under 1.
+  _MUSV: 0.300,       // the music bus; every layer below is a fraction of it
+  // The lead is NOISE - the tune played by a band swept across a rush of air
+  // rather than by a pitch. A sine was a music box and was the single thing
+  // making this sound like a toy. Its gain is over 1 because a bandpass throws
+  // away everything outside the band: measured, a noise sound at gain g peaks at
+  // roughly 0.45g around here, so 1.10 lands level with the 0.55 sawtooth bass.
   _MBASS: [110, 4, 0.55, 2],    // root Hz, a note every N sixteenths, level, waveform
-  _MLEAD: [220, 0.55, 2],       // root Hz, level, waveform
+  _MLEAD: [330, 1.10, 4],       // root Hz, level, waveform
   _MKEY: [4, 6],      // the key lifts a semitone every N waves, this many at most
-  _MHAT: [7500, 0.09, 4, 0],    // Hz, level, waveform, and the threat it enters at
+  _MHAT: [9000, 0.10, 4, 0],    // Hz, level, waveform, and the threat it enters at
   _MUSTHR: 6,         // ghosts on the field that count as full threat
   _MUSSCALE: [0, 3, 5, 7, 10],  // the charge ladder, which is not part of the music
 

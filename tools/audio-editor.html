@@ -327,6 +327,9 @@ h2('music');
 // sixteenths and add up to sixteen, one bar.
 const DRIVE = [[0, 1], [0, 1], [8, 0], [10, 0], [0, 1], [0, 1], [3, 0], [7, 0]];
 const PIECES = [
+  ['Grit', 'The chosen one. The lead is noise rather than a pitch - the tune is played by a band swept across a rush of air, so it has grit instead of tone. Its level is over 1 because a bandpass throws most of a noise away; measured, it lands level with the bass.',
+   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [120, 160], V: 0.300,
+     BASS: [110, 4, 0.55, 2], LEAD: [330, 1.10, 4], HAT: [9000, 0.10, 4, 0], KEY: [4, 6] }],
   ['Saw', 'The straight fix: a sawtooth lead an octave down from the sine, with a saw bass under it. Buzzy where the sine was glassy, and the same tune. Start here.',
    { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
      BASS: [110, 4, 0.55, 2], LEAD: [220, 0.55, 2], HAT: [7500, 0.09, 4, 0], KEY: [4, 6] }],
@@ -336,11 +339,8 @@ const PIECES = [
   ['Low', 'The whole thing moved down a register: lead at 165, bass at 82, and a darker hat. Less tune, more engine - the melody stops being the thing you notice and the movement underneath takes over.',
    { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
      BASS: [82, 4, 0.60, 2], LEAD: [165, 0.60, 2], HAT: [5200, 0.08, 4, 0], KEY: [4, 6] }],
-  ['Grit', 'The lead is noise rather than a pitch - the tune is played by a band swept across a rush of air, so it has grit instead of tone. The furthest from a toy, and the least melodic. Try it and see if it is too far.',
-   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
-     BASS: [110, 4, 0.55, 2], LEAD: [330, 1.10, 4], HAT: [9000, 0.10, 4, 0], KEY: [4, 6] }],
   ['Hammer', 'The tune stops being a tune: it hits the root four times before it goes anywhere, at the fastest tempo here. A square bass under a saw lead. This is the one that sounds like it is chasing you.',
-   { PROG: DRIVE, MOTIF: [[0, 2], [0, 2], [3, 2], [0, 2], [0, 4], [4, 4]], BPM: [96, 140], V: 0.190,
+   { PROG: DRIVE, MOTIF: [[0, 2], [0, 2], [3, 2], [0, 2], [0, 4], [4, 4]], BPM: [128, 176], V: 0.190,
      BASS: [110, 2, 0.45, 1], LEAD: [220, 0.55, 2], HAT: [7500, 0.10, 4, 0], KEY: [4, 6] }],
 ];
 
