@@ -345,7 +345,36 @@ Wavedash listing art, screenshots and description are **platform metadata, not i
 
 ---
 
-## 16. Open items
+## 16. Checks
+
+`tests/` — plain Node, no framework, no dependencies. Every one of them drives the
+real module rather than a copy of it, which is why they cannot drift from what
+ships.
+
+```
+node tests/loop.mjs        the suite: 506 checks over the whole game
+node tests/render.mjs      the projection and the primitives
+node tests/audit.mjs       every config key referenced, nothing left from the old game
+node tests/api.mjs         every browser call exists; the competition rules
+node --experimental-vm-modules tests/edcheck.mjs    the editors parse and resolve
+```
+
+`api.mjs` reads `dist/index.html`, so it needs `npm run build` first — `dist/` is
+not tracked.
+
+Measurement probes, which answer a question rather than assert:
+`playtest.mjs` (how far a run gets, several player profiles - slow, minutes),
+`sheet.mjs` (the roster and the threat budget), `peak.mjs` and `noise.mjs` (audio
+headroom), `mus.mjs` (what the music plays), `assist.mjs` and `stutter.mjs` (aim),
+`sep.mjs`, `count.mjs` and `uniform.mjs` (spawn bearings), `score.mjs`,
+`iframe.mjs`.
+
+The rest of `tests/` is one-offs from earlier stages, kept because they record how
+a number was arrived at. Some are stale against the current code.
+
+---
+
+## 17. Open items
 
 - Wavedash global name and `uploadLeaderboardScore` signature
 - **The 2026 jam theme.** Not recorded anywhere in this document, and entries are
