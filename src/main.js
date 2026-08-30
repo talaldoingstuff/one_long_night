@@ -791,7 +791,11 @@ export const flush = (world = 1) => {
   return draw.length;
 };
 
-const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 201, 255], [180, 92, 255]];
+// Seven, because a rainbow has seven. Indigo sits between the blue and the violet,
+// which is the one it was missing - and every place that walks the palette reads
+// RBV.length rather than a hardcoded six, so it can never fall out of step again.
+const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95],
+             [34, 201, 255], [88, 96, 235], [180, 92, 255]];
 
 // ---------------------------------------------------------------------------
 // State
@@ -1133,7 +1137,7 @@ const T = (x, y, z) => {
 // is already looking at - the horn is where the crosshair sits.
 const charged = (base) => {
   const k = charging ? min(1, bindC / C._BINDCHG) : 0;
-  return k ? mix(base, RBV[(clock * C._EYERB | 0) % 6], k) : base;
+  return k ? mix(base, RBV[(clock * C._EYERB | 0) % RBV.length], k) : base;
 };
 
 // The head lies in the sagittal plane, so its own lateral axis is exactly x and
@@ -1337,6 +1341,11 @@ const take = (i) => {
   else if (++lv[i] && i === 5) { maxhp++; hearts++; }
   picking = 0;
   sfx(4);
+  // Level the aim for the new wave. Pitch only: yaw is which way you are FACING,
+  // and spinning somebody round between waves would be a worse thing to fix than
+  // the one being fixed.
+  pitch = 0;
+  aim();
   wave++;
   // Healed between waves (DESIGN.md 9), and SEEN to be: the hearts about to come
   // back pulse white for HEALP before settling to red, so the wave does not just
@@ -1766,7 +1775,7 @@ const minimap = () => {
     g.arc(ox + bx * c, oy - bz * c, C._MAPBLIP * r, 0, 2 * PI);
     // A blip is too small to carry a rainbow around itself, so a held one runs
     // through it in time instead - the same cycle the horn and the eyes use.
-    g.fillStyle = o[8] > 0 ? css(RBV[(clock * C._EYERB | 0) % 6], 1) : 'rgb(' + TY(o)[9] + ')';
+    g.fillStyle = o[8] > 0 ? css(RBV[(clock * C._EYERB | 0) % RBV.length], 1) : 'rgb(' + TY(o)[9] + ')';
     g.fill();
   }
 
@@ -1969,8 +1978,10 @@ const hud = () => {
   // Charging is a different thing being answered and it was borrowing the same
   // gesture, so a charge and a recharge looked identical.
   const fill = 1 - bindT / sCd();
-  for (let i = 0; i < 6; i++) {                   // in rainbow, left to right
-    const a = bw * i / 6, b = min(bw * fill, bw * (i + 1) / 6);
+  // Every band of the rainbow, in the same width the bar always had: seven
+  // narrower bands rather than six, not a longer bar.
+  for (let i = 0; i < RBV.length; i++) {          // in rainbow, left to right
+    const a = bw * i / RBV.length, b = min(bw * fill, bw * (i + 1) / RBV.length);
     if (b <= a) break;
     g.fillStyle = css(RBV[i], charging ? 1 : 0.85);
     g.fillRect(bx + a, by, b - a, bh);
@@ -2547,14 +2558,14 @@ const bindWall = () => {
   const u = 1 - wallT / C._WALLDUR;               // 0 at the cast, 1 as it dies
   const r = wallR * u ** 0.55;                   // out fast, then easing into place
   const a = C._WALLA * (1 - u) ** 0.9;
-  const n = 6 * C._WALLREP;                       // the same rainbow stacked, WALLREP times
+  const n = RBV.length * C._WALLREP;              // the same rainbow stacked, WALLREP times
   for (let i = 0; i < C._BINDSEG; i++) {
     const a0 = (i / C._BINDSEG) * 2 * PI, a1 = ((i + 1) / C._BINDSEG) * 2 * PI;
     for (let b = 0; b < n; b++) {
       const h0 = C._WALLH * b / 6, h1 = C._WALLH * (b + 1) / 6;
       const q = [gpt(a0, r, h0), gpt(a1, r, h0), gpt(a1, r, h1), gpt(a0, r, h1)];
       if (!q[0] || !q[1] || !q[2] || !q[3]) continue;
-      g.fillStyle = css(RBV[b % 6], a * (1 - b / (n + 2)));
+      g.fillStyle = css(RBV[b % RBV.length], a * (1 - b / (n + 2)));
       g.beginPath();
       for (const t of q) g.lineTo(t[0], t[1]);
       g.fill();
@@ -2586,7 +2597,7 @@ const burst = (x, z, n, spd, life, col, up, y, rad) => {
     parts.push([x + (random() * 2 - 1) * R, y + (random() * 2 - 1) * R,
                 z + (random() * 2 - 1) * R,
                 cos(a) * spd * e, -up * (0.4 + random() * 0.6), sin(a) * spd * e,
-                1, 1 / life, col || RBV[random() * 6 | 0]]);
+                1, 1 / life, col || RBV[random() * RBV.length | 0]]);
   }
 };
 
