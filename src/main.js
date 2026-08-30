@@ -393,11 +393,6 @@ export const C = {
   // a hard competition rule rather than a nicety.
   _LSK: 'oln.best',
   _VER: 'v 0.1',
-  // Clearing a wave pays for every ghost it SENT, whether you killed it or not;
-  // each kill pays one more on top. So a wave cleared perfectly is three points a
-  // ghost and one let through is one - the wave is the achievement, and killing is
-  // the margin. A wave that sends 6 is 18 perfect, 16 with two let past.
-  _PTW: 2,             // points a ghost in a wave you cleared
   _HBTN: [1.5, 0.4],   // the mute and quit squares: size and margin, in HUD units
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
@@ -803,6 +798,10 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // ---------------------------------------------------------------------------
 // ghost: [x, y, z, hp, maxhp, flash, phase, type]
 // horn:  [x, y, z, dx, dy, dz, life]
+// kills is not shown or scored any more - a wave sends a different number of
+// ghosts each time, so counting them measured the spawner rather than the player.
+// It stays because the test suite and the balance probes are built on it, and an
+// integer that only ever increments costs a handful of bytes.
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
     lv, offer, picking, sel, maxhp, healT, healA, healN, parts, glT, moT, conv;
@@ -819,7 +818,6 @@ const reset = () => {
   rec = 0; blink = 0; nextB = C._BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
   parts = []; glT = 0; moT = 0; conv = C._CONV;
-  sent = 0; bonus = 0;
   // armT is input state and outlives a run, so it has to be cleared here too. Die
   // mid-charge and it is still sitting at ARM; the click that restarts returns
   // before setting it, and the fresh run arms itself and starts charging with the
@@ -842,8 +840,6 @@ let down = 0, lx = 0, ly = 0, auto = 1, armT = -1, ax = 0, ay = 0;
 // 0 the title, 1 the how-to, 2 a run. Not part of reset(), which is a RUN being
 // reset - dying and starting again never goes back to the title.
 let scr = 0, best = 0;
-// sent counts what THIS wave's budget bought; bonus is every wave already banked.
-let sent = 0, bonus = 0;
 try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode */ }
 
 // Where the puppet is pointing: the straight line from the base of the horn to
@@ -1276,7 +1272,6 @@ const spawn = (k) => {
     if (near >= C._SPAWNGAP) break;               // clear of everything: stop looking
   }
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
-  sent++;
 };
 
 const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
@@ -1641,11 +1636,7 @@ const step = (dt) => {
   // Splitter's free children, which nothing paid for, still have to be dealt with
   // before the next wave starts.
   if (budget <= 0 && !ghosts.length && !waveT) waveT = C._WAVEGAP;
-  if (waveT && !(waveT = max(0, waveT - dt))) {
-    bonus += sent * C._PTW;                       // banked: the wave is over
-    sent = 0;
-    deal(); picking = 1; arp(1);
-  }
+  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; arp(1); }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -2020,16 +2011,19 @@ const hud = () => {
     g.fillText('CLICK/SPACE & HOLD', W - 16, by + bh + lbl * 2.5);
   }
 
-  // Wave above, kills below it, both on the centre line. The wave takes the
+  // Wave above, threat below it, both on the centre line. The wave takes the
   // horn's gold, which is now also the map dot - one colour for the thing the
   // run is counted in.
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
   g.font = (u * C._WAVEF | 0) + 'px monospace';
   g.fillText('WAVE ' + wave, W / 2, 18 + u * C._WAVEF);
+  // What the wave is worth in the game's own currency, rather than a kill count.
+  // The budget is what buys the ghosts, so it is the honest measure of a wave, and
+  // it is the same number for every player who reaches this one.
   g.fillStyle = '#8b93b8';
   g.font = (u * C._KILLF | 0) + 'px monospace';
-  g.fillText('KILLS ' + kills, W / 2, 18 + u * (C._WAVEF + C._KILLF * 1.15));
+  g.fillText('THREAT ' + budgetFor(wave), W / 2, 18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
 
   // Mute and quit, always there. A touch player has no keyboard for M or ESC, and
@@ -2259,8 +2253,9 @@ const cardFace = (i, x, y, w, h) => {
 };
 
 // Nothing of the run is left on screen: no ghosts, no puppet, no HUD. Three lines
-// stacked down the middle, and the score is waves rather than kills because
-// DESIGN.md 10 scores it that way and kills are only the tiebreaker.
+// stacked down the middle. The score is waves cleared and nothing else - a wave
+// sends a different number of ghosts every time it is played, so anything counted
+// per ghost is dice rather than skill.
 const overScreen = (u) => {
   g.fillStyle = '#000c';
   g.fillRect(0, 0, W, H);
@@ -2270,12 +2265,9 @@ const overScreen = (u) => {
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
   // is one wave cleared, and dying in wave 1 is none.
   g.fillText('WAVES SURVIVED ' + (wave - 1), W / 2, H / 2 - u * 1.6);
-  g.fillStyle = '#fff';
-  g.font = (u * 1.2 | 0) + 'px monospace';
-  g.fillText('KILLS ' + kills, W / 2, H / 2);
   g.fillStyle = '#8b93b8';
   g.font = (u * 0.9 | 0) + 'px monospace';
-  g.fillText('SCORE ' + points() + '     BEST ' + best, W / 2, H / 2 + u * 1.1);
+  g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.2);
   g.fillStyle = '#8b93b8';
   g.font = (u * 0.8 | 0) + 'px monospace';
   g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 1.8);
@@ -2326,10 +2318,17 @@ const underCrosshair = () => {
   return best;
 };
 
-// The run, as one number: what the waves you finished were worth, plus a point a
-// kill. Dying mid-wave keeps that wave's kills and forfeits its clearing bonus,
-// which is the whole reason to finish one.
-const points = () => bonus + kills;
+// The run, as one number: waves cleared, and nothing else.
+//
+// It was ghosts-killed-plus-a-bonus-per-ghost-sent, and that was unfair in a way
+// worth writing down. The spawner buys at random from what is unlocked, and the
+// types cost different amounts, so ONE wave sends a different number of ghosts
+// every time it is played. Measured at wave 15, budget 29: three legal rolls sent
+// 9, 12 and 14 ghosts for 91, 97 and 90 total hp - the same work, paying 27, 36
+// and 42. A leaderboard cannot carry 1.5x of pure dice.
+//
+// Waves cleared is the same number for everybody who got that far.
+const points = () => wave - 1;
 
 const saveBest = () => {
   const p = points();
@@ -2398,7 +2397,7 @@ const menuScreen = () => {
     g.fillText('PERSONAL BEST', W / 2, H * 0.6);
     g.fillStyle = '#fff';
     g.font = (u * 1.8 | 0) + 'px monospace';
-    g.fillText('' + best, W / 2, H * 0.69);
+    g.fillText(best + ' WAVES CLEARED', W / 2, H * 0.69);
     button('PLAY', H * 0.75, u);
   } else {
     g.font = (u * 2.4 | 0) + 'px monospace';
@@ -2744,7 +2743,7 @@ export const poseCheck = () => {
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
                              wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp, scr, muted,
-                             pts: points(), sent, bonus,
+                             pts: points(),
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
                              regen: sRegen(),
