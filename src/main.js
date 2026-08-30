@@ -489,8 +489,7 @@ export const C = {
   _MBASS: [110, 4, 0.55, 2],    // root Hz, a note every N sixteenths, level, waveform
   _MLEAD: [330, 1.10, 4],       // root Hz, level, waveform
   _MKEY: [4, 6],      // the key lifts a semitone every N waves, this many at most
-  _MHAT: [9000, 0.10, 4, 0],    // Hz, level, waveform, and the threat it enters at
-  _MUSTHR: 6,         // ghosts on the field that count as full threat
+  _MHAT: [9000, 0.10, 4],       // Hz, level, waveform
   _MUSSCALE: [0, 3, 5, 7, 10],  // the charge ladder, which is not part of the music
 
   _HEARTS: 3,
@@ -1599,12 +1598,12 @@ const noise = () => {
   return NB;
 };
 
-const tone = (f0, f1, dur, vol, wave, pan, at) => {
+const tone = (f0, f1, dur, vol, wave, at) => {
   // A silent sound still built three nodes and scheduled an exponential ramp from
   // zero, which is undefined anyway. Nothing to hear, nothing to build.
   if (!A || muted || !vol) return;
   const t0 = A.currentTime + (at || 0);
-  const v = A.createGain(), p = A.createStereoPanner();
+  const v = A.createGain();
   let o, f;
   if (wave === 'noise') {
     o = A.createBufferSource();
@@ -1626,15 +1625,14 @@ const tone = (f0, f1, dur, vol, wave, pan, at) => {
   v.gain.setValueAtTime(0, t0);
   v.gain.linearRampToValueAtTime(vol * C._VOL, t0 + C._ATK);
   v.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
-  p.pan.value = pan || 0;
-  v.connect(p).connect(bus);
+  v.connect(bus);
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 };
 
-const sfx = (i, pan) => {
+const sfx = (i) => {
   const q = C._SFX[i];
-  tone(q[0], q[1], q[2], q[3] * C._SFXV, C._OSC[q[4]], pan);
+  tone(q[0], q[1], q[2], q[3] * C._SFXV, C._OSC[q[4]]);
 };
 
 // Scheduled ahead on the audio clock in one go, so it needs no state, cannot be
@@ -1643,7 +1641,7 @@ const arp = (i) => {
   const q = C._ARP[i];
   q[0].forEach((n, k) => {
     const f = q[1] * 2 ** (n / 12);
-    tone(f, f, q[3], q[4] * C._SFXV, C._OSC[q[5]], 0, k * q[2]);
+    tone(f, f, q[3], q[4] * C._SFXV, C._OSC[q[5]], k * q[2]);
   });
 };
 
@@ -1692,11 +1690,7 @@ const musicStep = (dt) => {
     const f = nf(ch, 0, B[0]);
     tone(f, f, B[1] * st, v * B[2], C._OSC[B[3]]);
   }
-  // The hat is a layer that ARRIVES rather than one that is always there: it
-  // comes in when the field is against you and drops out when you clear it, so
-  // the arrangement says something the HUD does not.
-  if (H[1] && max(ghosts.length / C._MUSTHR, (maxhp - hearts) / maxhp) >= H[3])
-    tone(H[0], H[0] * 0.6, 0.03, v * H[1] * (i % 2 ? 0.5 : 1), C._OSC[H[2]]);
+  if (H[1]) tone(H[0], H[0] * 0.6, 0.03, v * H[1] * (i % 2 ? 0.5 : 1), C._OSC[H[2]]);
   if (mW > 0) { mW--; return; }
   let [d, dur] = C._MOTIF[mI];
   // The cadence of every other pass is lifted an octave. Inverting it instead is
