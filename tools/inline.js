@@ -30,7 +30,7 @@ export const HTML_MINIFY = {
 
 export function inlinePlugin() {
   return {
-    name: 'rainbowed:inline',
+    name: 'oln:inline',
     apply: 'build',
     enforce: 'post',
     generateBundle: {

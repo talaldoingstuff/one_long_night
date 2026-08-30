@@ -4,9 +4,12 @@
 import { build } from 'vite';
 import { mkdirSync, readFileSync, writeFileSync, rmSync, statSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { packConfig } from 'file:///C:/Users/tallo/Documents/Rainbowed/tools/config.js';
+import { fileURLToPath } from 'node:url';
+import { packConfig } from '../tools/config.js';
 
-const ROOT = 'C:/Users/tallo/Documents/Rainbowed';
+// Off the module, not off this machine: an absolute path here breaks the day
+// the folder is renamed or the repo is cloned anywhere else.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TMP = join(ROOT, '.audio-cost');
 
 async function pack(name, mainJs) {

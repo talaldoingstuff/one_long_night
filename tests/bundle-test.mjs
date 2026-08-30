@@ -1,11 +1,15 @@
 // Drives the SHIPPED minified bundle for the 2D landscape game. Extracts the
 // script out of dist/index.html so this covers Terser's mangling and its unsafe
 // float passes, not just the source.
-import { readFileSync, writeFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
-const ROOT = 'C:/Users/tallo/Documents/Rainbowed';
-const TMP = 'C:/Users/tallo/AppData/Local/Temp/claude/C--Users-tallo-Documents-Rainbowed/2d60f13a-b926-4ce5-84e1-e987f24a6e60/scratchpad';
+// Off the module and off the OS temp dir. This pointed at a session-keyed
+// scratchpad that no longer exists, and at an absolute repo path.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const TMP = mkdtempSync(join(tmpdir(), 'oln-'));
 
 const html = readFileSync(`${ROOT}/dist/index.html`, 'utf8');
 writeFileSync(`${TMP}/bundle.mjs`, html.match(/<script type=module>([\s\S]*?)<\/script>/)[1]);
