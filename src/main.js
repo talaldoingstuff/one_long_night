@@ -383,7 +383,7 @@ export const C = {
   _HEART2: 9,          // the wave extra heart level 2 opens on
   _CARDN: 3,           // cards offered between waves
   _CARDSC: '#fff',     // the square round the one the keyboard is on
-  _CARDSW: 3,          // px
+  _CARDSW: 6,          // px
   _CARDSO: 12,         // and how far outside the card it sits
   _CARDSP: [0.35, 6],  // and it breathes: dimmest it goes, and radians a second
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
