@@ -351,6 +351,7 @@ export const C = {
   //
   // The budget sets how LONG a wave is; the spawn interval sets how HARD it is.
   // Both move, or waves just get longer.
+  _SPAWNTRY: 8,        // bearings tried per spawn; the roomiest one wins
   _BUD0: 6,            // wave 1: six Drifters at a cost of 1 each
   _BUDR: 1.12,         // and 12% more threat every wave after
   _SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
@@ -380,6 +381,9 @@ export const C = {
   // Extra heart's second level waits longer than its first.
   _HEART2: 9,          // the wave extra heart level 2 opens on
   _CARDN: 3,           // cards offered between waves
+  _CARDSC: '#fff',     // the square round the one the keyboard is on
+  _CARDSW: 3,          // px
+  _CARDSO: 7,          // and how far outside the card it sits
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -786,14 +790,14 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
-    lv, offer, picking, maxhp, healT, healA, healN, parts, glT, moT, conv;
+    lv, offer, picking, sel, maxhp, healT, healA, healN, parts, glT, moT, conv;
 
 const reset = () => {
   ghosts = []; horns = [];
   lv = C._CARDS.map(() => 0);
   maxhp = C._HEARTS;
   hearts = maxhp; kills = 0; over = 0;
-  offer = []; picking = 0;
+  offer = []; picking = 0; sel = 0;
   healT = 0; healA = 0; healN = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
@@ -938,6 +942,15 @@ const onDown = (e) => {
   armT = 0; ax = e.clientX; ay = e.clientY;
 };
 const onMove = (e) => {
+  // Hovering moves the highlight too, or the square sits on one card while the
+  // pointer is over another and the screen is telling you two different things.
+  if (picking) {
+    for (let n = 0; n < offer.length; n++) {
+      const [x, y, w2, h2] = cardBox(offer.length, n);
+      if (e.clientX >= x && e.clientX <= x + w2 && e.clientY >= y && e.clientY <= y + h2) sel = n;
+    }
+    return;
+  }
   if (!down) return;
   const dx = e.clientX - lx, dy = e.clientY - ly;
   // Only while arming. Once it is charging, this is just aiming.
@@ -980,6 +993,15 @@ const onKey = (e) => {
     const n = +e.code[5] - 1;
     if (n >= 0 && n < offer.length) { e.preventDefault(); take(offer[n]); }
     return;
+  }
+  // The card screen, for a run that never touches the mouse. The same keys that
+  // turn you move the highlight, and the same key that casts the rainbow takes
+  // the card - so there is nothing new to learn, and this has to come before the
+  // turning below or left and right would try to do both.
+  if (d && picking) {
+    const m = TURNK[e.code];
+    if (m && m[0]) { sel = min(offer.length - 1, max(0, sel + m[0])); e.preventDefault(); return; }
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); take(offer[sel]); return; }
   }
   if (!TURNK[e.code] && e.code !== 'Space') return;
   KEYS[e.code] = d ? 1 : 0;
@@ -1178,8 +1200,33 @@ const TY = (o) => C._TYPES[o[7]];
 const born = (x, z, k) =>
   ghosts.push([x, C._GY, z, C._TYPES[k][0], C._TYPES[k][0], 0, random() * 9, k, 0]);
 
+// Best of SPAWNTRY bearings rather than the first one drawn: the one furthest
+// from anything already on the field wins. Two arriving on the same bearing hide
+// behind each other and only one of them can be shot.
+//
+// Best-of rather than reject-and-retry, because retrying cannot always succeed.
+// Measured: wave 1 has at most 6 alive at once, which is 60 degrees each, but
+// wave 30 has 27 - 13 degrees each, so ANY fixed minimum gap is unsatisfiable by
+// then and a retry loop would spin until it gave up anyway. This degrades: when
+// the ring is packed it still picks the roomiest gap left, which is all there is.
 const spawn = (k) => {
-  const a = random() * 2 * PI;
+  let a = 0, best = -1;
+  for (let i = 0; i < C._SPAWNTRY; i++) {
+    const t = random() * 2 * PI;
+    let near = 7;
+    for (const o of ghosts) {
+      // atan2(z, x), not atan2(x, z): t is the angle that BUILT the position, and
+      // a camera bearing is atan2(x, z) - a different convention by a right angle
+      // and a flip. Comparing one against the other measured a nonsense that was
+      // still a number, so it silently chose almost at random. The two conventions
+      // give the same separation between any two points, so either works as long
+      // as both sides use one.
+      const b = atan2(o[2], o[0]);
+      const d = abs(atan2(sin(t - b), cos(t - b)));
+      if (d < near) near = d;
+    }
+    if (near > best) { best = near; a = t; }
+  }
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
 };
 
@@ -1220,6 +1267,7 @@ const weightOf = (i) => {
 // the offer is a single Recovery, which is a full heal and never runs out.
 const deal = () => {
   offer = [];
+  sel = 0;
   const pool = [];
   for (let i = 0; i < C._CARDS.length; i++) if (open(i)) pool.push(i);
   if (wave === 1 && pool.includes(0)) offer.push(pool.splice(pool.indexOf(0), 1)[0]);
@@ -2066,6 +2114,10 @@ const cardScreen = () => {
   g.fillText('Pick a Power Up', W / 2, H / 2 - ch / 2 - cw * 0.13);
 
   for (let n = 0; n < offer.length; n++) cardFace(offer[n], ...cardBox(offer.length, n));
+  const [sx, sy, sw, sh] = cardBox(offer.length, sel), o = C._CARDSO;
+  g.strokeStyle = C._CARDSC;
+  g.lineWidth = C._CARDSW;
+  g.strokeRect(sx - o, sy - o, sw + o * 2, sh + o * 2);
   g.textAlign = 'left';
 };
 
@@ -2506,7 +2558,7 @@ export const poseCheck = () => {
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
-                             wave, budget, waveT, hurtT, shake, lv, offer, picking, maxhp,
+                             wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp,
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
                              regen: sRegen(),
