@@ -328,20 +328,20 @@ h2('music');
 const DRIVE = [[0, 1], [0, 1], [8, 0], [10, 0], [0, 1], [0, 1], [3, 0], [7, 0]];
 const PIECES = [
   ['Grit', 'The one that shipped. The lead is noise rather than a pitch - the tune is played by a band swept across a rush of air, so it has grit instead of tone. Its level is over 1 because a bandpass throws most of a noise away; measured, it lands level with the bass.',
-   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [120, 160], V: 0.720,
-     BASS: [110, 4, 0.55, 2], LEAD: [330, 1.10, 4], HAT: [9000, 0.10, 4], KEY: [4, 6] }],
+   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: 120, V: 0.720,
+     BASS: [110, 4, 0.55, 2], LEAD: [330, 1.10, 4], HAT: [9000, 0.10, 4] }],
   ['Saw', 'The straight fix: a sawtooth lead an octave down from the sine, with a saw bass under it. Buzzy where the sine was glassy, and the same tune. Start here.',
-   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
-     BASS: [110, 4, 0.55, 2], LEAD: [220, 0.55, 2], HAT: [7500, 0.09, 4], KEY: [4, 6] }],
+   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: 104, V: 0.200,
+     BASS: [110, 4, 0.55, 2], LEAD: [220, 0.55, 2], HAT: [7500, 0.09, 4] }],
   ['Square', 'A square lead is nasal rather than glassy - chiptune with teeth. It cuts through the shots at a lower level than anything else here, because a square is all odd harmonics and nothing else is competing up there.',
-   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
-     BASS: [110, 4, 0.50, 1], LEAD: [220, 0.45, 1], HAT: [7500, 0.09, 4], KEY: [4, 6] }],
+   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: 104, V: 0.200,
+     BASS: [110, 4, 0.50, 1], LEAD: [220, 0.45, 1], HAT: [7500, 0.09, 4] }],
   ['Low', 'The whole thing moved down a register: lead at 165, bass at 82, and a darker hat. Less tune, more engine - the melody stops being the thing you notice and the movement underneath takes over.',
-   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: [88, 126], V: 0.200,
-     BASS: [82, 4, 0.60, 2], LEAD: [165, 0.60, 2], HAT: [5200, 0.08, 4], KEY: [4, 6] }],
+   { PROG: DRIVE, MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]], BPM: 104, V: 0.200,
+     BASS: [82, 4, 0.60, 2], LEAD: [165, 0.60, 2], HAT: [5200, 0.08, 4] }],
   ['Hammer', 'The tune stops being a tune: it hits the root four times before it goes anywhere, at the fastest tempo here. A square bass under a saw lead. This is the one that sounds like it is chasing you.',
-   { PROG: DRIVE, MOTIF: [[0, 2], [0, 2], [3, 2], [0, 2], [0, 4], [4, 4]], BPM: [128, 176], V: 0.190,
-     BASS: [110, 2, 0.45, 1], LEAD: [220, 0.55, 2], HAT: [7500, 0.10, 4], KEY: [4, 6] }],
+   { PROG: DRIVE, MOTIF: [[0, 2], [0, 2], [3, 2], [0, 2], [0, 4], [4, 4]], BPM: 150, V: 0.190,
+     BASS: [110, 2, 0.45, 1], LEAD: [220, 0.55, 2], HAT: [7500, 0.10, 4] }],
 ];
 
 
@@ -360,8 +360,8 @@ const pieceBtns = PIECES.map(([name, why, v], i2) => {
   const b = btn(name, () => {
     C._PROG = v.PROG.map((r) => r.slice());
     C._MOTIF = v.MOTIF.map((r) => r.slice());
-    C._BPM = v.BPM.slice(); C._MBASS = v.BASS.slice();
-    C._MLEAD = v.LEAD.slice(); C._MHAT = v.HAT.slice(); C._MKEY = v.KEY.slice();
+    C._BPM = v.BPM; C._MBASS = v.BASS.slice();
+    C._MLEAD = v.LEAD.slice(); C._MHAT = v.HAT.slice();
     musV = v.V; applyMus();
     pieceBtns.forEach((q, k) => q.classList.toggle('on', k === i2));
     pdesc.textContent = why;
@@ -377,10 +377,7 @@ pdesc.textContent = PIECES[0][1];
 group.append(score, pdesc);
 
 slider('music vol', () => musV, (v) => { musV = v; applyMus(); }, 0, 1.5, 0.01, (v) => v.toFixed(2));
-slider('BPM at wave 1', () => C._BPM[0], (v) => (C._BPM[0] = v), 40, 160, 1, (v) => v + '');
-slider('BPM at wave 30', () => C._BPM[1], (v) => (C._BPM[1] = v), 40, 200, 1, (v) => v + '');
-slider('key lift', () => C._MKEY[1], (v) => (C._MKEY[1] = v), 0, 12, 1, (v) => '+' + v + ' st');
-slider('lift every', () => C._MKEY[0], (v) => (C._MKEY[0] = v), 1, 12, 1, (v) => v + ' waves');
+slider('BPM', () => C._BPM, (v) => (C._BPM = v), 40, 200, 1, (v) => v + '');
 
 slider('bass note', () => C._MBASS[0], (v) => (C._MBASS[0] = v), 55, 330, 1, (v) => v + ' Hz');
 slider('bass every', () => C._MBASS[1], (v) => (C._MBASS[1] = v), 1, 16, 1, (v) => v + '/16');
@@ -394,9 +391,7 @@ picker('lead wave', () => C._MLEAD[2], (v) => (C._MLEAD[2] = v), C._OSC);
 slider('hat level', () => C._MHAT[1], (v) => (C._MHAT[1] = v), 0, 0.5, 0.005, (v) => v.toFixed(3));
 picker('hat wave', () => C._MHAT[2], (v) => (C._MHAT[2] = v), C._OSC);
 
-let wv = 1;
-slider('wave', () => wv, (v) => { wv = v; M.setWave(v); }, 1, 36, 1, (v) => v + '');
-p('Drag wave to hear the key lift and the tempo climb.');
+p('The music does not move with the waves: same tempo, same key, same everything from wave 1 to the end of a run.');
 showScore();
 
 // ---------------------------------------------------------------------------
@@ -489,9 +484,7 @@ function dump() {
     '  _MIN: [' + C._MIN.join(', ') + '],' + NL +
     '  _PROG: [' + C._PROG.map((c) => '[' + c.join(', ') + ']').join(', ') + '],' + NL +
     '  _MOTIF: [' + C._MOTIF.map((c) => '[' + c.join(', ') + ']').join(', ') + '],' + NL +
-    '  _BPM: [' + C._BPM.join(', ') + '],' + NL +
-    '  _MUSW: ' + C._MUSW + ',' + NL +
-    '  _MKEY: [' + C._MKEY.join(', ') + '],' + NL +
+    '  _BPM: ' + C._BPM + ',' + NL +
     '  _MBASS: [' + C._MBASS[0] + ', ' + C._MBASS[1] + ', ' + (+C._MBASS[2]).toFixed(2) + ', ' + C._MBASS[3] + '],' + NL +
     '  _MLEAD: [' + C._MLEAD[0] + ', ' + (+C._MLEAD[1]).toFixed(2) + ', ' + C._MLEAD[2] + '],' + NL +
     '  _MHAT: [' + C._MHAT[0] + ', ' + n3(C._MHAT[1]) + ', ' + C._MHAT[2] + '],' + NL +

@@ -478,8 +478,7 @@ export const C = {
   _MIN: [0, 2, 3, 5, 7, 8, 10],
   _PROG: [[0, 1], [0, 1], [8, 0], [10, 0], [0, 1], [0, 1], [3, 0], [7, 0]],
   _MOTIF: [[4, 2], [3, 2], [2, 2], [4, 2], [7, 4], [4, 4]],
-  _BPM: [120, 160],   // the grid, at wave 1 and at _MUSW
-  _MUSW: 30,
+  _BPM: 120,          // the sixteenth grid, and it does not move
   _MUSV: 0.720,       // the music bus; every layer below is a fraction of it
   // The lead is NOISE - the tune played by a band swept across a rush of air
   // rather than by a pitch. A sine was a music box and was the single thing
@@ -488,7 +487,6 @@ export const C = {
   // roughly 0.45g around here, so 1.10 lands level with the 0.55 sawtooth bass.
   _MBASS: [110, 4, 0.55, 2],    // root Hz, a note every N sixteenths, level, waveform
   _MLEAD: [330, 1.10, 4],       // root Hz, level, waveform
-  _MKEY: [4, 6],      // the key lifts a semitone every N waves, this many at most
   _MHAT: [9000, 0.10, 4],       // Hz, level, waveform
   _MUSSCALE: [0, 3, 5, 7, 10],  // the charge ladder, which is not part of the music
 
@@ -1671,18 +1669,12 @@ const chargeTick = (k) => {
 // so a motif can be written as a shape and land wherever the chord puts it.
 const nf = (ch, d, base) => {
   const sc = ch[1] ? C._MIN : C._MAJ;
-  const s = sc[((d % 7) + 7) % 7] + 12 * floor(d / 7);
-  // The key lifts over a run, but only a little: the old game climbed twelve
-  // semitones and this one has three times the waves, so the same rate walked the
-  // tune up to a C8 by wave 30 - shrill, and the shape stops being recognisable
-  // once it is that far off the register it was written in.
-  return base * 2 ** ((ch[0] + s + min(C._MKEY[1], wave / C._MKEY[0] | 0)) / 12);
+  return base * 2 ** ((ch[0] + sc[((d % 7) + 7) % 7] + 12 * floor(d / 7)) / 12);
 };
 
 const musicStep = (dt) => {
   if (!A || muted || (mT -= dt) > 0) return;
-  const st = 60 / (C._BPM[0] + (C._BPM[1] - C._BPM[0]) *
-    min(1, (wave - 1) / (C._MUSW - 1))) / 4;      // one sixteenth, and it shortens
+  const st = 60 / C._BPM / 4;                     // one sixteenth, the same one all run
   mT = st;
   const i = mS++, ch = C._PROG[(i >> 4) % C._PROG.length];
   const B = C._MBASS, H = C._MHAT, L = C._MLEAD, v = C._MUSV;
