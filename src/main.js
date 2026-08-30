@@ -365,10 +365,15 @@ export const C = {
   // One list serves three effects, because a death, a glimmer inside the charging
   // ring and motes lifting where the wall passes are the same thing with different
   // numbers: a dot with a velocity, gravity and a life. Rows, like the sounds.
-  _PART: [140, 0.025, 0.85],      // cap, radius in metres, peak alpha
+  _PART: [260, 0.025, 0.85],      // cap, radius in metres, peak alpha
   _PDIE: [24, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
   _PGLI: [0.05, 0.7, 0.55],       // charging: seconds between one, life, lift
-  _PMOT: [0.03, 4, 0.8, 1.4],     // the wall: seconds between, dots, life, lift
+  // Four a frame across the wall's 0.45s life is about 110 fragments, and they
+  // outlive it, so the whole ring is still in the air as it dies. The gap is 0
+  // rather than a small number because the timer is polled once a frame: anything
+  // under a frame fires every frame anyway, and 0.02 - which looks faster than a
+  // frame - actually fired every OTHER one and gave half as many.
+  _PMOT: [0, 4, 0.8, 1.4],        // the wall: seconds between, dots, life, lift
   _XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
   _XHW: 3.5,           // and its thickness
   _XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
@@ -1428,9 +1433,14 @@ const step = (dt) => {
   if (wallT > 0) {
     if ((moT -= dt) <= 0) {
       moT = MO[0];
-      const u = 1 - wallT / C._WALLDUR, a = random() * 2 * PI;
-      burst(cos(a) * wallR * u ** 0.55, sin(a) * wallR * u ** 0.55, MO[1], 0.25,
-            MO[2], RBV[random() * 6 | 0], MO[3], C._EYE);
+      // Each fragment gets its own bearing. One angle a puff put them out in
+      // clumps of five, which reads as five things leaving rather than a ring
+      // coming apart.
+      const r = wallR * (1 - wallT / C._WALLDUR) ** 0.55;
+      for (let i = 0; i < MO[1]; i++) {
+        const a = random() * 2 * PI;
+        burst(cos(a) * r, sin(a) * r, 1, 0.25, MO[2], RBV[random() * 6 | 0], MO[3], C._EYE);
+      }
     }
   } else moT = 0;
   let kx = 0, ky = 0;
@@ -1490,8 +1500,8 @@ const step = (dt) => {
         sfx(2);
         // It used to vanish between one frame and the next. In its own colour, so
         // what is left behind says which of them you killed.
-        const D = C._PDIE;
-        burst(o[0], o[2], D[0], D[1], D[2], TY(o)[9], D[3], o[1]);
+        const D = C._PDIE, ty = TY(o);
+        burst(o[0], o[2], D[0], D[1], D[2], ty[9], D[3], o[1], ty[5]);
         // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a
         // wide bind worth having - you can hold the children before they scatter.
         // Placed across the line to the player, so both keep the range the parent
@@ -1720,7 +1730,10 @@ const nf = (ch, d, base) => {
 };
 
 const musicStep = (dt) => {
-  if (!A || muted || (mT -= dt) > 0) return;
+  // It stops when the run does, on the frame the game-over sound fires. What is
+  // already scheduled rings out on its own, which is the tail rather than the
+  // music carrying on over the result.
+  if (!A || muted || over || (mT -= dt) > 0) return;
   const st = 60 / C._BPM / 4;                     // one sixteenth, the same one all run
   mT = st;
   const i = mS++, ch = C._PROG[(i >> 4) % C._PROG.length];
@@ -2220,13 +2233,19 @@ const bindWall = () => {
 // Nothing falls. Every effect here rises and fades, so the gravity term went -
 // it was a multiply and an add per particle per frame to arrive at zero.
 // ---------------------------------------------------------------------------
-const burst = (x, z, n, spd, life, col, up, y) => {
+// rad scatters the starting points through a box that size rather than stacking
+// them all on one spot: a burst from a single point reads as a firework, and the
+// thing that died was a metre across.
+const burst = (x, z, n, spd, life, col, up, y, rad) => {
+  const R = rad || 0;
   for (let i = 0; i < n && parts.length < C._PART[0]; i++) {
     const a = random() * 2 * PI, e = 0.3 + random() * 0.7;
     // +y is DOWN, so lifting is negative. Every one of them rises: the multiplier
     // starts at 0.4 rather than 0, or a third of any burst would hang where it was
     // made instead of leaving.
-    parts.push([x, y, z, cos(a) * spd * e, -up * (0.4 + random() * 0.6), sin(a) * spd * e,
+    parts.push([x + (random() * 2 - 1) * R, y + (random() * 2 - 1) * R,
+                z + (random() * 2 - 1) * R,
+                cos(a) * spd * e, -up * (0.4 + random() * 0.6), sin(a) * spd * e,
                 1, 1 / life, col]);
   }
 };
