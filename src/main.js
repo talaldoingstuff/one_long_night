@@ -1467,7 +1467,7 @@ const step = (dt) => {
       const r = wallR * (1 - wallT / C._WALLDUR) ** 0.55;
       for (let i = 0; i < MO[1]; i++) {
         const a = random() * 2 * PI;
-        burst(cos(a) * r, sin(a) * r, 1, 0.25, MO[2], RBV[random() * 6 | 0], MO[3], C._EYE);
+        burst(cos(a) * r, sin(a) * r, 1, 0.25, MO[2], 0, MO[3], C._EYE);
       }
     }
   } else moT = 0;
@@ -1528,8 +1528,9 @@ const step = (dt) => {
         sfx(2);
         // It used to vanish between one frame and the next. In its own colour, so
         // what is left behind says which of them you killed.
-        const D = C._PDIE, ty = TY(o);
-        burst(o[0], o[2], D[0], D[1], D[2], ty[9], D[3], o[1], ty[5]);
+        // Rainbow rather than the ghost's own colour: what killed it was a rainbow.
+        const D = C._PDIE;
+        burst(o[0], o[2], D[0], D[1], D[2], 0, D[3], o[1], TY(o)[5]);
         // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a
         // wide bind worth having - you can hold the children before they scatter.
         // Placed across the line to the player, so both keep the range the parent
@@ -2298,10 +2299,13 @@ const burst = (x, z, n, spd, life, col, up, y, rad) => {
     // +y is DOWN, so lifting is negative. Every one of them rises: the multiplier
     // starts at 0.4 rather than 0, or a third of any burst would hang where it was
     // made instead of leaving.
+    // No colour means the rainbow, a fresh one per dot. Passing one colour for a
+    // whole burst is what makes it a puff; picking per particle is what makes it
+    // a spray, and it is the same call either way.
     parts.push([x + (random() * 2 - 1) * R, y + (random() * 2 - 1) * R,
                 z + (random() * 2 - 1) * R,
                 cos(a) * spd * e, -up * (0.4 + random() * 0.6), sin(a) * spd * e,
-                1, 1 / life, col]);
+                1, 1 / life, col || RBV[random() * 6 | 0]]);
   }
 };
 
