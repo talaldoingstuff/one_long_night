@@ -2345,7 +2345,7 @@ const hudBtn = (i) => {
 const HOWTO = [
   'DRAG TO AIM',
   'WASD   ← ↑ → ↓   CLICK+DRAG   TOUCH+SWIPE',
-  'HOLD TO CHARGE, RELEASE THE RAINBOW WAVE',
+  'HOLD TO CHARGE & RELEASE THE RAINBOW WAVE',
   'SPACE   CLICK   TOUCH+HOLD',
   'M MUTE      ESC QUIT',
 ];
@@ -2371,29 +2371,33 @@ const menuScreen = () => {
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
   if (scr) {
-    g.font = (u * 1.2 | 0) + 'px monospace';
-    g.fillText('HOW TO PLAY', W / 2, H * 0.14);
+    g.font = (u * 1.3 | 0) + 'px monospace';
+    g.fillText('HOW TO PLAY', W / 2, H * 0.12);
     for (let i = 0; i < HOWTO.length; i++) {
-      const head = !(i % 2);
-      g.fillStyle = head ? '#fff' : '#8b93b8';
-      g.font = (u * (head ? 0.86 : 0.74) | 0) + 'px monospace';
-      g.fillText(HOWTO[i], W / 2, H * 0.26 + i * u * 1.15 + (head ? u * 0.35 : 0));
+      // The two things you DO are gold; every way to do them is white. Parity alone
+      // would have made the mute-and-quit line a heading, and it is a control.
+      const head = !(i % 2) && i < 4;
+      g.fillStyle = head ? css(C._GOLD, 1) : '#fff';
+      g.font = (u * (head ? 1 : 0.85) | 0) + 'px monospace';
+      g.fillText(HOWTO[i], W / 2, H * 0.24 + i * u * 1.3);
     }
-    g.fillStyle = '#8b93b8';
-    g.font = (u * 0.8 | 0) + 'px monospace';
-    g.fillText('PERSONAL BEST', W / 2, H * 0.71);
     g.fillStyle = css(C._GOLD, 1);
-    g.font = (u * 1.6 | 0) + 'px monospace';
-    g.fillText('' + best, W / 2, H * 0.79);
-    button('PLAY', H * 0.85, u);
+    g.font = (u * 0.95 | 0) + 'px monospace';
+    g.fillText('PERSONAL BEST', W / 2, H * 0.6);
+    g.fillStyle = '#fff';
+    g.font = (u * 1.8 | 0) + 'px monospace';
+    g.fillText('' + best, W / 2, H * 0.69);
+    button('PLAY', H * 0.75, u);
   } else {
     g.font = (u * 2.4 | 0) + 'px monospace';
-    g.fillText('ONE LONG NIGHT', W / 2, H * 0.4);
-    g.fillStyle = '#8b93b8';
-    g.font = (u * 0.8 | 0) + 'px monospace';
-    g.fillText(C._VER, W / 2, H * 0.47);
+    g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
     button('START', H * 0.56, u);
   }
+  // The version belongs at the foot of whichever screen you are on, not in the
+  // middle of the title.
+  g.fillStyle = '#8b93b8';
+  g.font = (u * 0.7 | 0) + 'px monospace';
+  g.fillText(C._VER, W / 2, H - u * 0.7);
   g.textAlign = 'left';
 };
 
