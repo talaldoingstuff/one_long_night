@@ -31,7 +31,18 @@
   textarea{width:100%;height:190px;background:#070912;color:#9fb0d8;border:1px solid #232a44;
            border-radius:4px;font:11px/1.45 ui-monospace,monospace;padding:6px;resize:vertical}
   #hint{position:fixed;left:370px;bottom:10px;color:#59618a}
-  .note{color:#59618a;margin:4px 0 0}
+  .note{color:#59618a;margin:4px 0 0;font-size:11px}
+  #top{position:sticky;top:-10px;z-index:2;background:#0c0e18;margin:-10px -12px 4px;
+       padding:10px 12px 8px;border-bottom:1px solid #232a44}
+  .sec{display:block;width:100%;text-align:left;margin:5px 0 0;padding:6px 9px;
+       background:#141a2c;border:1px solid #232a44;border-radius:4px;color:#8b93b8;
+       font:11px/1.5 ui-monospace,monospace;letter-spacing:.13em;text-transform:uppercase}
+  .sec:hover{background:#1b2338;color:#c8cee6}
+  .sec.open{background:#1b2338;color:#9fe6ff;border-color:#2b4a63}
+  .sec::before{content:'+ ';color:#59618a}
+  .sec.open::before{content:'- '}
+  .body{display:none;padding:4px 0 10px}
+  .body.open{display:block}
   .desc{color:#9fe6ff;background:#101c28;border:1px solid #21384a;border-radius:4px;
         margin:6px 0 0;padding:6px 8px;line-height:1.55}
 </style>
@@ -39,7 +50,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="grip">&rsaquo;</div>
-<div id="panel"></div>
+<div id="panel"><div id="top"></div></div>
 <div id="hint">the preview is the game itself - play it and tune what you hear</div>
 
 <script type="module">
@@ -85,8 +96,23 @@ let sel = 0;            // the sound the sliders are editing
 let pan = 0;            // preview only - pan lives at the call site, not in the table
 const ctl = [];         // everything that needs re-reading when the selection changes
 
-const h2 = (t) => { const e = document.createElement('h2'); e.textContent = t; panel.append(e); return e; };
-const p = (t) => { const e = document.createElement('p'); e.className = 'note'; e.textContent = t; panel.append(e); return e; };
+// One long scroll of every control at once was unreadable. h2 now opens a folded
+// section and everything built after it lands inside, so the panel shows one job
+// at a time - which is also how it is actually used.
+const top = $('top');
+let group = top;
+const h2 = (t) => {
+  const head = document.createElement('button');
+  head.className = 'sec';
+  head.textContent = t;
+  const body = document.createElement('div');
+  body.className = 'body';
+  panel.append(head, body);
+  head.onclick = () => head.classList.toggle('open', body.classList.toggle('open'));
+  group = body;
+  return head;
+};
+const p = (t) => { const e = document.createElement('p'); e.className = 'note'; e.textContent = t; group.append(e); return e; };
 
 const slider = (label, get, set, lo, hi, step, fmt) => {
   const row = document.createElement('div'); row.className = 'row';
@@ -96,7 +122,7 @@ const slider = (label, get, set, lo, hi, step, fmt) => {
   const v = document.createElement('div'); v.className = 'v';
   const sync = () => { i.value = get(); v.textContent = fmt(+get()); };
   i.oninput = () => { set(+i.value); sync(); drawEnv(); dump(); };
-  row.append(l, i, v); panel.append(row);
+  row.append(l, i, v); group.append(row);
   sync.row = row;
   ctl.push(sync); sync();
   return sync;
@@ -110,7 +136,7 @@ const picker = (label, get, set, opts) => {
   const v = document.createElement('div'); v.className = 'v';
   const sync = () => { s.value = get(); };
   s.onchange = () => { set(+s.value); drawEnv(); dump(); };
-  row.append(l, s, v); panel.append(row);
+  row.append(l, s, v); group.append(row);
   ctl.push(sync); sync();
 };
 
@@ -119,12 +145,11 @@ const btn = (t, fn, cls) => {
   b.textContent = t; if (cls) b.className = cls; b.onclick = () => fn(b);
   return b;
 };
-const bar = (...bs) => { const d = document.createElement('div'); d.className = 'btns'; d.append(...bs); panel.append(d); return d; };
+const bar = (...bs) => { const d = document.createElement('div'); d.className = 'btns'; d.append(...bs); group.append(d); return d; };
 
 // ---------------------------------------------------------------------------
 // The context, and what the game is doing while you listen
 // ---------------------------------------------------------------------------
-h2('sound');
 let studio = 0, muted = 0;
 // Silencing the music must not overwrite the number you tuned it to, so musV is
 // the truth and C._MUSV is only what is currently playing. The slider and the
@@ -137,7 +162,7 @@ const enable = btn('CLICK HERE TO START THE SOUND', (b) => {
   b.textContent = 'sound is on';
   b.classList.add('on');
 }, 'big');
-panel.append(enable);
+group.append(enable);
 
 slider('MASTER', () => C._VOL, (v) => (C._VOL = v), 0, 3, 0.05, (v) => v.toFixed(2) + 'x');
 
@@ -154,13 +179,13 @@ const musBtn = btn('music off', (b) => {
   b.textContent = musOff ? 'music OFF' : 'music off';
 });
 bar(mute, musBtn, quiet, btn('clear the field', () => M.place([])), btn('restart', () => M.restart()));
-p('music off silences the music alone, so the sounds can be worked on against nothing - it does not touch the volume you set it to, and a paste-back taken while it is off still carries the real value. studio stops the puppet firing, so one sound can be heard on its own. mute silences everything.');
+p('music off leaves the music volume alone. studio stops the puppet auto-firing.');
 
 // ---------------------------------------------------------------------------
 // One sound at a time
 // ---------------------------------------------------------------------------
 h2('sounds');
-const pickRow = document.createElement('div'); pickRow.className = 'btns'; panel.append(pickRow);
+const pickRow = document.createElement('div'); pickRow.className = 'btns'; group.append(pickRow);
 const pickBtns = SHORT.map((s, i) => {
   const b = btn(s, () => {
     sel = i;
@@ -178,11 +203,11 @@ pickBtns[0].classList.add('on');
 const desc = document.createElement('p');
 desc.className = 'desc';
 desc.textContent = SFX[0];
-panel.append(desc);
+group.append(desc);
 
 const env = document.createElement('canvas');
 env.id = 'env'; env.width = 640; env.height = 188;
-panel.append(env);
+group.append(env);
 const ec = env.getContext('2d');
 
 const S = () => C._SFX[sel];
@@ -202,7 +227,7 @@ bar(btn('play', play), btn('play all', async () => {
     await new Promise((r) => setTimeout(r, 480));
   }
 }));
-p('With wave set to noise, from and to sweep a band across a rush of air rather than a pitch - that is what makes a thrust, a whoosh or a beam. noise band is how narrow that band is, and it is shared. MASTER is 1x because the mix is already at the level it plays at - it is here to audition the whole thing louder or quieter, not to hold a correction, so bake whatever you settle on back into the numbers rather than leaving it on the slider. It scales every sound and the music together, so the balance between them survives being moved. attack is shared by every sound, music included: it is the ramp that stops a note clicking on its own leading edge.');
+p('wave = noise makes from/to sweep a band across a rush of air instead of a pitch. noise band and attack are shared by every sound. Bake MASTER back into the numbers rather than leaving a correction on it.');
 
 // ---------------------------------------------------------------------------
 // The rainbow charge - a series, not a sound
@@ -235,7 +260,7 @@ const runCharge = async () => {
 bar(btn('play the whole charge', runCharge),
     btn('first note', () => { M.resetCharge(); M.playCharge(0); }),
     btn('next note', () => M.playCharge(1)));
-p('The pitches come off the music scale a step at a time, wrapping up an octave each time round, so it climbs a scale rather than sliding up a siren - which is what makes it belong to the chime it releases. Each note rings far longer than the gap after it, so they pile into a thickening shimmer. It is still a series because a charge can be cancelled: a series just stops. Ticks get closer together and higher as the ring grows, so how far along it is can be heard as well as seen.');
+p('One note per tick, off the music scale, wrapping an octave each time round. The ring far outlasts the gap, so they pile into a shimmer that thickens as it fills.');
 
 // ---------------------------------------------------------------------------
 // The two sounds that are notes rather than a shape
@@ -246,7 +271,7 @@ const Q = () => C._ARP[asel];
 const adesc = document.createElement('p');
 adesc.className = 'desc';
 adesc.textContent = ARPD[0];
-const arpRow = document.createElement('div'); arpRow.className = 'btns'; panel.append(arpRow);
+const arpRow = document.createElement('div'); arpRow.className = 'btns'; group.append(arpRow);
 const arpBtns = ARP.map((n, i) => {
   const b = btn(n, () => {
     asel = i;
@@ -260,7 +285,7 @@ const arpBtns = ARP.map((n, i) => {
   return b;
 });
 arpBtns[0].classList.add('on');
-panel.append(adesc);
+group.append(adesc);
 
 slider('root', () => Q()[1], (v) => (Q()[1] = v), 180, 1600, 1, (v) => v + ' Hz');
 slider('spacing', () => Q()[2], (v) => (Q()[2] = v), 0.01, 0.4, 0.005, (v) => v.toFixed(3) + 's');
@@ -284,7 +309,7 @@ for (let n = 0; n < 6; n++) {
 const noteRows = () => noteS.forEach((f, n) => { f.row.style.display = n < Q()[0].length ? '' : 'none'; });
 noteRows();
 bar(btn('play', () => M.playArp(asel)));
-p('Notes are scheduled ahead on the audio clock in one go, so they keep time even if a frame is late. Make the ring much longer than the spacing and they overlap into a shimmer; make it shorter and you get a plain arpeggio. 0 4 7 12 is major, 0 3 7 12 minor, 0 7 12 19 24 is the open one the rainbow uses.');
+p('Ring much longer than spacing shimmers; shorter arpeggiates. 0 4 7 12 major, 0 3 7 12 minor, 0 7 12 19 24 the open one the rainbow uses.');
 
 // ---------------------------------------------------------------------------
 // Music
@@ -298,7 +323,7 @@ slider('spread', () => C._MUSPAN, (v) => (C._MUSPAN = v), 0, 2, 0.05, (v) => v.t
 
 // The scale is the one thing here that is not a number on a line.
 const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const scaleRow = document.createElement('div'); scaleRow.className = 'btns'; panel.append(scaleRow);
+const scaleRow = document.createElement('div'); scaleRow.className = 'btns'; group.append(scaleRow);
 const scaleBtns = NOTE.map((n, i) => {
   const b = btn(n, () => {
     const at = C._MUSSCALE.indexOf(i);
@@ -317,7 +342,7 @@ let wv = 1;
 slider('wave (key)', () => wv, (v) => { wv = v; M.setWave(v); }, 1, 36, 1,
        (v) => v + '  +' + ((v / 3 | 0) % 12));
 bar(btn('play a note now', () => M.stepMusic(1e9)));
-p('One note every couple of seconds from a scale that never resolves, with a root under every fourth. The key climbs a semitone every three waves and that is the only thing that escalates - it never gets louder, faster or busier.');
+p('One note every couple of seconds, root under every fourth, key climbing a semitone every three waves.');
 
 // ---------------------------------------------------------------------------
 // The envelope, drawn
@@ -377,7 +402,7 @@ function drawEnv() {
 // ---------------------------------------------------------------------------
 h2('paste back into C');
 const out = document.createElement('textarea');
-panel.append(out);
+group.append(out);
 bar(btn('copy', () => navigator.clipboard.writeText(out.value)));
 
 const NL = String.fromCharCode(10);
@@ -416,6 +441,9 @@ $('grip').onclick = () => {
   $('grip').classList.toggle('hid');
   $('grip').innerHTML = hid ? '&rsaquo;' : '&lsaquo;';
 };
+// Something has to be open or the panel reads as broken; sounds is the one
+// anybody opens the page for.
+panel.querySelector('.sec').click();
 drawEnv();
 dump();
 </script>
