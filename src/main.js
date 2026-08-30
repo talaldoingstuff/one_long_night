@@ -392,6 +392,12 @@ export const C = {
   // throws in private browsing, and an uncaught throw is a console error, which is
   // a hard competition rule rather than a nicety.
   _LSK: 'oln.best',
+  _VER: 'v 0.1',
+  // One number for the leaderboard, and for the best. Waves dominate because
+  // surviving one is the achievement; kills break the tie between two runs that
+  // reached the same wave, and both stay legible in the total.
+  _PTW: 100,           // points a wave cleared
+  _HBTN: [1.5, 0.4],   // the mute and quit squares: size and margin, in HUD units
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -944,6 +950,14 @@ const onDown = (e) => {
   // The first press of the game is the one that builds the audio context, which a
   // browser will not allow outside a gesture - so START is where the sound starts.
   if (scr < 2) { if (++scr > 1) reset(); return; }
+  if (!over && !picking) {
+    for (let i = 0; i < 2; i++) {
+      const [bx, by, bs] = hudBtn(i);
+      if (e.clientX < bx || e.clientX > bx + bs || e.clientY < by || e.clientY > by + bs) continue;
+      if (i) { saveBest(); scr = 1; } else muted ^= 1;
+      return;
+    }
+  }
   down = 1; lx = e.clientX; ly = e.clientY;
   if (over) { sfx(4); reset(); return; }
   if (picking) {                                  // a card, if the pointer is on one
@@ -1002,6 +1016,9 @@ const onKey = (e) => {
   if (d) audio();
   // M mutes, and is the one key that works whether or not it is held
   if (d && e.code === 'KeyM') { muted ^= 1; return; }
+  // Quitting keeps what the run earned: the waves were cleared whether or not it
+  // ended in a death.
+  if (d && e.code === 'Escape' && scr > 1) { saveBest(); scr = 1; return; }
   if (d && scr < 2 && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     if (++scr > 1) reset();
@@ -1683,10 +1700,7 @@ const step = (dt) => {
     sfx(3);
     if (hearts <= 0) {
       hearts = 0; over = 1; sfx(5);
-      if (wave - 1 > best) {
-        best = wave - 1;
-        try { localStorage.setItem(C._LSK, best); } catch (e) { /* private mode */ }
-      }
+      saveBest();
     }
   }
 };
@@ -2009,6 +2023,23 @@ const hud = () => {
   g.fillText('KILLS ' + kills, W / 2, 18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
 
+  // Mute and quit, always there. A touch player has no keyboard for M or ESC, and
+  // a mouse player loses nothing by being able to click them.
+  const uu = min(W, H) * C._HUDU;
+  for (let i = 0; i < 2; i++) {
+    const [bx, by, bs] = hudBtn(i);
+    g.globalAlpha = i || !muted ? 0.5 : 0.9;
+    g.strokeStyle = '#8b93b8';
+    g.lineWidth = 2;
+    g.strokeRect(bx, by, bs, bs);
+    g.fillStyle = i || !muted ? '#8b93b8' : css(C._GOLD, 1);
+    g.font = (uu * 0.8 | 0) + 'px monospace';
+    g.textAlign = 'center';
+    g.fillText(i ? 'X' : 'M', bx + bs / 2, by + bs * 0.72);
+    g.textAlign = 'left';
+  }
+  g.globalAlpha = 1;
+
   const a = proj(aimAt());                        // crosshair, on the horn's line
   const c = min(W, H) * C._XHR;
   g.beginPath();
@@ -2235,7 +2266,7 @@ const overScreen = (u) => {
   g.fillText('KILLS ' + kills, W / 2, H / 2);
   g.fillStyle = '#8b93b8';
   g.font = (u * 0.9 | 0) + 'px monospace';
-  g.fillText('BEST ' + best, W / 2, H / 2 + u * 1.1);
+  g.fillText('SCORE ' + points() + '     BEST ' + best, W / 2, H / 2 + u * 1.1);
   g.fillStyle = '#8b93b8';
   g.font = (u * 0.8 | 0) + 'px monospace';
   g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 1.8);
@@ -2286,16 +2317,37 @@ const underCrosshair = () => {
   return best;
 };
 
+// The run, as one number. Kills are the tail of it, so 30 waves and 830 kills
+// reads 3830 and the two can still be told apart at a glance.
+const points = () => (wave - 1) * C._PTW + kills;
+
+const saveBest = () => {
+  const p = points();
+  if (p <= best) return;
+  best = p;
+  try { localStorage.setItem(C._LSK, best); } catch (e) { /* private mode */ }
+};
+
+// Where the two always-on buttons sit. One place, so drawing and hit-testing
+// cannot disagree - the same rule cardBox follows. Always drawn rather than only
+// on a touch device: telling one from the other costs bytes and gets it wrong on
+// a touch laptop, and a clickable mute does a mouse no harm.
+const hudBtn = (i) => {
+  const u = min(W, H) * C._HUDU, s = u * C._HBTN[0], m = u * C._HBTN[1];
+  return [W - m - s * (2 - i) - m * (1 - i), H - m - s, s, s];
+};
+
 // The title and the how-to. Drawn on the canvas rather than in the DOM: the text,
 // the gold and the breathing outline all already exist here, and a second styling
 // system would cost more than the screens themselves.
+// Alternating: what you do, then every way to do it. Drawn bright then dim off
+// the index, which is a heading structure for no extra bytes.
 const HOWTO = [
-  'DRAG or WASD to turn. You cannot move.',
-  'The horn fires by itself.',
-  'HOLD click or SPACE to charge the rainbow.',
-  'It goes off on its own and holds what it catches.',
-  'Between waves take a card: click, 1 2 3, or arrows and SPACE.',
-  'M mutes.',
+  'DRAG TO AIM',
+  'WASD   ← ↑ → ↓   CLICK+DRAG   TOUCH+SWIPE',
+  'HOLD TO CHARGE, RELEASE THE RAINBOW WAVE',
+  'SPACE   CLICK   TOUCH+HOLD',
+  'M MUTE      ESC QUIT',
 ];
 
 // The same breathing square the selected card wears, so the two read as one
@@ -2319,18 +2371,27 @@ const menuScreen = () => {
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
   if (scr) {
-    g.font = (u * 1.3 | 0) + 'px monospace';
-    g.fillText('HOW TO PLAY', W / 2, H * 0.17);
-    g.fillStyle = '#c8cee6';
-    g.font = (u * 0.82 | 0) + 'px monospace';
-    for (let i = 0; i < HOWTO.length; i++) g.fillText(HOWTO[i], W / 2, H * 0.28 + i * u * 1.25);
+    g.font = (u * 1.2 | 0) + 'px monospace';
+    g.fillText('HOW TO PLAY', W / 2, H * 0.14);
+    for (let i = 0; i < HOWTO.length; i++) {
+      const head = !(i % 2);
+      g.fillStyle = head ? '#fff' : '#8b93b8';
+      g.font = (u * (head ? 0.86 : 0.74) | 0) + 'px monospace';
+      g.fillText(HOWTO[i], W / 2, H * 0.26 + i * u * 1.15 + (head ? u * 0.35 : 0));
+    }
+    g.fillStyle = '#8b93b8';
+    g.font = (u * 0.8 | 0) + 'px monospace';
+    g.fillText('PERSONAL BEST', W / 2, H * 0.71);
     g.fillStyle = css(C._GOLD, 1);
-    g.font = (u | 0) + 'px monospace';
-    g.fillText(best ? 'BEST  ' + best + ' WAVES' : 'NO WAVES SURVIVED YET', W / 2, H * 0.72);
-    button('PLAY', H * 0.79, u);
+    g.font = (u * 1.6 | 0) + 'px monospace';
+    g.fillText('' + best, W / 2, H * 0.79);
+    button('PLAY', H * 0.85, u);
   } else {
     g.font = (u * 2.4 | 0) + 'px monospace';
-    g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
+    g.fillText('ONE LONG NIGHT', W / 2, H * 0.4);
+    g.fillStyle = '#8b93b8';
+    g.font = (u * 0.8 | 0) + 'px monospace';
+    g.fillText(C._VER, W / 2, H * 0.47);
     button('START', H * 0.56, u);
   }
   g.textAlign = 'left';
@@ -2634,6 +2695,7 @@ export const place = (gs) => { ghosts = gs; };
 // the seam puts you past the menus as well.
 export const restart = () => { scr = 2; reset(); };
 export const setScr = (v) => { scr = v; };
+export const hudBtn2 = hudBtn;
 // Test and editor seams. Dropped from the app build, so they cost nothing.
 export const drawPuppet = () => puppet();
 // What a pose has to satisfy, measured rather than eyeballed: how far the horn
@@ -2665,7 +2727,7 @@ export const poseCheck = () => {
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
-                             wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp,
+                             wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp, scr, muted,
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
                              regen: sRegen(),
