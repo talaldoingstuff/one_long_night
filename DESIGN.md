@@ -376,8 +376,44 @@ a number was arrived at. Some are stale against the current code.
 
 ## 17. Open items
 
-- Wavedash global name and `uploadLeaderboardScore` signature
-- **The 2026 jam theme.** Not recorded anywhere in this document, and entries are
+**Status, 2026-08-31.** Build order steps 1-9 are complete. 10,995 of the 11,500
+game ceiling, so 505 bytes free with the 800-byte Wavedash reserve and the 1,012
+contingency untouched. All 149 commits are on `origin/main`
+(github.com/talaldoingstuff/one_long_night, private). Checks: 506 + 24 pass.
+
+What remains is step 10, the ship pass, plus the unicorn rebrand.
+
+### Blocked on answers only the user has
+
+- Wavedash global name (`Wavedash` or `WavedashJS`) and the third argument to
+  `uploadLeaderboardScore`. This ships in the **September 13** zip, not the 20th
+- **The 2026 jam theme.** Recorded nowhere in this document, and entries are
   expected to follow it
-- Wave budget growth formula — tune after the loop is playable
-- Confirm with js13k organisers that a feature-gated SDK global does not count as an external resource for the overall ranking (the rules explicitly invite the question)
+- Repo visibility. Private is right during the build; js13k needs the source
+  public at submission
+- Confirm with the organisers that a feature-gated SDK global does not count as
+  an external resource for the overall ranking (the rules invite the question)
+
+### Remaining work, in the order recommended
+
+1. **Unicorn rebrand.** Still a unicorn, new design - lean and fierce rather than
+   pastel, following the bestiary reading of a horn that purifies and repels
+   spirits. The only remaining item that spends bytes, so it goes before the
+   polish while 505 are still free
+2. **Firefox smoke test.** Cheap, and a Firefox-only WebAudio or canvas fault is
+   expensive to find late
+3. **Console-error hunt**, both browsers, per 1
+4. **README.** The repo has none
+5. **Store page metadata** - listing art, screenshots, description. Platform
+   metadata, not inside the 13KB, and 15 says prepare it during the build
+
+### Flagged, unresolved, worth bytes only if the user says so
+
+- `RAINBOW RADIUS` maxes at 18.66m inside a 16m arena, so the top upgrade tier
+  buys nothing
+- A waves-only leaderboard has no tiebreak
+- `THREAT LEVEL` displays a cosmetic `max(budget, wave + 5)` rather than the real
+  budget
+- Keyboard median 13 waves against a mouse's 28, after one round of tuning
+
+Mobile is out of scope unless revisited: the entry category is Desktop, landscape.
