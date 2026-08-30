@@ -320,6 +320,53 @@ p('Ring much longer than spacing shimmers; shorter arpeggiates. 0 4 7 12 major, 
 // Music
 // ---------------------------------------------------------------------------
 h2('music');
+// Six finished loops. Everything below them is what these are made of, for
+// afterwards - nobody should have to build one from sliders to hear one.
+// T marks the tension step: the note that darkens as things get worse.
+const T = -99;
+const LOOPS = [
+  ['Hollow', 'Cold and almost empty. Two notes, very slow, no pulse at all - the arena and nothing else. The quietest of these, and the one that gets out of the way most.',
+   { M: 1, ROOT: 131, FIG: [0, T, 12, T], TEN: [7, 8, 6, 1], BPM: [40, 56], DUR: 2.8, V: 0.240,
+     P: [0, 0.14, 0.130, 3], D: [-12, 6.5, 0.060, 3], THR: 6 }],
+  ['Heartbeat', 'A low thump on every beat with a drone under it, and barely any tune - the figure sits on the root and only leaves it to lean on the tension note. Pure pressure. The beat speeds up from 52 to 84 across thirty waves.',
+   { M: 2, ROOT: 110, FIG: [0, 0, T, 0], TEN: [7, 8, 6, 1], BPM: [52, 84], DUR: 2.2, V: 0.160,
+     P: [0, 0.14, 0.130, 3], D: [-12, 6.5, 0.060, 3], THR: 6 }],
+  ['Descent', 'A figure that falls: an octave, down to a fifth, down to a third, then the tension note. Sinking rather than driving, with a soft sine pulse under it.',
+   { M: 2, ROOT: 147, FIG: [12, 7, 3, T], TEN: [7, 8, 6, 1], BPM: [44, 64], DUR: 2.6, V: 0.220,
+     P: [-12, 0.18, 0.090, 0], D: [-12, 7, 0.050, 3], THR: 6 }],
+  ['Clockwork', 'Mechanical and relentless. A square-wave tick on every beat, short notes, and the fastest tempo climb here - 66 up to 104. The busiest of the six; try it against a late wave before deciding.',
+   { M: 2, ROOT: 131, FIG: [0, 0, T, 12], TEN: [7, 8, 6, 1], BPM: [66, 104], DUR: 1.4, V: 0.200,
+     P: [-12, 0.09, 0.140, 1], D: [-12, 5, 0.040, 3], THR: 6 }],
+  ['Vigil', 'A long drone with a high bell over it, answering itself two octaves down. Eerie rather than urgent, and it reads the field: it tightens when ghosts are on you and lets go when you clear them.',
+   { M: 3, ROOT: 131, FIG: [24, T, 19, T], TEN: [7, 8, 6, 1], BPM: [38, 54], DUR: 3.4, V: 0.180,
+     P: [-12, 0.30, 0.050, 0], D: [-12, 8, 0.070, 3], THR: 5 }],
+  ['Pursuit', 'The aggressive one. A sawtooth pulse, short notes, and a tritone from wave one rather than earned - it never sounds safe. Also reads the field, and goes to a minor second when four ghosts are on you.',
+   { M: 3, ROOT: 165, FIG: [0, T, 0, T], TEN: [6, 6, 1, 1], BPM: [72, 116], DUR: 1.2, V: 0.200,
+     P: [-12, 0.10, 0.160, 2], D: [-12, 4, 0.060, 2], THR: 4 }],
+];
+const ldesc = document.createElement('p');
+ldesc.className = 'desc';
+const loopRow = document.createElement('div'); loopRow.className = 'btns'; group.append(loopRow);
+const loopBtns = LOOPS.map(([name, why, v], i) => {
+  const b = btn(name, () => {
+    C._MUSM = v.M; C._MUSROOT = v.ROOT; C._MUSDUR = v.DUR; C._MUSV = v.V; C._MUSTHR = v.THR;
+    C._MUSFIG = v.FIG.slice(); C._MUSTEN = v.TEN.slice();
+    C._MUSBPM = v.BPM.slice(); C._MUSP = v.P.slice(); C._MUSD = v.D.slice();
+    musV = v.V; applyMus();                       // the music mute holds the real value
+    loopBtns.forEach((q, k) => q.classList.toggle('on', k === i));
+    modeBtns.forEach((q, k) => q.classList.toggle('on', k === v.M));
+    ldesc.textContent = why;
+    mdesc.textContent = MODED[v.M];
+    ctl.forEach((f) => f());
+    modeRows();
+    dump();
+  });
+  loopRow.append(b);
+  return b;
+});
+group.append(ldesc);
+ldesc.textContent = 'Pick one and listen while you play. Everything under here is what they are built from - the loop buttons set all of it at once.';
+
 const MODES = ['random', 'figure', '+ pulse', '+ threat'];
 const MODED = [
   'What it has been: a random note off the scale every couple of seconds, panned at random. Random pitch AND random pan means every note is a small event the ear has to dismiss, which is most of why it reads as noise instead of as background.',
@@ -377,8 +424,10 @@ const only1 = [
   slider('BPM at wave ' + C._MUSW, () => C._MUSBPM[1], (v) => (C._MUSBPM[1] = v), 24, 200, 1, (v) => v + ''),
 ];
 for (let n = 0; n < 4; n++) {
-  only1.push(slider('step ' + (n + 1), () => C._MUSFIG[n], (v) => (C._MUSFIG[n] = v), -1, 24, 1,
-    (v) => (v < 0 ? 'tension' : '+' + v + ' st')));
+  only1.push(slider('step ' + (n + 1),
+    () => (C._MUSFIG[n] < -90 ? 25 : C._MUSFIG[n]),
+    (v) => (C._MUSFIG[n] = v > 24 ? -99 : v), -24, 25, 1,
+    (v) => (v > 24 ? 'tension' : (v > 0 ? '+' : '') + v + ' st')));
 }
 const TEN = ['calm', 'wary', 'bad', 'worst'];
 for (let n = 0; n < 4; n++) {
@@ -408,7 +457,7 @@ slider('wave (key)', () => wv, (v) => { wv = v; M.setWave(v); }, 1, 36, 1,
        (v) => v + '  +' + ((v / 3 | 0) % 12));
 bar(btn('play a note now', () => M.stepMusic(1e9)));
 modeRows();
-p('Modes stack: each contains the one before it, and only the controls a mode uses are shown.');
+p('The loops above set everything here at once. Modes stack - each contains the one before it - and only the controls a mode uses are shown.');
 
 // ---------------------------------------------------------------------------
 // The envelope, drawn

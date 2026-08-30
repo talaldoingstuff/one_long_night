@@ -480,7 +480,7 @@ export const C = {
   //      alive and what it has cost you. Density never changes, so it never gets
   //      noisier, only tenser.
   _MUSM: 0,
-  _MUSFIG: [0, -1, 12, -1],   // the figure, a note every second beat; -1 is the tension interval
+  _MUSFIG: [0, -99, 12, -99], // the figure, a note every second beat; -99 is the tension interval
   _MUSTEN: [7, 8, 6, 1],      // fifth, minor sixth, tritone, minor second
   _MUSBPM: [48, 76],          // beats a minute at wave 1 and at _MUSW
   _MUSW: 30,
@@ -1675,7 +1675,7 @@ const musicStep = (dt) => {
   }
   if (b % 2) return;
   const n = C._MUSFIG[(b / 2 | 0) % C._MUSFIG.length];
-  const f = root * 2 ** ((n < 0 ? ten : n) / 12);
+  const f = root * 2 ** ((n < -90 ? ten : n) / 12);
   tone(f, f, C._MUSDUR, C._MUSV, 'sine');         // centred: a wandering note reads as an event
 };
 
