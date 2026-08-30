@@ -393,10 +393,11 @@ export const C = {
   // a hard competition rule rather than a nicety.
   _LSK: 'oln.best',
   _VER: 'v 0.1',
-  // One number for the leaderboard, and for the best. Waves dominate because
-  // surviving one is the achievement; kills break the tie between two runs that
-  // reached the same wave, and both stay legible in the total.
-  _PTW: 100,           // points a wave cleared
+  // Clearing a wave pays for every ghost it SENT, whether you killed it or not;
+  // each kill pays one more on top. So a wave cleared perfectly is three points a
+  // ghost and one let through is one - the wave is the achievement, and killing is
+  // the margin. A wave that sends 6 is 18 perfect, 16 with two let past.
+  _PTW: 2,             // points a ghost in a wave you cleared
   _HBTN: [1.5, 0.4],   // the mute and quit squares: size and margin, in HUD units
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
@@ -818,6 +819,7 @@ const reset = () => {
   rec = 0; blink = 0; nextB = C._BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
   parts = []; glT = 0; moT = 0; conv = C._CONV;
+  sent = 0; bonus = 0;
   // armT is input state and outlives a run, so it has to be cleared here too. Die
   // mid-charge and it is still sitting at ARM; the click that restarts returns
   // before setting it, and the fresh run arms itself and starts charging with the
@@ -840,6 +842,8 @@ let down = 0, lx = 0, ly = 0, auto = 1, armT = -1, ax = 0, ay = 0;
 // 0 the title, 1 the how-to, 2 a run. Not part of reset(), which is a RUN being
 // reset - dying and starting again never goes back to the title.
 let scr = 0, best = 0;
+// sent counts what THIS wave's budget bought; bonus is every wave already banked.
+let sent = 0, bonus = 0;
 try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode */ }
 
 // Where the puppet is pointing: the straight line from the base of the horn to
@@ -1272,6 +1276,7 @@ const spawn = (k) => {
     if (near >= C._SPAWNGAP) break;               // clear of everything: stop looking
   }
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
+  sent++;
 };
 
 const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
@@ -1636,7 +1641,11 @@ const step = (dt) => {
   // Splitter's free children, which nothing paid for, still have to be dealt with
   // before the next wave starts.
   if (budget <= 0 && !ghosts.length && !waveT) waveT = C._WAVEGAP;
-  if (waveT && !(waveT = max(0, waveT - dt))) { deal(); picking = 1; arp(1); }
+  if (waveT && !(waveT = max(0, waveT - dt))) {
+    bonus += sent * C._PTW;                       // banked: the wave is over
+    sent = 0;
+    deal(); picking = 1; arp(1);
+  }
 
   for (let i = horns.length; i--;) {
     const h = horns[i];
@@ -2317,9 +2326,10 @@ const underCrosshair = () => {
   return best;
 };
 
-// The run, as one number. Kills are the tail of it, so 30 waves and 830 kills
-// reads 3830 and the two can still be told apart at a glance.
-const points = () => (wave - 1) * C._PTW + kills;
+// The run, as one number: what the waves you finished were worth, plus a point a
+// kill. Dying mid-wave keeps that wave's kills and forfeits its clearing bonus,
+// which is the whole reason to finish one.
+const points = () => bonus + kills;
 
 const saveBest = () => {
   const p = points();
@@ -2734,6 +2744,7 @@ export const poseCheck = () => {
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
                              wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp, scr, muted,
+                             pts: points(), sent, bonus,
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
                              regen: sRegen(),
