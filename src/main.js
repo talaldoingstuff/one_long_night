@@ -356,6 +356,19 @@ export const C = {
                       // hp, speed, damage, radius, hem wobble, wobble freq, hue
   _GFADE: 0.34,        // opacity floor: a nearly-dead ghost is this faint
   _GFLASH: 0.11,       // seconds of white on a hit
+  // Measured: at 0.14 a Drifter at 3m moved 2.3px a frame against a body 101px
+  // across, which is under what the dome's own wobble does. At 0.4 it is 6px on
+  // the same body - a flinch rather than a light coming on, and still subtle.
+  _GSHK: 0.4,          // it flinches by this much of its own radius
+
+  // --- Particles --------------------------------------------------------------
+  // One list serves three effects, because a death, a glimmer inside the charging
+  // ring and motes lifting where the wall passes are the same thing with different
+  // numbers: a dot with a velocity, gravity and a life. Rows, like the sounds.
+  _PART: [70, 0.05, 0.85, 3.2],   // cap, radius in metres, peak alpha, gravity
+  _PDIE: [12, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
+  _PGLI: [0.05, 0.7, 0.55],       // charging: seconds between one, life, lift
+  _PMOT: [0.03, 2, 0.8, 1.4],     // the wall: seconds between, dots, life, lift
   _XHR: 0.018,         // crosshair arm, as a fraction of the smaller dimension
   _XHW: 3.5,           // and its thickness
   _XHA: 0.9,           // and its opacity. Gold, like the horn it sits on the line of
@@ -709,7 +722,7 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95], [34, 
 // horn:  [x, y, z, dx, dy, dz, life]
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
-    lv, offer, picking, maxhp, healT, healA, healN;
+    lv, offer, picking, maxhp, healT, healA, healN, parts, glT, moT;
 
 const reset = () => {
   ghosts = []; horns = [];
@@ -722,6 +735,7 @@ const reset = () => {
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
   rec = 0; blink = 0; nextB = C._BLINK0; bindT = 0; bindC = 0; charging = 0;
   wallT = 0; wallR = 0;
+  parts = []; glT = 0; moT = 0;
   // armT is input state and outlives a run, so it has to be cleared here too. Die
   // mid-charge and it is still sitting at ARM; the click that restarts returns
   // before setting it, and the fresh run arms itself and starts charging with the
@@ -1255,6 +1269,13 @@ const drawGhost = (o, target) => {
   // Opacity is the health bar (DESIGN.md 7): a nearly-dead ghost is visibly faint.
   const k = C._GFADE + (1 - C._GFADE) * (o[3] / o[4]);
   const hit = o[5] > 0;
+  // A hit flinches it. Scaled by its own radius, so a Hulk moves as far for its
+  // size as a Darter does, and it decays with the flash rather than outlasting it.
+  if (hit) {
+    const j = o[5] / C._GFLASH * C._GSHK * v.r;
+    v.px += (random() - 0.5) * j;
+    v.py += (random() - 0.5) * j;
+  }
   // A hit reads at full strength whatever the fade says. Opacity is the health
   // bar (7), so a nearly-dead ghost is faint - and the flash confirming you hit it
   // was fading with it, exactly when it matters most.
@@ -1390,6 +1411,28 @@ const step = (dt) => {
   rec = max(0, rec - dt / C._RECT);
   bindT = max(0, bindT - dt);
   wallT = max(0, wallT - dt);
+  partStep(dt);
+  // A glimmer inside the ring while it charges: one dot at a time, at a random
+  // point on the floor it covers. Square-rooting the radius spreads them evenly
+  // over the AREA - taking it straight would crowd them all into the middle.
+  const G = C._PGLI;
+  if (charging) {
+    if ((glT -= dt) <= 0) {
+      glT = G[0];
+      const a = random() * 2 * PI, r = bindR() * random() ** 0.5;
+      burst(cos(a) * r, sin(a) * r, 1, 0.12, G[1], [255, 255, 255], G[2], C._EYE);
+    }
+  } else glT = 0;
+  // And motes lifting off the ground where the wall is, in the wall's own colours.
+  const MO = C._PMOT;
+  if (wallT > 0) {
+    if ((moT -= dt) <= 0) {
+      moT = MO[0];
+      const u = 1 - wallT / C._WALLDUR, a = random() * 2 * PI;
+      burst(cos(a) * wallR * u ** 0.55, sin(a) * wallR * u ** 0.55, MO[1], 0.25,
+            MO[2], RBV[random() * 6 | 0], MO[3], C._EYE);
+    }
+  } else moT = 0;
   let kx = 0, ky = 0;
   for (const c in TURNK) if (KEYS[c]) { kx += TURNK[c][0]; ky += TURNK[c][1]; }
   if (kx || ky) {
@@ -1445,6 +1488,10 @@ const step = (dt) => {
       if (o[3] <= 0) {
         ghosts.splice(j, 1); kills++;
         sfx(2);
+        // It used to vanish between one frame and the next. In its own colour, so
+        // what is left behind says which of them you killed.
+        const D = C._PDIE;
+        burst(o[0], o[2], D[0], D[1], D[2], TY(o)[9], D[3], o[1]);
         // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a
         // wide bind worth having - you can hold the children before they scatter.
         // Placed across the line to the player, so both keep the range the parent
@@ -2165,6 +2212,44 @@ const bindWall = () => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Particles. In world space, so they go through the same projection as
+// everything else and a burst behind you is behind you. Drawn additively with
+// the ghosts, which is also why nothing has to be sorted.
+// ---------------------------------------------------------------------------
+const burst = (x, z, n, spd, life, col, up, y) => {
+  for (let i = 0; i < n && parts.length < C._PART[0]; i++) {
+    const a = random() * 2 * PI, e = 0.3 + random() * 0.7;
+    // +y is DOWN, so lifting is negative and gravity is positive.
+    parts.push([x, y, z, cos(a) * spd * e, -up * random(), sin(a) * spd * e,
+                1, 1 / life, col]);
+  }
+};
+
+const partStep = (dt) => {
+  for (let i = parts.length; i--;) {
+    const p = parts[i];
+    if ((p[6] -= p[7] * dt) <= 0) { parts.splice(i, 1); continue; }
+    p[0] += p[3] * dt; p[1] += p[4] * dt; p[2] += p[5] * dt;
+    p[4] += C._PART[3] * dt;
+  }
+};
+
+const drawParts = () => {
+  const q = C._PART;
+  for (const p of parts) {
+    const c = cam([p[0], p[1], p[2]]);
+    if (c[2] < C._NEAR) continue;
+    const s = C._F / (C._F + c[2]);
+    g.globalAlpha = p[6] * q[2];
+    g.fillStyle = css(p[8], 1);
+    g.beginPath();
+    g.arc(c[0] * s * PX + W / 2, c[1] * s * PX + H / 2, q[1] * s * PX, 0, 7);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+};
+
 const render = () => {
   // On the over screen there is nothing to draw but the screen itself - no sky,
   // no ghosts, no puppet. Everything below assumes a run in progress.
@@ -2206,6 +2291,7 @@ const render = () => {
     rim(sRad(), C._RIMA * (0.35 + 0.65 * bindC / C._BINDCHG) * min(1, bindC / C._RIMFI));
   }
   for (const o of ghosts) drawGhost(o, target);
+  drawParts();
   if (wallT > 0) bindWall();
   g.globalCompositeOperation = 'source-over';
 
@@ -2286,7 +2372,7 @@ export const poseCheck = () => {
   };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT,
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts,
                              wave, budget, waveT, hurtT, shake, lv, offer, picking, maxhp,
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
