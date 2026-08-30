@@ -2267,17 +2267,21 @@ const overScreen = (u) => {
   g.fillStyle = '#000c';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
+  g.fillStyle = css(C._HPC, 1);                   // the hearts' own red
+  g.font = (u * 2.2 | 0) + 'px monospace';
+  g.fillText('GAME OVER', W / 2, H / 2 - u * 3.2);
   g.fillStyle = css(C._GOLD, 1);
   g.font = (u * 2 | 0) + 'px monospace';
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
   // is one wave cleared, and dying in wave 1 is none.
-  g.fillText('WAVES SURVIVED ' + (wave - 1), W / 2, H / 2 - u * 1.6);
-  g.fillStyle = '#8b93b8';
-  g.font = (u * 0.9 | 0) + 'px monospace';
-  g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.2);
+  g.fillText('WAVES SURVIVED ' + (wave - 1), W / 2, H / 2 - u * 1.1);
+  g.fillStyle = '#fff';
+  g.font = (u * 1.3 | 0) + 'px monospace';
+  g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.5);
+  // Set apart from the result: it is an instruction, not part of the score.
   g.fillStyle = '#8b93b8';
   g.font = (u * 0.8 | 0) + 'px monospace';
-  g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 1.8);
+  g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 3.4);
   g.textAlign = 'left';
 };
 
@@ -2402,8 +2406,17 @@ const menuScreen = () => {
     g.fillStyle = css(C._GOLD, 1);
     g.font = (u * 0.95 | 0) + 'px monospace';
     g.fillText('PERSONAL BEST', W / 2, H * 0.6);
+    // Two fills, centred as one: canvas has no rich text, so the number and the
+    // words are measured and laid side by side rather than coloured in one call.
     g.font = (u * 1.8 | 0) + 'px monospace';
-    g.fillText(best + ' WAVES CLEARED', W / 2, H * 0.69);
+    const nb = '' + best, tail = ' WAVES CLEARED';
+    const wn = g.measureText(nb).width;
+    g.textAlign = 'left';
+    const x0 = W / 2 - (wn + g.measureText(tail).width) / 2;
+    g.fillText(nb, x0, H * 0.69);
+    g.fillStyle = '#fff';
+    g.fillText(tail, x0 + wn, H * 0.69);
+    g.textAlign = 'center';
     button('PLAY', H * 0.75, u);
   } else {
     g.font = (u * 2.4 | 0) + 'px monospace';
