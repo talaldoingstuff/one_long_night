@@ -35,7 +35,11 @@ export const C = {
   _STEP: [0.42, 0.70, 1],       // and the three brightnesses they select
 
   // --- Camera (DESIGN.md 12) -------------------------------------------------
-  _TURN: 0.00315,      // radians per pixel of drag. THE difficulty knob: slow
+  // Sensitivity as a fraction of the SCREEN, not a number of pixels. One drag
+  // from edge to edge turns you SWEEP half-turns, so two sweeps is all the way
+  // round and it is the same gesture on any display - at a fixed rate per pixel
+  // it was two sweeps at 1500px wide and nearly three at 1080p.
+  _SWEEP: 1,           // half-turns per full drag across the window
                       // turning against 360 degrees of threat is the whole
                       // tension, and fast turning throws it away.
   _PITCHMAX: 0.55,     // radians up and down
@@ -566,7 +570,7 @@ export const C = {
 let g = document.getElementById('c').getContext('2d');
 export const setCtx = (x) => (g = x);          // test seam; dropped from the app build
 
-let W, H, PX;
+let W, H, PX, turn;
 const resize = () => {
   const d = min(2, devicePixelRatio || 1);
   W = innerWidth; H = innerHeight;
@@ -575,6 +579,7 @@ const resize = () => {
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   g.setTransform(d, 0, 0, d, 0, 0);
   PX = C._ZOOM * H;
+  turn = C._SWEEP * PI / W;
 };
 
 // ---------------------------------------------------------------------------
@@ -923,8 +928,8 @@ const onMove = (e) => {
   const dx = e.clientX - lx, dy = e.clientY - ly;
   // Only while arming. Once it is charging, this is just aiming.
   if (!charging && hypot(e.clientX - ax, e.clientY - ay) > C._ARMPX) armT = -1;
-  yaw += dx * C._TURN;
-  pitch = min(C._PITCHMAX, max(-C._PITCHMAX, pitch - dy * C._TURN));
+  yaw += dx * turn;
+  pitch = min(C._PITCHMAX, max(-C._PITCHMAX, pitch - dy * turn));
   lx = e.clientX; ly = e.clientY;
   aim();
 };
