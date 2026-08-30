@@ -389,9 +389,7 @@ export const C = {
   // One list serves three effects, because a death, a glimmer inside the charging
   // ring and motes lifting where the wall passes are the same thing with different
   // numbers: a dot with a velocity, gravity and a life. Rows, like the sounds.
-  // Streaks, not dots: each one is drawn from where it is back to where it was a
-  // moment ago, so the length is its own speed and a fast fragment reads as fast.
-  _PART: [260, 0.05, 0.85, 0.18],  // cap, width in metres, peak alpha, tail in seconds
+  _PART: [260, 0.025, 0.85],      // cap, radius in metres, peak alpha
   _PDIE: [24, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
   _PGLI: [0.05, 0.7, 0.55],       // charging: seconds between one, life, lift
   // Four a frame across the wall's 0.45s life is about 110 fragments, and they
@@ -2321,24 +2319,17 @@ const partStep = (dt) => {
 
 const drawParts = () => {
   const q = C._PART;
-  g.lineCap = 'round';                            // so a slow one is still a dot
   for (const p of parts) {
     const c = cam([p[0], p[1], p[2]]);
-    // Both ends go through the projection, so a streak coming at you foreshortens
-    // instead of being a flat line of the same length wherever it is pointing.
-    const b = cam([p[0] - p[3] * q[3], p[1] - p[4] * q[3], p[2] - p[5] * q[3]]);
-    if (c[2] < C._NEAR || b[2] < C._NEAR) continue;
+    if (c[2] < C._NEAR) continue;
+    const s = C._F / (C._F + c[2]);
     g.globalAlpha = p[6] * q[2];
-    g.strokeStyle = css(p[8], 1);
-    g.lineWidth = q[1] * C._F / (C._F + c[2]) * PX;
+    g.fillStyle = css(p[8], 1);
     g.beginPath();
-    const e0 = proj(c), e1 = proj(b);
-    g.moveTo(e0[0], e0[1]);
-    g.lineTo(e1[0], e1[1]);
-    g.stroke();
+    g.arc(c[0] * s * PX + W / 2, c[1] * s * PX + H / 2, q[1] * s * PX, 0, 7);
+    g.fill();
   }
   g.globalAlpha = 1;
-  g.lineCap = 'butt';                             // it is a shared context
 };
 
 const render = () => {
