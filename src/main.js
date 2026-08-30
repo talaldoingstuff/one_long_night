@@ -2021,9 +2021,16 @@ const hud = () => {
   // What the wave is worth in the game's own currency, rather than a kill count.
   // The budget is what buys the ghosts, so it is the honest measure of a wave, and
   // it is the same number for every player who reaches this one.
+  //
+  // Nudged upward early, and only for the reading. round(6 x 1.12^2) is 7.53 and
+  // round(6 x 1.12^3) is 8.43, so waves 3 and 4 both buy 8 - and a threat level
+  // that does not move for a wave reads as a bug. wave + 5 outruns the curve for
+  // the first five waves and never touches it after: 6 7 8 9 10 11 12 13 15 17.
+  // The BUDGET is untouched; this is the label, not the difficulty.
   g.fillStyle = '#8b93b8';
   g.font = (u * C._KILLF | 0) + 'px monospace';
-  g.fillText('THREAT ' + budgetFor(wave), W / 2, 18 + u * (C._WAVEF + C._KILLF * 1.15));
+  g.fillText('THREAT LEVEL ' + max(budgetFor(wave), wave + 5), W / 2,
+             18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
 
   // Mute and quit, always there. A touch player has no keyboard for M or ESC, and
@@ -2395,7 +2402,6 @@ const menuScreen = () => {
     g.fillStyle = css(C._GOLD, 1);
     g.font = (u * 0.95 | 0) + 'px monospace';
     g.fillText('PERSONAL BEST', W / 2, H * 0.6);
-    g.fillStyle = '#fff';
     g.font = (u * 1.8 | 0) + 'px monospace';
     g.fillText(best + ' WAVES CLEARED', W / 2, H * 0.69);
     button('PLAY', H * 0.75, u);
