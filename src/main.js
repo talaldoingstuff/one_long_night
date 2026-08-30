@@ -2346,7 +2346,7 @@ const HOWTO = [
   'DRAG TO AIM',
   'WASD   ← ↑ → ↓   CLICK+DRAG   TOUCH+SWIPE',
   'HOLD TO CHARGE & RELEASE THE RAINBOW WAVE',
-  'SPACE   CLICK   TOUCH+HOLD',
+  '(SPACE   CLICK   TOUCH) + HOLD',
   'M MUTE      ESC QUIT',
 ];
 
@@ -2379,7 +2379,9 @@ const menuScreen = () => {
       const head = !(i % 2) && i < 4;
       g.fillStyle = head ? css(C._GOLD, 1) : '#fff';
       g.font = (u * (head ? 1 : 0.85) | 0) + 'px monospace';
-      g.fillText(HOWTO[i], W / 2, H * 0.24 + i * u * 1.3);
+      // An extra gap before the second heading, so the two instructions read as
+      // two things rather than as one block of five lines.
+      g.fillText(HOWTO[i], W / 2, H * 0.24 + i * u * 1.3 + (i > 1 ? u * 0.7 : 0));
     }
     g.fillStyle = css(C._GOLD, 1);
     g.font = (u * 0.95 | 0) + 'px monospace';
