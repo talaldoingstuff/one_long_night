@@ -386,6 +386,12 @@ export const C = {
   _CARDSW: 6,          // px
   _CARDSO: 12,         // and how far outside the card it sits
   _CARDSP: [0.35, 6],  // and it breathes: dimmest it goes, and radians a second
+
+  // Namespaced, because games on the platform share an origin and an unprefixed
+  // 'best' would be somebody else's too. Read AND write are guarded: localStorage
+  // throws in private browsing, and an uncaught throw is a console error, which is
+  // a hard competition rule rather than a nicety.
+  _LSK: 'oln.best',
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -825,6 +831,10 @@ const reset = () => {
 // step 5, which no longer has to share the button with a shot.
 // ---------------------------------------------------------------------------
 let down = 0, lx = 0, ly = 0, auto = 1, armT = -1, ax = 0, ay = 0;
+// 0 the title, 1 the how-to, 2 a run. Not part of reset(), which is a RUN being
+// reset - dying and starting again never goes back to the title.
+let scr = 0, best = 0;
+try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode */ }
 
 // Where the puppet is pointing: the straight line from the base of the horn to
 // its tip, carried on out into the world. The crosshair sits on it and the shots
@@ -931,6 +941,9 @@ const fire = () => {
 // armT is the clock, and -1 means this press is disqualified.
 const onDown = (e) => {
   audio();
+  // The first press of the game is the one that builds the audio context, which a
+  // browser will not allow outside a gesture - so START is where the sound starts.
+  if (scr < 2) { if (++scr > 1) reset(); return; }
   down = 1; lx = e.clientX; ly = e.clientY;
   if (over) { sfx(4); reset(); return; }
   if (picking) {                                  // a card, if the pointer is on one
@@ -989,6 +1002,11 @@ const onKey = (e) => {
   if (d) audio();
   // M mutes, and is the one key that works whether or not it is held
   if (d && e.code === 'KeyM') { muted ^= 1; return; }
+  if (d && scr < 2 && (e.code === 'Space' || e.code === 'Enter')) {
+    e.preventDefault();
+    if (++scr > 1) reset();
+    return;
+  }
   if (d && KEYS[e.code]) return;                 // ignore the OS repeating it
   // 1, 2, 3 take a card, so a run never needs the mouse
   if (d && picking && e.code.slice(0, 5) === 'Digit') {
@@ -1523,7 +1541,7 @@ const drawGhost = (o, target) => {
 const step = (dt) => {
   clock += dt;
   musicStep(dt);                                  // it plays on through the card screen
-  if (picking) return;                            // the run is held while you choose
+  if (scr < 2 || picking) return;                 // and through the menus, which hold the run                            // the run is held while you choose
   // These two outlive the run. The blow that kills you is the one you most need
   // to feel, and it was the only one nobody ever saw: they were set on the same
   // frame as over, and everything below here stops.
@@ -1663,7 +1681,13 @@ const step = (dt) => {
     hearts -= min(C._DMGCAP, worst);
     inv = C._IFRAME; shake = 1; hurtT = C._HURTD;
     sfx(3);
-    if (hearts <= 0) { hearts = 0; over = 1; sfx(5); }
+    if (hearts <= 0) {
+      hearts = 0; over = 1; sfx(5);
+      if (wave - 1 > best) {
+        best = wave - 1;
+        try { localStorage.setItem(C._LSK, best); } catch (e) { /* private mode */ }
+      }
+    }
   }
 };
 
@@ -2210,6 +2234,9 @@ const overScreen = (u) => {
   g.font = (u * 1.2 | 0) + 'px monospace';
   g.fillText('KILLS ' + kills, W / 2, H / 2);
   g.fillStyle = '#8b93b8';
+  g.font = (u * 0.9 | 0) + 'px monospace';
+  g.fillText('BEST ' + best, W / 2, H / 2 + u * 1.1);
+  g.fillStyle = '#8b93b8';
   g.font = (u * 0.8 | 0) + 'px monospace';
   g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 1.8);
   g.textAlign = 'left';
@@ -2257,6 +2284,56 @@ const underCrosshair = () => {
     if (d < bd) { bd = d; best = o; }
   }
   return best;
+};
+
+// The title and the how-to. Drawn on the canvas rather than in the DOM: the text,
+// the gold and the breathing outline all already exist here, and a second styling
+// system would cost more than the screens themselves.
+const HOWTO = [
+  'DRAG or WASD to turn. You cannot move.',
+  'The horn fires by itself.',
+  'HOLD click or SPACE to charge the rainbow.',
+  'It goes off on its own and holds what it catches.',
+  'Between waves take a card: click, 1 2 3, or arrows and SPACE.',
+  'M mutes.',
+];
+
+// The same breathing square the selected card wears, so the two read as one
+// language rather than as two different games.
+const button = (label, y, u) => {
+  const w = u * 7, h = u * 1.9, p = C._CARDSP;
+  g.globalAlpha = p[0] + (1 - p[0]) * (0.5 + 0.5 * sin(clock * p[1]));
+  g.strokeStyle = C._CARDSC;
+  g.lineWidth = C._CARDSW;
+  g.strokeRect(W / 2 - w / 2, y, w, h);
+  g.globalAlpha = 1;
+  g.fillStyle = '#fff';
+  g.font = (u | 0) + 'px monospace';
+  g.fillText(label, W / 2, y + h * 0.7);
+};
+
+const menuScreen = () => {
+  const u = min(W, H) * C._HUDU;
+  g.fillStyle = '#000a';
+  g.fillRect(0, 0, W, H);
+  g.textAlign = 'center';
+  g.fillStyle = css(C._GOLD, 1);
+  if (scr) {
+    g.font = (u * 1.3 | 0) + 'px monospace';
+    g.fillText('HOW TO PLAY', W / 2, H * 0.17);
+    g.fillStyle = '#c8cee6';
+    g.font = (u * 0.82 | 0) + 'px monospace';
+    for (let i = 0; i < HOWTO.length; i++) g.fillText(HOWTO[i], W / 2, H * 0.28 + i * u * 1.25);
+    g.fillStyle = css(C._GOLD, 1);
+    g.font = (u | 0) + 'px monospace';
+    g.fillText(best ? 'BEST  ' + best + ' WAVES' : 'NO WAVES SURVIVED YET', W / 2, H * 0.72);
+    button('PLAY', H * 0.79, u);
+  } else {
+    g.font = (u * 2.4 | 0) + 'px monospace';
+    g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
+    button('START', H * 0.56, u);
+  }
+  g.textAlign = 'left';
 };
 
 // The bind, drawn.
@@ -2479,6 +2556,9 @@ const render = () => {
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
   g.fillStyle = css(envC(4), 1);
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
+  // The menus sit over the world's own sky rather than over black - the same dusk
+  // the first wave starts in, and it costs nothing because it is drawn already.
+  if (scr < 2) { g.restore(); return menuScreen(); }
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
@@ -2549,7 +2629,11 @@ const loop = (t) => {
 export const dbg = () => ({ W, H, PX, yaw, pitch, ghosts, horns, hearts, kills, over, clock });
 export const look = (y, p) => { yaw = y; pitch = p; aim(); };
 export const place = (gs) => { ghosts = gs; };
-export const restart = reset;
+// The tests and the editors want a RUN, not the title screen. reset() stays what
+// it is - a run being reset, which is also what the game calls when you die - and
+// the seam puts you past the menus as well.
+export const restart = () => { scr = 2; reset(); };
+export const setScr = (v) => { scr = v; };
 // Test and editor seams. Dropped from the app build, so they cost nothing.
 export const drawPuppet = () => puppet();
 // What a pose has to satisfy, measured rather than eyeballed: how far the horn
