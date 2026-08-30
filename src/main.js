@@ -35,7 +35,7 @@ export const C = {
   _STEP: [0.42, 0.70, 1],       // and the three brightnesses they select
 
   // --- Camera (DESIGN.md 12) -------------------------------------------------
-  _TURN: 0.0042,       // radians per pixel of drag. THE difficulty knob: slow
+  _TURN: 0.00315,      // radians per pixel of drag. THE difficulty knob: slow
                       // turning against 360 degrees of threat is the whole
                       // tension, and fast turning throws it away.
   _PITCHMAX: 0.55,     // radians up and down
@@ -150,11 +150,14 @@ export const C = {
   _BINDDUR: 3,         // how long a caught ghost is held. A card.
   // Measured against a played run: at 2.04 a keyboard player cleared a median of
   // 8 waves where a mouse cleared 31, because a half turn took 1.54s and things
-  // arrive on every bearing. Parity starts at 5 - 30 waves - and 6.5 and 8 buy
-  // nothing more. The low end of parity on purpose: a faster key is harder to
-  // settle on a target with, and the simulated player has perfect fine control
-  // where a real one does not.
-  _KTURN: 5,           // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  // arrive on every bearing. Parity starts at 5, and 6.5 and 8 buy nothing more.
+  //
+  // 5 was then too fast to AIM with - a tap overshot the ghost. The simulation
+  // could not have found that: its player settles on a bearing exactly, so it
+  // measures how fast you can face a thing and never how hard it is to stop on
+  // one. 3.75 is 25% off that, and the same sweep had 3.5 at a median of 28, so
+  // it costs almost nothing of what the raise bought.
+  _KTURN: 3.75,        // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
                       // knob TURN is, in the units a key can be held in. At 2.2
                       // it matched a 524px/s drag sustained forever, which is a
