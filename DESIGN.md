@@ -5,7 +5,14 @@
 > The project scaffold, build pipeline and size tooling remain valid.
 > Everything below the "Constraints" sections describes a different game.
 
-Working title: **TBD**. Do not bake a title into code — keep it in one constant.
+Title: **One Long Night**. It names the arc rather than the mechanic: the sky runs
+from early evening at wave 1 to full dark by 30, and a run is one night of it. It
+promises nothing the game does not deliver, which ruled out most of the
+alternatives - a title claiming ground nothing crosses is contradicted the first
+time a ghost reaches you.
+
+Kept out of the game code: it lives in `index.html` and, once there is a start
+screen, in one constant beside it.
 
 ---
 
@@ -340,7 +347,8 @@ Wavedash listing art, screenshots and description are **platform metadata, not i
 
 ## 16. Open items
 
-- Game title
 - Wavedash global name and `uploadLeaderboardScore` signature
+- **The 2026 jam theme.** Not recorded anywhere in this document, and entries are
+  expected to follow it
 - Wave budget growth formula — tune after the loop is playable
 - Confirm with js13k organisers that a feature-gated SDK global does not count as an external resource for the overall ranking (the rules explicitly invite the question)
