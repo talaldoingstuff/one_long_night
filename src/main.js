@@ -45,6 +45,23 @@ export const C = {
   _GND: '#0a0b10',
   _HORIZ: '#1b2036',
 
+  // --- The world ----------------------------------------------------------------
+  // A flat fill gives no distance at all: a ghost at 12m and one at 6m stand on
+  // identical ground, so range could only ever be read off their size. Rings fix
+  // that, and the arena edge shows where the world stops and where things arrive
+  // from. Achromatic on purpose - 14 keeps the strong colour for the rainbow.
+  _RINGC: [120, 140, 190],
+  // Width is a FRACTION of the radius, not a fixed number of metres. Measured: a
+  // fixed 0.035m band is 2.5px deep at 4m and 0.2px at 16m - the arena edge, the
+  // one ring that most needs to be seen, was invisible. As a fraction it runs
+  // 5.7px, 3.6, 2.7, 2.1, so they still thin with distance without vanishing.
+  _RING: [4, 0.02, 0.10, 0.30, 0.045],  // metres apart, width as a fraction of r, alpha, edge alpha, edge width
+  // Stars sit at a fixed bearing and height on a far cylinder, so they go through
+  // the same projection as the floor and swing with the view instead of being
+  // painted on the glass. Anything behind you culls itself.
+  _STAR: [70, 60, 0.03, 0.75, 0.5],  // how many, how far, lowest elevation, span, alpha
+  _STARS: 1.4,        // and how big, in pixels
+
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
   // The mesh is the unicorn head and neck from the previous game, recovered from
   // git rather than redrawn: it was tuned over many rounds in a purpose-built
@@ -2145,6 +2162,26 @@ const gpt = (a, r, h) => {
   return c[2] < C._NEAR ? null : proj(c);
 };
 
+// A fixed sky, made once. Elevation is a tangent rather than a height so the
+// spread is even in ANGLE - taking the height straight piles most of them up
+// near the horizon, where the projection is squashed.
+const STARS = [];
+const sky = () => {
+  const q = C._STAR;
+  if (!STARS.length)
+    for (let i = 0; i < q[0]; i++)
+      STARS.push([random() * 2 * PI, C._EYE + q[1] * tan(q[2] + random() * q[3]),
+                  q[4] * (0.3 + random() * 0.7)]);
+  g.fillStyle = '#fff';
+  for (const t of STARS) {
+    const p = gpt(t[0], q[1], t[1]);
+    if (!p) continue;
+    g.globalAlpha = t[2];
+    g.fillRect(p[0], p[1], C._STARS, C._STARS);
+  }
+  g.globalAlpha = 1;
+};
+
 // One band of the ground rainbow: the ring of floor between r0 and r1, filled.
 // Built as a strip of quads rather than a stroked circle, for two reasons. A
 // stroke has a width in PIXELS, so under perspective the near arc came out fat
@@ -2165,6 +2202,15 @@ const band = (r0, r1, col, a) => {
     for (const t of q) g.lineTo(t[0], t[1]);
     g.fill();
   }
+};
+
+// Distance rings, and the edge of the arena. Drawn with the same band() the
+// ground rainbow uses, so their width is in METRES: a stroked circle would have
+// come out fat near and thin far off the same radius.
+const rings = () => {
+  const q = C._RING;
+  for (let r = q[0]; r < C._ARENA; r += q[0]) band(r * (1 - q[1]), r * (1 + q[1]), C._RINGC, q[2]);
+  band(C._ARENA * (1 - q[4]), C._ARENA * (1 + q[4]), C._RINGC, q[3]);
 };
 
 // Where along the rainbow a fraction of the radius sits. The six colours are
@@ -2298,6 +2344,7 @@ const render = () => {
   const hy = H / 2 + tan(pitch) * C._F * PX;
   g.fillStyle = C._SKY;
   g.fillRect(-m, -m, W + 2 * m, H + 2 * m);
+  sky();                                          // before the ground, which clips them
   g.fillStyle = C._GND;
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
   g.fillStyle = C._HORIZ;
@@ -2305,6 +2352,7 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
+  rings();                                        // floor, so under everything on it
   // Nothing is drawn until the bind is genuinely charging: the rim and the floor
   // arrive together. The rim used to fade in across the arming window as a "keep
   // holding" cue, which was worth it at ARM 1s and is not at 0.3s - every press
