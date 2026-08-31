@@ -3962,6 +3962,19 @@ console.log('--- the title, the how-to, and the best ---------------------------
     ok('a press on a menu clicks, and a press in the run does not',
        onTitle > 0 && onHowTo > 0 && inRun === 0,
        'title yes, how-to yes, and silent in the run where the horn has its own sound');
+    // The keyboard walks the same screens and has to sound the same doing it.
+    M.setScr(0);
+    const heardKey = (code) => { const b = snd.notes.length;
+      kdown(code); kup(code); tick();
+      return snd.notes.slice(b).filter((n) => Math.abs(n.f0 - CLICK[0]) < 1).length; };
+    const kTitle = heardKey('Space');
+    const kHowTo = heardKey('Enter');
+    for (let i = 0; i < 30; i++) tick();
+    const kRun = heardKey('Space');
+    allUp();
+    ok('and space and enter sound exactly as the mouse does',
+       kTitle > 0 && kHowTo > 0 && kRun === 0,
+       'space on the title, enter on the how-to, and neither of them in the run');
     M.setScr(0);
   }
 

@@ -1059,6 +1059,7 @@ const onKey = (e) => {
   if (d && e.code === 'Escape' && scr > 1) { saveBest(); scr = 1; return; }
   if (d && scr < 2 && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
+    sfx(4);                                      // the same click the mouse makes
     if (++scr > 1) reset();
     return;
   }
@@ -1083,7 +1084,8 @@ const onKey = (e) => {
   e.preventDefault();                            // or space scrolls the page
   if (e.code !== 'Space') return;
   if (!d) { charging = 0; bindC = 0; armT = -1; return; }
-  if (over) { reset(); return; }
+  // The mouse clicked here and the keyboard did not, on the same screen.
+  if (over) { sfx(4); reset(); return; }
   if (bindT <= 0) armT = C._ARM;
 };
 
