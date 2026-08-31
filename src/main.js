@@ -87,14 +87,13 @@ export const C = {
   // the HUD, so it lands in the same place at any resolution; _UY is measured up
   // from the BOTTOM, because the animal hangs off the bottom-right corner and
   // that is the edge it should stay welded to.
-  // The pose the user set: scale 1.200, rotation -5.00, tip at 677,325 in their
-  // own window. Converted to fractions of the height at H = 600, which is the
-  // one number in here that is an assumption rather than a measurement - the
-  // editor drives these live, so it is a nudge away from right on a real screen.
-  // A grid unit is 240/93 model units, which is where the 2.581 comes from.
-  _US: 0.0052,         // grid units to pixels
-  _UX: 1.1283,         // the horn tip, from the left
-  _UY: 0.4583,         // and up from the bottom
+  // The pose, set by the user in tools/unicorn-2d.html against the running game
+  // at their own resolution. Read straight off that editor - no conversion and
+  // no assumed screen height, which the two before this were built on and were
+  // wrong about.
+  _US: 0.0060,         // grid units to pixels
+  _UX: 1.240,          // the horn tip, from the left
+  _UY: 0.400,          // and up from the bottom
   _UROT: -0.0873,      // radians the sprite is turned, on top of how it is drawn.
                       // -5.00 degrees. Its horn is drawn along -121.50, so the
                       // line it ends up aiming along is -126.50.
