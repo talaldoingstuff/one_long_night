@@ -2274,12 +2274,9 @@ const overScreen = (u) => {
   g.fillStyle = '#fff';
   g.font = (u * 1.3 | 0) + 'px monospace';
   g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.5);
-  // Set apart from the result by its size, not by being dimmed: it is the one
-  // thing on the screen the player has to act on, and the three screens that
-  // carry this instruction all say it in the same white.
-  g.fillStyle = '#fff';
-  g.font = (u * 0.8 | 0) + 'px monospace';
-  g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 3.4);
+  // The same line the title and the how-to end on, drawn by the same hand: it is
+  // the one thing on any of those three screens the player has to act on.
+  anywhere('CLICK ANYWHERE TO PLAY AGAIN', H / 2 + u * 3.4, u);
   g.textAlign = 'left';
 };
 
@@ -2376,10 +2373,16 @@ const HOWTO = [
 // looks like a button and is not one is worse than no box, because it invites
 // the one thing that is not required - aiming at it. The game over screen has
 // said CLICK ANYWHERE all along; these two now agree with it.
+// It breathes on the same clock and to the same depth as the square round the
+// card the keyboard is on, so the one thing waiting for a press looks the same
+// wherever the game is waiting for one.
 const anywhere = (label, y, u) => {
+  const p = C._CARDSP;
+  g.globalAlpha = p[0] + (1 - p[0]) * (0.5 + 0.5 * sin(clock * p[1]));
   g.fillStyle = '#fff';
-  g.font = (u * 0.8 | 0) + 'px monospace';
+  g.font = (u * 1.2 | 0) + 'px monospace';
   g.fillText(label, W / 2, y);
+  g.globalAlpha = 1;
 };
 
 const menuScreen = () => {

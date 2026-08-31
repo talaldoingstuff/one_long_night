@@ -21,7 +21,8 @@ const ctx = new Proxy({ canvas }, {
     };
     if (k === 'strokeRect') return (x, y, w, h) => rec.ops.push({ op: 'srect', x, y, w, h, c: rec.sstyle, lw: rec.lw, alpha: rec.alpha });
     if (k === 'fillRect') return (x, y, w, h) => rec.ops.push({ op: 'rect', x, y, w, h, c: rec.style, alpha: rec.alpha, comp: rec.comp });
-    if (k === 'fillText') return (s, x, y) => rec.ops.push({ op: 'text', s, x, y, c: rec.style, align: rec.align, f: parseFloat(rec.font), comp: rec.comp });
+    // alpha too: text that breathes cannot be checked without it
+    if (k === 'fillText') return (s, x, y) => rec.ops.push({ op: 'text', s, x, y, c: rec.style, align: rec.align, f: parseFloat(rec.font), comp: rec.comp, alpha: rec.alpha });
     // Monospace, and the game only ever measures monospace - so an advance of
     // 0.6em a character is the right answer and 'anyObj.width = 10' was not.
     if (k === 'measureText') return (str) => ({ width: str.length * parseFloat(rec.font) * 0.6 });
@@ -1299,8 +1300,12 @@ console.log('--- the game over screen -----------------------------------------'
   ok('and they get smaller down the stack, so the score leads',
      waves.f > bestLine.f && bestLine.f > again.f,
      gameOver.f + 'px, ' + waves.f + 'px, then ' + bestLine.f + 'px, then ' + again.f + 'px');
-  ok('the best is white and big enough to read as a result',
-     bestLine.c === '#fff' && bestLine.f > again.f * 1.4,
+  // It used to have to be 1.4x the instruction under it. The instruction is half
+  // as big again as it was and pulses now, deliberately - it is the one thing on
+  // the screen that has to be acted on - so what is left to hold is the order:
+  // the score still leads, and the instruction still does not outgrow it.
+  ok('the best is white and still leads the instruction under it',
+     bestLine.c === '#fff' && bestLine.f > again.f,
      '"' + bestLine.s + '" at ' + bestLine.f + 'px, against ' + again.f +
      'px for the instruction under it');
   ok('and the instruction is set apart from the result rather than stacked on it',
@@ -3852,6 +3857,20 @@ console.log('--- the title, the how-to, and the best ---------------------------
   ok('it says what to press rather than drawing a button that is not one',
      sq().length === 0 && txt().some((t) => /^CLICK ANYWHERE/.test(t)),
      '"' + txt().find((t) => /^CLICK ANYWHERE/.test(t)) + '", and no outlined box on the screen');
+  // The box breathed; the words breathe instead, on the same clock and to the
+  // same depth as the square round the card the keyboard is on.
+  {
+    const seen = [];
+    for (let i = 0; i < 80; i++) { draw();
+      const t = rec.ops.find((o) => o.op === 'text' && /^CLICK ANYWHERE/.test(o.s));
+      if (t) seen.push(t.alpha);
+    }
+    const lo = Math.min(...seen), hi = Math.max(...seen);
+    ok('and the words breathe, the way the box used to',
+       Math.abs(lo - C._CARDSP[0]) < 0.02 && hi > 0.98,
+       'alpha runs ' + lo.toFixed(2) + ' to ' + hi.toFixed(2) + ' against CARDSP dimmest ' +
+       C._CARDSP[0] + ', a full cycle every ' + (2 * Math.PI / C._CARDSP[1]).toFixed(2) + 's');
+  }
 
   // a press moves it on
   press(); release();
