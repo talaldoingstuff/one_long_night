@@ -434,7 +434,13 @@ What remains is step 10, the ship pass, plus the unicorn rebrand.
 - `THREAT LEVEL` displays a cosmetic `max(budget, wave + 5)` rather than the real
   budget. **Works as intended:** it exists so the early waves read as escalating,
   and it does not drive what those waves actually spend
-- Keyboard median 13 waves against a mouse's 28. **Won't fix** - that came out of
-  the simulated input, which is not a model of a human playing
+- ~~Keyboard median 13 waves against a mouse's 28.~~ **Fixed by playing it.** The
+  simulation had said 3.5 rad/s was fine and 2.04 was not, so `_KTURN` sat at
+  3.14; played on a keyboard that is too fast to land on anything. It is 2.6 now
+  - half a turn in 1.21s. The reason a simulated player never saw it: holding a
+  key sweeps 3 degrees a frame at 3.14 and the aim assist can only answer with
+  0.2 to 0.9 of one, so the assist has under a quarter of the authority while a
+  key is down. A mouse stops moving and hands it all of it, which is why the
+  mouse felt right at every value and the keyboard did not
 
 Mobile is out of scope unless revisited: the entry category is Desktop, landscape.

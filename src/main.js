@@ -157,19 +157,21 @@ export const C = {
                       // card. You cannot begin a new charge while any is owed.
   _BINDR: 9,           // the biggest radius a full charge buys, metres. A card.
   _BINDDUR: 3,         // how long a caught ghost is held. A card.
-  // Measured against a played run: at 2.04 a keyboard player cleared a median of
-  // 8 waves where a mouse cleared 31, because a half turn took 1.54s and things
-  // arrive on every bearing. Parity starts at 5, and 6.5 and 8 buy nothing more.
+  // Everything above 2.6 came out of a SIMULATED keyboard player, which turned
+  // out not to be a model of a human one: the simulation put 3.5 at a median of
+  // 28 waves and 2.04 at 8, so 3.14 was set from the gesture - half a turn in a
+  // second - and left there. Played, that is too fast to land on anything.
   //
-  // Set from the gesture rather than the rate: a half turn in one second, a full
-  // one in two. Slower than anything tried since the sweep - 5 and 5.24 both
-  // overshot on a tap - and the slowest that still clears waves, since the
-  // simulation put 3.5 at a median of 28 and 2.04 at 8.
-  _KTURN: 3.14,        // radians a second of keyboard yaw. DESIGN.md 12 calls turn
+  // Why the keyboard needs to be slower than the number alone suggests: holding
+  // a key sweeps 3 degrees a frame at 3.14, and the aim assist can only answer
+  // with 0.2 to 0.9 of a degree, so while a key is down the assist has under a
+  // quarter of the authority and cannot hold you on a ghost. A mouse stops, and
+  // then the assist has all of it - which is why the mouse felt right at every
+  // one of these values and the keyboard did not.
+  _KTURN: 2.6,         // radians a second of keyboard yaw. DESIGN.md 12 calls turn
                       // speed the primary difficulty knob, so this is the same
-                      // knob TURN is, in the units a key can be held in. At 2.2
-                      // it matched a 524px/s drag sustained forever, which is a
-                      // flick speed, not a panning one; 1.3 was a walk.
+                      // knob TURN is, in the units a key can be held in. Half a
+                      // turn in 1.21s, a full one in 2.42s.
   _KPITCH: 1.08,       // and its own rate for pitch, because that range is only
                       // 63 degrees end to end - one rate for both put the whole
                       // of it half a second apart.
