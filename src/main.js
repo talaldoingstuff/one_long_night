@@ -992,7 +992,10 @@ const onDown = (e) => {
     for (let i = 0; i < 2; i++) {
       const [bx, by, bs] = hudBtn(i);
       if (e.clientX < bx || e.clientX > bx + bs || e.clientY < by || e.clientY > by + bs) continue;
-      if (i) { saveBest(); scr = 1; } else muted ^= 1;
+      // Quitting is a screen change and sounds like every other one. Mute is
+      // not: it is a toggle, and a click on the press that asks for silence
+      // would be answering the wrong question.
+      if (i) { sfx(4); saveBest(); scr = 1; } else muted ^= 1;
       return;
     }
   }
@@ -1056,7 +1059,7 @@ const onKey = (e) => {
   if (d && e.code === 'KeyM') { muted ^= 1; return; }
   // Quitting keeps what the run earned: the waves were cleared whether or not it
   // ended in a death.
-  if (d && e.code === 'Escape' && scr > 1) { saveBest(); scr = 1; return; }
+  if (d && e.code === 'Escape' && scr > 1) { sfx(4); saveBest(); scr = 1; return; }
   if (d && scr < 2 && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     sfx(4);                                      // the same click the mouse makes

@@ -3975,7 +3975,25 @@ console.log('--- the title, the how-to, and the best ---------------------------
     ok('and space and enter sound exactly as the mouse does',
        kTitle > 0 && kHowTo > 0 && kRun === 0,
        'space on the title, enter on the how-to, and neither of them in the run');
-    M.setScr(0);
+    // Quitting is a screen change too, by either route. Mute is not - it is a
+    // toggle, and clicking on the press that asks for silence answers the wrong
+    // question.
+    const clicked = (fn) => { const b = snd.notes.length; fn(); tick();
+      return snd.notes.slice(b).filter((n) => Math.abs(n.f0 - CLICK[0]) < 1).length; };
+    const intoRun = () => { M.restart(); M.place([]); M.setFire(0);
+      for (let i = 0; i < 20; i++) tick(); };
+    const btnAt = (i) => { const [x, y, s2] = M.hudBtn2(i);
+      press(x + s2 / 2, y + s2 / 2); release(); };
+    intoRun();
+    const escKey = clicked(() => { kdown('Escape'); kup('Escape'); });
+    intoRun();
+    const escBtn = clicked(() => btnAt(1));
+    intoRun();
+    const muteBtn = clicked(() => btnAt(0));
+    ok('quitting clicks by key or by button, and muting stays silent',
+       escKey > 0 && escBtn > 0 && muteBtn === 0,
+       'ESC yes, the quit square yes, and the mute square no - it is a toggle, not a screen');
+    M.restart(); M.place([]); M.setFire(1); M.setScr(0);
   }
 
   // a press moves it on
