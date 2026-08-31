@@ -121,7 +121,7 @@ export const C = {
   // horn is drawn, and left exactly as the solved 3D pose resolved to: the
   // crosshair lands where it always did, and the sprite above was aligned onto
   // it rather than the other way round.
-  _AIMD: [-0.06611, -0.01534, 0.99769],
+  _AIMY: -0.01534,     // the aim's vertical component. Sideways is solved.
                       // horn's line through the middle of the screen.
                       // sideways, and it was 59px high. The pose is otherwise
                       // yours to set from the view a player
@@ -887,7 +887,16 @@ try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode *
 // as a ghost closed in. Now the shot leaves along the ray it is aimed down.
 const aimRay = () => {
   const [tx, ty] = upos(), k = C._F / (C._F + C._MUZZ);
-  return [[(tx - W / 2) / (k * PX), (ty - H / 2) / (k * PX), C._MUZZ], C._AIMD];
+  const o = [(tx - W / 2) / (k * PX), (ty - H / 2) / (k * PX), C._MUZZ];
+  // Sideways, the crosshair belongs on the middle of the screen whatever shape
+  // the window is, so x is SOLVED rather than stated: put the convergence point
+  // at CONV on the camera axis and it projects to exactly W/2. A stated x cannot
+  // do it, because the muzzle's own offset from the middle depends on the aspect
+  // ratio - the unicorn is placed in units of the HEIGHT and the middle is half
+  // the WIDTH - which is what left the crosshair 58px out on a wide window.
+  // Vertically it is still stated, and still sits AIMY's worth below the middle.
+  const ux = -o[0] / C._CONV, uy = C._AIMY;
+  return [o, [ux, uy, (1 - ux * ux - uy * uy) ** 0.5]];
 };
 
 // How far along that line the thing you are aiming at sits. Anything within AIMR
