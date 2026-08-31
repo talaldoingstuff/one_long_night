@@ -42,37 +42,9 @@
 const M = await import('/src/main.js');
 const { C } = M;
 
-// The supplied model as given - 370 vertices in 27 paths, no decimation needed.
-// Each row is [r,g,b, x0,y0, x1,y1, ...] in paint order, origin-shifted to 0,0.
-const MODEL=[
-[186,179,171,0,0,8,6,20,20,32,34,44,48,48,53,53,52,63,37,65,38,68,54,68,57,76,50,81,45,83,45,84,68,95,59,98,56,100,56,100,82,107,78,118,70,119,70,118,101,136,90,139,90,138,107,135,124,151,116,156,113,158,113,157,127,154,148,153,152,175,142,177,142,176,160,173,188,184,201,195,215,204,226,204,240,59,240,56,216,54,200,51,183,45,160,43,151,40,152,35,160,27,164,20,164,10,157,6,145,7,136,10,126,12,115,11,107,10,95,14,84,13,80,9,72,4,58,3,51,12,54,23,60,28,63,17,38,8,19,0,3],
-[235,131,4,118,70,119,70,118,101,136,90,139,90,138,107,135,124,151,116,156,113,158,113,157,127,154,148,153,152,175,142,177,142,176,160,173,185,168,200,141,198,135,196,121,165,111,146,96,117,96,115,93,112,84,97,85,93,99,83,106,79],
-[209,42,42,157,113,158,113,157,127,154,148,153,152,175,142,177,142,176,160,173,185,168,200,141,198,135,196,122,168,123,163,130,152,141,136,152,120,155,115,157,115],
-[121,115,108,39,122,41,122,51,145,61,170,70,219,70,240,59,240,56,216,54,200,51,183,45,160,43,151,40,152,35,160,27,164,20,164,15,159,17,158,25,142,26,139,28,139,30,135],
-[91,2,155,63,37,65,38,68,54,68,57,76,50,81,45,83,45,84,68,95,59,98,56,100,56,100,82,102,83,95,87,87,93,81,93,72,82,73,78,68,77,61,69,61,65,63,63,55,62,50,56],
-[136,22,25,175,142,177,142,176,160,173,185,168,200,141,198,136,197,143,186,153,173,166,155,174,144],
-[93,163,60,118,70,119,70,118,102,98,114,94,114,84,97,85,93,99,83,106,79],
-[149,141,134,171,188,175,190,188,206,197,217,204,226,204,240,200,240,192,230,179,214,137,198,141,197,165,199,168,200,170,191],
-[133,127,120,3,51,5,51,12,59,23,70,26,83,26,92,16,115,14,117,15,137,12,148,12,157,10,157,6,145,7,136,10,126,12,115,11,107,10,95,14,84,13,80,9,72,4,58],
-[242,192,51,0,0,8,6,20,20,32,34,44,48,48,54,38,57,30,62,28,62,14,32,6,16,0,3],
-[160,76,6,157,113,158,113,157,127,154,148,153,153,125,166,122,168,123,163,130,152,141,136,152,120,155,115,157,115],
-[233,189,19,136,90,138,91,125,111,111,133,107,138,96,117,98,113,118,101],
-[7,71,210,98,56,100,56,100,82,102,83,95,87,87,93,81,93,72,82,73,78,84,68,95,59],
-[165,126,6,138,90,139,93,138,107,135,125,110,139,108,140,109,134,119,119,131,100],
-[62,114,27,118,70,119,70,118,102,100,113,95,113,103,97,116,74],
-[4,43,154,99,56,100,56,100,82,102,83,95,87,87,93,82,93,84,87],
-[27,12,126,81,45,83,45,84,59,84,69,75,77,68,77,70,72,80,48],
-[55,29,177,80,46,81,48,70,74,66,74,60,68,62,64,68,58,70,58,72,54],
-[151,142,137,13,110,17,110,16,115,14,117,15,137,12,148,12,157,10,157,6,145,7,136,10,126],
-[219,208,205,5,52,14,55,26,62,30,63,30,68,26,70,21,69,5,53],
-[170,126,21,5,11,8,15,23,42,32,59,30,62,28,62,14,32,6,16],
-[164,158,149,29,68,32,69,30,81,28,86,27,91,26,91,23,74,23,70],
-[137,16,206,61,40,62,43,57,61,54,61,50,56],
-[158,142,148,15,82,18,84,17,95,16,97,13,97,12,107,11,107,10,95],
-[51,85,160,13,97,17,97,18,106,17,110,12,110,12,99],
-[205,195,190,23,61,30,62,30,68,26,70,22,69],
-[144,108,3,133,121,135,121,135,125,114,137,111,136,130,125,132,125]
-];
+// The unicorn is IN the game now, so this no longer paints a candidate over the
+// top: it moves the real constants and the game draws itself. The overlay is
+// only guides.
 
 // Solved, not guessed: these put the sprite's horn exactly on the line the 3D
 // horn drew. The model's own origin IS its horn tip, so x/y place the tip and
@@ -80,11 +52,18 @@ const MODEL=[
 // The placement the user settled on, 2026-08-31. These are the defaults; anything
 // tuned on top of them is kept in localStorage, so a reload never throws the
 // tuning away again.
-const DEF = { scale: 1.200, x: 677, y: 325, rot: -5.00, show3d: 0, guide: 0, cross: 1 };
-let P;
-try { P = Object.assign({}, DEF, JSON.parse(localStorage.uni2d || '{}')); }
-catch (e) { P = Object.assign({}, DEF); }
-const save = () => { try { localStorage.uni2d = JSON.stringify(P); } catch (e) {} };
+// _UX, _UY and _US are fractions of the screen height so they survive a change
+// of resolution; _UROT is radians. The panel converts on the way in and out.
+const KEYS = ['_US', '_UX', '_UY', '_UROT'];
+const DEF = {};
+KEYS.forEach((k) => (DEF[k] = C[k]));
+try { Object.assign(C, JSON.parse(localStorage.uni2d || '{}')); } catch (e) {}
+const save = () => {
+  try { localStorage.uni2d = JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, C[k]]))); }
+  catch (e) {}
+};
+const DEG = 180 / Math.PI;
+let guide = 1;
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
 const SYNC = [];
@@ -100,7 +79,7 @@ const note = (t) => { const e = document.createElement('div'); e.className = 'no
 // actually wanted - the coarse range is only needed once.
 let FINE = 0;
 const RANGES = [];
-const slider = (label, key, lo, hi, st, dp, fineSpan) => {
+const slider = (label, key, lo, hi, st, dp, fineSpan, to = (v) => v, from = (v) => v) => {
   const row = document.createElement('div'); row.className = 'row';
   const l = document.createElement('label'); l.textContent = label;
   const i = document.createElement('input');
@@ -111,13 +90,14 @@ const slider = (label, key, lo, hi, st, dp, fineSpan) => {
   const inc = document.createElement('button'); dec.title = 'one step down';
   inc.className = 'nudge'; inc.textContent = '+'; inc.title = 'one step up';
 
+  const get = () => to(C[key]);
   const bound = () => {
-    if (FINE) { i.min = +P[key] - fineSpan; i.max = +P[key] + fineSpan; }
+    if (FINE) { i.min = get() - fineSpan; i.max = get() + fineSpan; }
     else { i.min = lo; i.max = hi; }
   };
-  const show = () => { i.value = P[key]; n.value = (+P[key]).toFixed(dp); };
+  const show = () => { i.value = get(); n.value = get().toFixed(dp); };
   const set = (v, rebound) => {
-    P[key] = Math.round(v / st) * st;
+    C[key] = from(Math.round(v / st) * st);
     if (rebound) bound();
     show(); save();
   };
@@ -128,8 +108,8 @@ const slider = (label, key, lo, hi, st, dp, fineSpan) => {
   i.onchange = () => set(+i.value, 1);
   n.oninput = () => { if (n.value !== '') set(+n.value, 0); };
   n.onchange = () => set(+n.value, 1);
-  dec.onclick = () => set(+P[key] - st, 1);
-  inc.onclick = () => set(+P[key] + st, 1);
+  dec.onclick = () => set(get() - st, 1);
+  inc.onclick = () => set(get() + st, 1);
 
   row.append(l, i, dec, inc, n); panel.append(row);
   SYNC.push(() => { bound(); show(); });
@@ -149,51 +129,34 @@ const paint = () => {
   }
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
-  const a = (AXIS + P.rot) * Math.PI / 180;
-  const ra = P.rot * Math.PI / 180, ca = Math.cos(ra), sa = Math.sin(ra);
-  for (const row of MODEL) {
-    g.fillStyle = 'rgb(' + row[0] + ',' + row[1] + ',' + row[2] + ')';
-    g.beginPath();
-    for (let k = 3; k < row.length; k += 2) {
-      const u = row[k] * P.scale, v = row[k + 1] * P.scale;
-      g.lineTo(P.x + u * ca - v * sa, P.y + u * sa + v * ca);
-    }
-    g.fill();
-  }
-  // The crosshair comes from the GAME - aimPoint() is proj(aimAt()), the same
-  // point the running game draws its reticle at - so this is exact at whatever
-  // size the window happens to be. It was hardcoded at 450,252 before, which is
-  // only right in a 900x500 frame and wrong in every other.
-  // A plain test crosshair at the dead centre of the window, independent of the
-  // game's own reticle - something fixed to aim the model at by eye.
-  if (P.cross) {
-    const cx = W / 2, cy = H / 2;
-    g.strokeStyle = '#ffffff'; g.lineWidth = 1;
-    g.beginPath();
-    g.moveTo(cx - 22, cy); g.lineTo(cx - 6, cy);
-    g.moveTo(cx + 6, cy); g.lineTo(cx + 22, cy);
-    g.moveTo(cx, cy - 22); g.lineTo(cx, cy - 6);
-    g.moveTo(cx, cy + 6); g.lineTo(cx, cy + 22);
+  if (guide) {
+    const sp = M.sprite(), a = M.aimPoint(), [dx, dy] = hornDir();
+    g.lineWidth = 1;
+    g.strokeStyle = '#7de08a';                    // the line the drawn horn casts
+    g.beginPath(); g.moveTo(sp.tip[0], sp.tip[1]);
+    g.lineTo(sp.tip[0] + 3000 * dx, sp.tip[1] + 3000 * dy); g.stroke();
+    g.strokeStyle = '#ff3b6b';                    // where shots actually converge
+    g.beginPath(); g.arc(a[0], a[1], 9, 0, 7);
+    g.moveTo(a[0] - 16, a[1]); g.lineTo(a[0] - 5, a[1]);
+    g.moveTo(a[0] + 5, a[1]); g.lineTo(a[0] + 16, a[1]);
+    g.moveTo(a[0], a[1] - 16); g.lineTo(a[0], a[1] - 5);
+    g.moveTo(a[0], a[1] + 5); g.lineTo(a[0], a[1] + 16);
     g.stroke();
-    g.beginPath(); g.arc(cx, cy, 3, 0, 7); g.stroke();
-  }
-  if (P.guide) {
-    const [cx, cy] = M.aimPoint();
-    g.strokeStyle = '#ff3b6b'; g.lineWidth = 1;
-    g.beginPath(); g.arc(cx, cy, 9, 0, 7); g.moveTo(cx - 14, cy); g.lineTo(cx + 14, cy);
-    g.moveTo(cx, cy - 14); g.lineTo(cx, cy + 14); g.stroke();
-    g.strokeStyle = '#7de08a';
-    g.beginPath(); g.moveTo(P.x, P.y);
-    g.lineTo(P.x + 2000 * Math.cos(a), P.y + 2000 * Math.sin(a)); g.stroke();
+    g.strokeStyle = '#ffffff88';                  // and the dead centre, by eye
+    g.beginPath();
+    g.moveTo(W / 2 - 22, H / 2); g.lineTo(W / 2 + 22, H / 2);
+    g.moveTo(W / 2, H / 2 - 22); g.lineTo(W / 2, H / 2 + 22);
+    g.stroke();
   }
   requestAnimationFrame(paint);
 };
 
+
 h2('placement');
-slider('scale', 'scale', 0.4, 3.5, 0.001, 3, 0.08);
-slider('rotation', 'rot', -90, 90, 0.01, 2, 3);
-slider('x', 'x', 200, 1800, 1, 0, 40);
-slider('y', 'y', 0, 1200, 1, 0, 40);
+slider('scale', '_US', 0.002, 0.02, 0.0001, 4, 0.0008);
+slider('x', '_UX', 0.2, 2.2, 0.001, 3, 0.04);
+slider('y', '_UY', -0.4, 1.2, 0.001, 3, 0.04);
+slider('rotation', '_UROT', -60, 60, 0.01, 2, 3, (v) => v * DEG, (v) => v / DEG);
 btn('FINE off', (b) => {
   FINE = !FINE;
   b.classList.toggle('on', !!FINE);
@@ -205,13 +168,6 @@ note('x and y place the HORN TIP, and rotation pivots on it - the model origin i
 note('defaults are solved onto the old horn: tip 563.5,331.1 at -145.09 deg, 136.7 px long.');
 
 h2('compare');
-btn('3D puppet hidden', (b) => {
-  P.show3d = !P.show3d;
-  b.classList.toggle('on', !P.show3d);
-  b.textContent = P.show3d ? '3D puppet SHOWN' : '3D puppet hidden';
-  C._PUPS = P.show3d ? OP : 0;
-  save();
-}, 1);
 btn('ghosts on', (b) => {
   const on = C._SPAWN < 1e8;
   b.classList.toggle('on', on);
@@ -219,58 +175,51 @@ btn('ghosts on', (b) => {
   C._SPAWN = on ? 1e9 : OS;
   if (on) M.place([]);
 }, 1);
-btn('centre crosshair', (b) => {
-  P.cross = !P.cross;
-  b.classList.toggle('on', !!P.cross);
-  b.textContent = P.cross ? 'centre crosshair' : 'centre crosshair off';
-  save();
+btn('guides on', (b) => {
+  guide = !guide;
+  b.classList.toggle('on', !!guide);
+  b.textContent = guide ? 'guides on' : 'guides off';
 }, 1);
-btn('horn guide off', (b) => {
-  P.guide = !P.guide;
-  b.classList.toggle('on', !!P.guide);
-  b.textContent = P.guide ? 'horn guide ON' : 'horn guide off';
-  save();
-});
-btn('back to your values', () => { Object.assign(P, DEF); sync(); save(); });
+btn('back to the shipped pose', () => { Object.assign(C, DEF); sync(); save(); });
 btn('restart', () => M.restart());
 
 const out = document.createElement('pre'); out.id = 'out'; panel.append(out);
 // The gold path's axis runs from its tip (0,0) to the centroid of its base,
 // which is -121.50 deg - not the -131.63 of its outer edge.
-const AXIS = -121.50;
-const missAt = (cx, cy) => {
-  const a = (AXIS + P.rot) * Math.PI / 180;
-  const t = (cx - P.x) / Math.cos(a);
-  return P.y + t * Math.sin(a) - cy;
+// The horn's direction on screen, read off the sprite's own axis constant and
+// its rotation - the same two numbers puppet() draws from.
+const hornDir = () => {
+  const ca = Math.cos(C._UROT), sa = Math.sin(C._UROT);
+  return [-(C._UHA[0] * ca - C._UHA[1] * sa), -(C._UHA[0] * sa + C._UHA[1] * ca)];
 };
 const miss = () => missAt(...M.aimPoint());
 const missC = () => missAt(innerWidth / 2, innerHeight / 2);
 const tick = () => {
-  const m = miss(), mc = missC();
+  const m = miss();
   const L = [
-    'scale ' + P.scale.toFixed(3) + '   rot ' + P.rot.toFixed(2) + '   x ' + P.x + '   y ' + P.y,
-    'spans ' + (240 * P.scale).toFixed(0) + ' px tall',
+    '_US: ' + C._US.toFixed(4) + ',',
+    '_UX: ' + C._UX.toFixed(4) + ',',
+    '_UY: ' + C._UY.toFixed(4) + ',',
+    '_UROT: ' + C._UROT.toFixed(4) + ',',
+    '',
     'window ' + innerWidth + ' x ' + innerHeight,
-    'as fractions of H:  scale ' + (P.scale / innerHeight).toFixed(5) +
-      '  x ' + (P.x / innerHeight).toFixed(4) + '  y ' + (P.y / innerHeight).toFixed(4),
+    'horn tip at ' + M.sprite().tip.map((v) => v.toFixed(0)).join(', ') +
+      ', ' + (93 * M.sprite().scale).toFixed(0) + 'px tall',
     '',
     '370 vertices, 27 paths.',
     'packed cost 298 bytes; 972 would stay free.',
     '',
-    (Math.abs(mc) < 6 ? 'horn ON the centre' :
-      'horn misses SCREEN CENTRE by ' + mc.toFixed(0) + ' px'),
-    (Math.abs(m) < 6 ? 'horn ON the game reticle' :
-      'horn misses the GAME reticle by ' + m.toFixed(0) + ' px'),
+    (Math.abs(m) < 6 ? 'HORN ON THE RETICLE' :
+      'horn misses the reticle by ' + m.toFixed(0) + 'px'),
     '(negative = pointing above it)',
     '',
-    'paste the top line back to Claude.',
+    'paste the four lines above to Claude.',
   ];
   out.textContent = L.join(String.fromCharCode(10));
   requestAnimationFrame(tick);
 };
 
-const OP = C._PUPS, OS = C._SPAWN;
-C._PUPS = 0;
+const OS = C._SPAWN;
 $('grip').onclick = () => {
   panel.classList.toggle('hid');
   $('grip').textContent = panel.classList.contains('hid') ? '<' : '>';

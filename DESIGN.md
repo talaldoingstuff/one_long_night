@@ -166,7 +166,11 @@ Canvas2D with painter's-algorithm fake-3D. **No WebGL.**
 
 ### Right arm — unicorn puppet
 
-A unicorn head-and-neck mesh worn over the forearm, the arm entering through the neck opening. Built from box and cone primitives.
+A unicorn head and neck worn over the forearm. **Drawn, not modelled** (changed 2026-08-31): a flat 3/4 low-poly sprite painted straight in screen space, 370 vertices over 27 paths, viewed from behind-right so it faces away to the front-left. It was a mesh of swept boxes until the rebrand; going flat cost nothing in the read and gave back 259 bytes, because a viewmodel that never moves against the camera was paying for a transform, a projection and a depth sort it never used.
+
+The model is four packed strings - vertices on a 0..93 grid, per-path lengths, per-path colours, and **what each path IS**: body, mane, horn or eye. That last one is what lets the drawing keep carrying state rather than being a picture: the mane still washes toward grey with the cooldown, and the horn and eye still run the rainbow while a charge builds.
+
+Because the horn is art now rather than geometry, the line it aims along is **stated** (`_AIMO`, `_AIMD`) rather than derived from it. Those two constants are exactly what the solved 3D pose resolved to, so the crosshair lands where it always did. Nothing keeps the drawing and the aim together except a check that the drawn horn passes through the crosshair - which is why that check exists.
 
 - **Fires horns.** Infinite ammo, gated by fire rate only
 - Horns are projectiles with travel time, not hitscan
@@ -174,8 +178,8 @@ A unicorn head-and-neck mesh worn over the forearm, the arm entering through the
 - The horn is the brightest single element on screen (amber)
 
 **Animations:**
-- **Recoil** — offset the whole puppet transform back along its axis on fire, ease out over ~0.15s (~40 bytes)
-- **Blink** — collapse the eye's Y scale to near zero on a randomised timer (~30 bytes)
+- **Recoil** — offset the whole sprite back along the horn's own axis on fire, ease out over `_RECT`
+- **Blink** — collapse the eye path's Y about its own centre on a randomised timer
 
 ### Left arm — casting arm
 
@@ -376,9 +380,11 @@ a number was arrived at. Some are stale against the current code.
 
 ## 17. Open items
 
-**Status, 2026-08-31.** Build order steps 1-9 are complete. 10,995 of the 11,500
-game ceiling, so 505 bytes free with the 800-byte Wavedash reserve and the 1,012
-contingency untouched. All 149 commits are on `origin/main`
+**Status, 2026-08-31.** Build order steps 1-9 are complete, and the unicorn
+rebrand with them. 10,741 of the 11,500 game ceiling, so **759 bytes free** with
+the 800-byte Wavedash reserve and the 1,012 contingency untouched - more room
+than before the rebrand, because replacing the 3D puppet gave back more than the
+sprite costs. All 149 commits are on `origin/main`
 (github.com/talaldoingstuff/one_long_night, private). Checks: 506 + 24 pass.
 
 **The jam theme is "Unicorns and Rainbows".**
@@ -400,10 +406,10 @@ What remains is step 10, the ship pass, plus the unicorn rebrand.
 
 ### Remaining work, in the order recommended
 
-1. **Unicorn rebrand.** Still a unicorn, new design - lean and fierce rather than
-   pastel, following the bestiary reading of a horn that purifies and repels
-   spirits. The only remaining item that spends bytes, so it goes before the
-   polish while 505 are still free
+1. ~~**Unicorn rebrand.**~~ **Done.** The 3D swept-box puppet is replaced by a
+   flat 3/4 low-poly sprite (6 above). It reads better, and it *gained* 259
+   bytes rather than spending any. Its pose still wants a last look on a real
+   screen - `tools/unicorn-2d.html` drives the shipped constants directly
 2. **Firefox smoke test.** Cheap, and a Firefox-only WebAudio or canvas fault is
    expensive to find late
 3. **Console-error hunt**, both browsers, per 1

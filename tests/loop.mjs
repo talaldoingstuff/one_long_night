@@ -379,301 +379,82 @@ console.log('\n--- draw order and blending -------------------------------------
 }
 
 console.log('');
-console.log('--- the puppet sits like something worn ---------------------------');
+console.log('--- the unicorn is a drawn sprite ---------------------------------');
 {
-  M.restart();
-  M.place([]);
-  M.look(0, 0);
-  const W2 = 900, H2 = 500;
-  rec.ops = [];
-  tick();
-  // Hearts are filled paths too and they live top-right; including them is what
-  // made the first measurement of this report the puppet reaching the top edge.
-  const ps = rec.ops.filter((o) => o.op === 'fill' && o.comp === 'source-over' && o.c.startsWith('rgb('));
-  ok('the puppet is drawn from the recovered part table',
-     ps.length >= 20, ps.length + ' faces survive culling, of ' + (M.PARTS.length + C._MANEN) * 6 + ' built');
-  ok('and it carries the gold horn, white body and blue eyes',
-     new Set(ps.map((o) => o.c)).size >= 6, new Set(ps.map((o) => o.c)).size + ' distinct fills');
-}
-
-console.log('');
-console.log('--- the puppet reads as a worn, aimed unicorn ---------------------');
-{
-  const P = M.PARTS, W2 = 900, H2 = 500;
-  const PIV = [P[0][0], P[0][1], P[0][2]];
-  const T = (x, y, z) => {
-    const sc = C._PUPS, ca = Math.cos(C._PUPA), sa = Math.sin(C._PUPA), cb = Math.cos(C._PUPB), sb = Math.sin(C._PUPB);
-    const a = (x - PIV[0]) * sc, b = -(y - PIV[1]) * sc, c = (z - PIV[2]) * sc;
-    const a2 = a * ca + c * sa, c2 = c * ca - a * sa;
-    return [C._PUP[0] + a2, C._PUP[1] + b * cb - c2 * sb, C._PUP[2] + c2 * cb + b * sb];
-  };
-  const prj = (q) => { const sc = C._F / (C._F + q[2]); return [q[0] * sc * H2 + W2 / 2, q[1] * sc * H2 + H2 / 2]; };
-
-  // 1. the mane runs down the crest, not down one side. The recovered neck row
-  //    sat at x=.025-.075 while the head, horn and eyes are all on x=.1 - a
-  //    lateral offset the old side-on view could not show.
-  const sag = P[1][0];
-  // A lean is a legitimate choice, so this measures it rather than forbidding it.
-  // What it must not do is exceed the part's own width, which is when the neck
-  // stops meeting the head and you can see between them.
-  const lean = Math.max(Math.abs(P[0][0] - P[0][3]), Math.abs(P[1][0] - P[1][3]));
-  ok('nothing leans further sideways than it is wide',
-     lean < Math.min(P[0][6], P[1][6]),
-     'worst lateral lean ' + (1000 * lean).toFixed(0) + 'mm against a narrowest half-width of ' +
-     (1000 * Math.min(P[0][6], P[1][6])).toFixed(0) + 'mm');
-
-  // and the head has to actually meet the neck, once its group offset is applied
-  {
-    const nt = M.eff(0).slice(3, 6), hb = M.eff(1).slice(0, 3);
-    const gapJ = Math.hypot(nt[0] - hb[0], nt[1] - hb[1], nt[2] - hb[2]);
-    const reach = P[0][8] + P[1][6];
-    ok('the head still meets the neck it is mounted on', gapJ < reach,
-       'their ends are ' + (1000 * gapJ).toFixed(0) + 'mm apart, and between them they span ' +
-       (1000 * reach).toFixed(0) + 'mm - so they overlap');
-  }
-
-  // The eyes are discs placed against the head, not rows in the table, so they
-  // follow it rather than needing to be re-tuned every time the head moves.
-  {
-    const eyeFaces = (headUp) => {
-      const before = C._HEADO.slice();
-      C._HEADO = [0, headUp, 0];
-      M.FACES.length = 0;
-      M.drawPuppet();
-      C._HEADO = before;
-      return null;
-    };
-    const blue = (c) => { const m = (c.match(/\d+/g) || []).map(Number);
-      return m.length === 3 && m[2] > m[0] * 1.4 && m[2] > 60; };
-    M.restart(); M.place([]); M.look(0, 0);
-    rec.ops = []; tick();
-    const eyes0 = rec.ops.filter((o) => o.op === 'fill' && o.n === 3 && blue(o.c));
-    ok('the eyes are round discs, not rectangular studs',
-       eyes0.length >= 8 && eyes0.every((o) => o.n === 3),
-       eyes0.length + ' triangles across both discs - a ten-sided disc reads round at eye size');
-    const y0 = eyes0.reduce((a, o) => a + o.n, 0);
-    const before = C._HEADO.slice();
-    C._HEADO = [0, 0.08, 0];
-    rec.ops = []; tick();
-    const eyes1 = rec.ops.filter((o) => o.op === 'fill' && o.n === 3 && blue(o.c));
-    C._HEADO = before;
-    ok('and they ride the head rather than sitting in model coordinates',
-       eyes1.length >= 8, 'still ' + eyes1.length + ' eye triangles after moving the head 8cm');
-  }
-
-  // 1b. the mane stands ON the neck's top face, along the neck and nowhere else.
-  {
-    const nk = M.eff(0);
-    const dx = nk[3] - nk[0], dy = nk[4] - nk[1], dz = nk[5] - nk[2];
-    const Ln = Math.hypot(dx, dy, dz), pL = Math.hypot(dy, dz);
-    const uy = dz / pL, uz = -dy / pL;
-    let worst = 0;
-    const ts = [];
-    for (let i = 0; i < C._MANEN; i++) {
-      const t = C._MANEC + (C._MANEN < 2 ? 0 : C._MANEW * (i / (C._MANEN - 1) - 0.5));
-      ts.push(t);
-      const h = nk[7] + (nk[9] - nk[7]) * t;
-      const ay = nk[1] + dy * t, az = nk[2] + dz * t;
-      const off = Math.hypot(uy * h, uz * h);
-      worst = Math.max(worst, Math.abs(off - h));
-    }
-    ok('every tuft is rooted exactly on the neck surface', worst < 1e-12,
-       'worst root is ' + worst.toExponential(1) + ' off the neck half-height - it used to sit 60% in, inside the solid');
-    ok('and the whole mane is on the neck, not the head',
-       ts.every((v) => v >= 0 && v <= 1),
-       C._MANEN + ' tufts at t = ' + ts.map((v) => v.toFixed(2)).join(', '));
-    const span = (C._MANEW / (C._MANEN - 1)) * Ln;
-    const wide = 2 * Math.min(C._MANER, span * C._MANEG);
-    // It sits ON the neck, so depth sorting puts half of every tuft behind the
-    // neck it stands on. Painting it in its own pass afterwards is the fix, and
-    // this is the check that it stays that way.
-    {
-      M.setFire(0);                            // a horn in flight is not the mane
-      const rgbOnly = () => { rec.ops = []; tick();
-        return rec.ops.filter((o) => o.op === 'fill' && o.n >= 3 && o.c.startsWith('rgb(')).map((o) => o.c); };
-      M.restart(); M.place([]); M.look(0, 0);
-      const keep = C._MANEN;
-      C._MANEN = 0;
-      const body = rgbOnly();
-      C._MANEN = keep;
-      const all = rgbOnly();
-      M.setFire(1);
-      ok('and the whole mane is painted over the body, not sorted into it',
-         all.length > body.length && all.slice(0, body.length).join('|') === body.join('|'),
-         body.length + ' body faces first and unchanged, then ' + (all.length - body.length) + ' mane faces on top');
-    }
-    ok('and each is narrower than its slot, so they read as separate tufts',
-       wide < span * 0.8, 'each is ' + (100 * wide / span).toFixed(0) + '% of its slot');
-  }
-
-  // 2. the horn points where the shots go
-  M.restart(); M.look(0, 0);
-  const hb = T(P[2][0], P[2][1], P[2][2]), ht = T(P[2][3], P[2][4], P[2][5]);
-  M.place([]);
+  // The 3D swept-box puppet is gone. What replaces it is a flat 3/4 low-poly
+  // unicorn drawn straight in screen space - so these check the drawing, not a
+  // model, and there is no projection or depth sort left to get wrong.
+  M.restart(); M.place([]); M.look(0, 0);
   M.setFire(0);
-  for (let i = 0; i < 4; i++) tick();
-  const tipS = M.poseCheck().tip;               // before the kick
-  M.setFire(1);
-  const h = shoot();
-  const hd = [ht[0] - hb[0], ht[1] - hb[1], ht[2] - hb[2]];
-  const hl = Math.hypot(...hd);
-  // A viewmodel is fake-scaled: at this on-screen size the horn tip is metres in
-  // front of the eye, so a shot really starting there could never reach anything
-  // nearer than the horn. It starts at the point that PROJECTS to the tip, at a
-  // workable depth - which is where the player sees it leave.
-  // Read the tip BEFORE the shot: firing kicks the puppet back, so asking
-  // afterwards compares the spawn against an already-recoiled horn.
-  const dtf = 1 / 60;
-  const born = [h[0] - h[3] * dtf, h[1] - h[4] * dtf, h[2] - h[5] * dtf];
-  const spawnS = M.proj(M.cam(born));
-  ok('a shot leaves from where the horn tip is seen to be',
-     Math.hypot(tipS[0] - spawnS[0], tipS[1] - spawnS[1]) < 1,
-     'spawn and tip project within ' +
-     Math.hypot(tipS[0] - spawnS[0], tipS[1] - spawnS[1]).toFixed(2) + 'px of each other');
-
-  // 3. and that horn is aimed near enough at the crosshair to hit what you see
-  // How far the horn points from the line a shot takes is a look, chosen from the
-  // view a player sees - so it is reported, not asserted. What matters is that
-  // shots land, which the range sweep above already proves.
-  M.restart(); M.place([]); M.look(0, 0);
-  for (let i = 0; i < 4; i++) tick();
-  console.log('       (the horn points ' + M.poseCheck().aim.toFixed(1) +
-              ' degrees off the line a shot takes - a pose choice, shown live in the editor)');
-
-  // 4. the arm opening is off the bottom of the frame, so there is no open neck
-  const q = P[0];
-  const capY = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([su, sv]) => prj(T(q[0] + su * q[6], q[1], q[2] + sv * q[7]))[1]);
-  // Where the neck's opening lands is a pose decision, taken from the view a
-  // player actually sees. The editor reads it out live and colours it; asserting
-  // it here would just be this file overruling that.
-  console.log('       (neck opening is ' + (Math.min(...capY) - H2).toFixed(0) +
-              'px relative to the bottom edge - a pose choice, shown live in the editor)');
-
-  // 5. a horn in flight is geometry, not a stroked line
-  M.restart(); M.place([]); M.look(0, 0);
-  press(); release();
-  rec.ops = [];
   tick();
-  // Gold is shaded before it is filled, so it is never the literal 255,214,10 -
-  // matching on that found nothing. Match the hue instead.
-  const isGold = (c) => { const m = (c.match(/\d+/g) || []).map(Number);
-    return m.length === 3 && m[0] > 90 && m[1] > 60 && m[2] < m[0] * 0.35; };
-  const gold = rec.ops.filter((o) => o.op === 'fill' && o.n >= 3 && isGold(o.c));
-  // The crosshair is legitimately stroked; what must not be is the horn.
-  ok('a horn in flight is drawn as a horn, not a line',
-     gold.length >= 3 && !rec.ops.some((o) => o.op === 'stroke' && isGold(o.c)),
-     gold.length + ' gold faces on screen, none of them a stroked line');
+  const sp = M.sprite();
+  // Draw the sprite ALONE into the recorder. Sieving it out of a whole frame by
+  // the shape of its colour strings is what broke the moment it started emitting
+  // rgba() instead of rgb(); this cannot drift.
+  rec.ops = [];
+  M.drawPuppet();
+  const ps = rec.ops.filter((o) => o.op === 'fill');
+  ok('the unicorn is one path per row of the model table',
+     ps.length >= sp.paths, ps.length + ' fills for ' + sp.paths + ' paths in the sprite');
+  ok('and every one is a closed polygon, not a projected face',
+     ps.every((o) => o.n >= 3) && rec.ops.every((o) => o.op !== 'translate'),
+     'smallest path has ' + Math.min(...ps.map((o) => o.n)) + ' points');
+  const cols = new Set(ps.map((o) => o.c));
+  ok('it carries a gold horn, a grey body and a rainbow crest',
+     cols.size >= 20, cols.size + ' distinct fills across ' + sp.paths + ' paths');
+
+  // What each path is FOR is what lets the drawing keep carrying state, so the
+  // tally matters as much as the geometry.
+  const kinds = sp.kinds.split('').map(Number);
+  const tally = [0, 1, 2, 3].map((k) => kinds.filter((v) => v === k).length);
+  ok('and the table says which path is body, mane, horn and eye',
+     tally[0] > 0 && tally[1] >= 7 && tally[2] > 0 && tally[3] > 0,
+     tally[0] + ' body, ' + tally[1] + ' mane, ' + tally[2] + ' horn, ' + tally[3] + ' eye');
+  ok('with a mane band for every colour in the rainbow',
+     sp.mane >= 7, sp.mane + ' mane paths against a ' + 7 + '-band rainbow');
+
+  // It is a viewmodel: it hangs off the bottom-right corner and runs off the
+  // bottom of the frame, exactly as a puppet worn on the arm would.
+  const xs = ps.flatMap((o) => o.p.map((q) => q[0]));
+  const ys = ps.flatMap((o) => o.p.map((q) => q[1]));
+  ok('it sits in the bottom-right and runs off the bottom edge',
+     Math.min(...xs) > 900 / 2 && Math.max(...ys) > 500,
+     'x from ' + Math.min(...xs).toFixed(0) + ', reaching y ' + Math.max(...ys).toFixed(0) +
+     ' past a frame 500 tall');
+  ok('and its horn tip is the model origin, so the pose has one handle',
+     Math.abs(sp.tip[0] - Math.min(...xs)) < 2 && Math.abs(sp.tip[1] - Math.min(...ys)) < 2,
+     'tip reported at ' + sp.tip.map((v) => v.toFixed(0)).join(', ') +
+     ', drawn bounds start ' + Math.min(...xs).toFixed(0) + ', ' + Math.min(...ys).toFixed(0));
+  M.setFire(1);
 }
 
 console.log('');
-console.log('--- the head group moves, scales and turns as one -----------------');
+console.log('--- and it is sized off the frame, not in fixed pixels -------------');
 {
-  const P = M.PARTS;
-  const save = { o: C._HEADO.slice(), s: C._HEADS, r: C._HEADR.slice() };
-  const rest = () => { C._HEADO = save.o.slice(); C._HEADS = save.s; C._HEADR = save.r.slice(); };
-  const blue = (c) => { const m = (c.match(/[0-9]+/g) || []).map(Number);
-    return m.length === 3 && m[2] > m[0] * 1.4 && m[2] > 60; };
-  const eyeTris = () => { M.restart(); M.place([]); M.look(0, 0); rec.ops = []; tick();
-    return rec.ops.filter((o) => o.op === 'fill' && o.n === 3 && blue(o.c)); };
-  const shotDir = () => { M.restart(); M.place([]); M.look(0, 0); press(); release();
-    const h = M.dbg().horns[0]; return M.cam([h[3], h[4], h[5]]); };
-  const angBetween = (a, b) => {
-    const al = Math.hypot(...a), bl = Math.hypot(...b);
-    return Math.acos(Math.max(-1, Math.min(1, (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / (al*bl)))) * 180 / Math.PI;
-  };
-
-  // it turns about the joint, so the head does not drift off the end of the neck
-  rest();
-  const base0 = M.eff(1).slice(0, 3);
-  C._HEADR = [0.4, -0.3, 0.2];
-  const base1 = M.eff(1).slice(0, 3);
-  rest();
-  ok('the head turns about the joint, not about the model origin',
-     Math.hypot(base1[0] - base0[0], base1[1] - base0[1], base1[2] - base0[2]) < 1e-12,
-     'its base stays put to ' +
-     Math.hypot(base1[0] - base0[0], base1[1] - base0[1], base1[2] - base0[2]).toExponential(1) + 'm through a 3-axis turn');
-
-  // the horn turns with it - which is the whole point, since shots leave along it
-  // The crosshair sits on the horn's line, so posing the head MOVES the aim - it
-  // is not cosmetic any more. What has to hold is that the crosshair and the
-  // shots move together, or the sight would be lying.
-  const lands = (headR) => {
-    rest();
-    C._HEADR = headR;
-    M.restart();
-    M.look(0, 0);
-    M.place([]);
+  // Everything else in the HUD scales with the screen height. A viewmodel pinned
+  // in absolute pixels would be a different animal on every monitor.
+  M.restart(); M.place([]); M.look(0, 0);
+  M.setFire(0);
+  const spanAt = (w, h) => {
+    globalThis.innerWidth = w; globalThis.innerHeight = h;
+    (L.resize || []).forEach((f) => f());
     tick();
-    const w = M.aimWorld(7);                     // wherever the crosshair now points
-    M.place([[w[0], w[1], w[2], 99, 99, 0, 0, 0]]);
-    shoot();
-    const h2 = M.dbg().horns[0];
-    const o = [h2[0], h2[1], h2[2]], dl2 = Math.hypot(h2[3], h2[4], h2[5]);
-    const u = [h2[3] / dl2, h2[4] / dl2, h2[5] / dl2];
-    const w2 = [w[0] - o[0], w[1] - o[1], w[2] - o[2]];
-    const tt = w2[0] * u[0] + w2[1] * u[1] + w2[2] * u[2];
-    const cpt = [o[0] + u[0] * tt - w[0], o[1] + u[1] * tt - w[1], o[2] + u[2] * tt - w[2]];
-    rest();
-    return Math.hypot(cpt[0], cpt[1], cpt[2]);
+    rec.ops = []; M.drawPuppet();
+    const ys = rec.ops.filter((o) => o.op === 'fill').flatMap((o) => o.p.map((q) => q[1]));
+    return Math.max(...ys) - Math.min(...ys);
   };
-  const flatMiss = lands([0, 0, 0]), turnMiss = lands([0, 0.25, 0]), nodMiss = lands([0.2, 0, 0]);
-  const tol = C._HHIT + C._TYPES[0][5];
-  ok('the crosshair and the shots move together when the head is posed',
-     flatMiss < tol && turnMiss < tol && nodMiss < tol,
-     'shots land ' + flatMiss.toFixed(2) + 'm from the crosshair level, ' + turnMiss.toFixed(2) +
-     'm turned 14 deg, ' + nodMiss.toFixed(2) + 'm nodded 11 deg - tolerance ' + tol.toFixed(2) + 'm');
-
-  // and scaling takes the horn and eyes with it
-  rest();
-  const e0 = M.eff(2), n0 = Math.hypot(e0[3] - e0[0], e0[4] - e0[1], e0[5] - e0[2]);
-  const w0 = e0[6];
-  C._HEADS = 1.5;
-  const e1 = M.eff(2), n1 = Math.hypot(e1[3] - e1[0], e1[4] - e1[1], e1[5] - e1[2]);
-  const w1 = e1[6];
-  const eyesBig = eyeTris().length;
-  rest();
-  const eyesNorm = eyeTris().length;
-  ok('scaling the head scales its horn, length and thickness alike',
-     Math.abs(n1 / n0 - 1.5) < 1e-9 && Math.abs(w1 / w0 - 1.5) < 1e-9,
-     'horn length x' + (n1 / n0).toFixed(2) + ', horn width x' + (w1 / w0).toFixed(2));
-  ok('and the eyes come with it', eyesBig >= 8 && eyesNorm >= 8,
-     eyesNorm + ' eye triangles at normal scale, ' + eyesBig + ' at 1.5x - still on the head');
-
-  // A tilt has to roll the head itself, not just carry its attachments round it.
-  // Counting faces after drawPuppet() proved nothing: puppet() ends in flush(),
-  // which empties the list, so both sides of the comparison were zero.
-  rest();
-  const id = (x, y, z) => [x, y, z];
-  const hq = P[1];
-  const build = (roll) => {
-    M.FACES.length = 0;
-    M.swept(id, hq[0], hq[1], hq[2], hq[3], hq[4], hq[5], hq[6], hq[7], hq[8], hq[9], [255, 255, 255], roll);
-    return M.FACES.map((f) => f[0].map((v) => v.slice()));
-  };
-  const a0 = build(0), a1 = build(0.5), a2 = build(0);
-  const moved = Math.max(...a0[0].map((v, k) => Math.hypot(v[0] - a1[0][k][0], v[1] - a1[0][k][1], v[2] - a1[0][k][2])));
-  const same = Math.max(...a0[0].map((v, k) => Math.hypot(v[0] - a2[0][k][0], v[1] - a2[0][k][1], v[2] - a2[0][k][2])));
-  // The axis must not move. A SIDE face's centre orbits that axis under roll,
-  // which is correct - so measure the end caps, whose centres are the endpoints.
-  const capMid = (a, k) => a[k].reduce((s2, v) => [s2[0] + v[0] / 4, s2[1] + v[1] / 4, s2[2] + v[2] / 4], [0, 0, 0]);
-  const m0 = capMid(a0, 4), m1 = capMid(a1, 4);
-  const c0 = capMid(a0, 5), c1 = capMid(a1, 5);
-  ok('a tilt rolls the head itself, not only what is attached to it',
-     moved > 0.02 && same === 0,
-     'a 29 degree roll moved a corner ' + (1000 * moved).toFixed(0) + 'mm, and roll 0 is byte-identical to no roll');
-  const drift = Math.max(Math.hypot(m1[0] - m0[0], m1[1] - m0[1], m1[2] - m0[2]),
-                         Math.hypot(c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]));
-  ok('and a roll turns the cross-section without moving the axis',
-     drift < 1e-12,
-     'both end caps stayed put to ' + drift.toExponential(1) + 'm');
-  M.FACES.length = 0;
-  rest();
+  const a = spanAt(900, 500), b = spanAt(1800, 1000);
+  ok('twice the height draws twice the unicorn',
+     Math.abs(b / a - 2) < 0.02,
+     a.toFixed(0) + 'px tall at 500, ' + b.toFixed(0) + 'px at 1000 - a ratio of ' + (b / a).toFixed(3));
+  globalThis.innerWidth = 900; globalThis.innerHeight = 500;
+  (L.resize || []).forEach((f) => f());
+  M.setFire(1);
 }
-
-console.log('');
 console.log('--- recoil and blink ---------------------------------------------');
 {
-  const tipNow = () => M.poseCheck().tip;
+  // The horn tip IS the model origin, so the sprite seam reports it directly.
+  const tipNow = () => M.sprite().tip;
   M.restart(); M.place([]); M.look(0, 0);
   M.setFire(0);
   for (let i = 0; i < 6; i++) tick();
@@ -701,14 +482,6 @@ console.log('--- recoil and blink ---------------------------------------------'
   // blink: the eye's own height collapses and returns, on a varying timer
   M.restart(); M.place([]); M.look(0, 0);
   M.setFire(0);                                  // firing blinks too - this is the idle timer
-  const eyeH = () => {
-    rec.ops = []; tick();
-    const blue = rec.ops.filter((o) => o.op === 'fill' && o.n === 3 && (() => {
-      const m = (o.c.match(/[0-9]+/g) || []).map(Number);
-      return m.length === 3 && m[2] > m[0] * 1.4 && m[2] > 60;
-    })());
-    return blue.length;
-  };
   let sawOpen = 0, sawShut = 0, gaps = [], last = -1, n2 = 0;
   const anim0 = [];
   for (let i = 0; i < 60 * 20; i++) {
@@ -772,7 +545,7 @@ console.log('--- the cooldown reads on the mane -------------------------------'
 {
   // DESIGN.md 6 puts this on a casting arm. There is no arm - the unicorn casts -
   // so the rainbow it runs on is the mane.
-  const sat = (c) => { const m = (c.match(/[0-9]+/g) || []).map(Number);
+  const sat = (c) => { const m = (c.match(/[0-9]+/g) || []).map(Number).slice(0, 3);
     return m.length === 3 ? (Math.max(...m) - Math.min(...m)) / (Math.max(...m) || 1) : 0; };
   M.setFire(0);
   M.restart(); M.place([]); M.look(0, 0);
@@ -786,7 +559,7 @@ console.log('--- the cooldown reads on the mane -------------------------------'
   const s1 = mean(a0, moved), s2 = mean(a1, moved), s3 = mean(a2, moved);
   M.setBind(0);
   ok('the mane is the cooldown: full colour ready, washed out when spent',
-     moved.length >= C._MANEN && s1 > s2 && s2 > s3,
+     moved.length >= M.sprite().mane && s1 > s2 && s2 > s3,
      moved.length + ' faces change with it; saturation ' + s1.toFixed(2) + ' ready, ' +
      s2.toFixed(2) + ' half charged, ' + s3.toFixed(2) + ' just cast');
   ok('washed, never gone - the rainbow stays on the unicorn',
@@ -807,41 +580,44 @@ console.log('--- the cooldown reads on the mane -------------------------------'
 }
 
 console.log('');
-console.log('--- the outline, and the crosshair on the horn --------------------');
+console.log('--- the crosshair sits on the drawn horn --------------------------');
 {
   M.setFire(0);
   M.restart(); M.place([]); M.look(0, 0);
-  rec.ops = []; tick();
-  ok('the neck and head are outlined', rec.ops.some((o) => o.op === 'stroke'),
-     rec.ops.filter((o) => o.op === 'stroke').length + ' strokes in the frame');
-  ok('and it is thin', C._OUTL * 500 < 2,
-     (C._OUTL * 500).toFixed(1) + 'px at 500px height, at ' + C._OUTA + ' opacity');
+  tick();
+  // The sprite is flat-shaded polygons and carries no outline: it has its own
+  // facets to separate its parts, which is what the 3D neck and head needed the
+  // outline for. Nothing in the viewmodel strokes any more.
+  const sp = M.sprite();
+  rec.ops = []; M.drawPuppet();
+  const ps = rec.ops.filter((o) => o.op === 'fill');
+  ok('the sprite is filled, never stroked',
+     ps.length > 20 && !rec.ops.some((o) => o.op === 'stroke') &&
+     C._OUTL === undefined && C._OUTA === undefined,
+     ps.length + ' fills, 0 strokes, and no outline constants left in the source');
 
-  // the crosshair is on the horn's line, not at the centre of the screen
-  // Where the crosshair lands is a pose decision - the yaw and pitch were solved
-  // to bring it to the middle - so it is reported, not asserted. Asserting it
-  // would be this file overruling the pose.
+  // Where the crosshair lands is a pose decision, so it is reported, not
+  // asserted - asserting it would be this file overruling the pose.
   const a = M.aimPoint();
   console.log('       (the crosshair is at (' + a.map((v) => v.toFixed(0)).join(', ') +
               '), ' + Math.hypot(a[0] - 450, a[1] - 250).toFixed(0) + 'px from the centre of a 900x500 frame)');
-  // What must hold is that it is genuinely on the horn's line - which is what
-  // makes it move when the horn does.
 
-  // and it tracks the horn when the head moves
-  const before = M.aimPoint();
-  const keep = C._HEADR.slice();
-  C._HEADR = [0, 0.2, 0];
-  tick();
-  const after = M.aimPoint();
-  C._HEADR = keep;
-  ok('and it follows the horn when the head is turned',
-     Math.hypot(after[0] - before[0], after[1] - before[1]) > 10,
-     'turning the head 11 degrees moved it ' +
-     Math.hypot(after[0] - before[0], after[1] - before[1]).toFixed(0) + 'px');
+  // What MUST hold is that the drawn horn points at it. The horn is art now and
+  // the aim ray is two constants, so nothing keeps the two together except this
+  // check - which is exactly why it is here. The horn tip is the sprite's own
+  // origin and _UHA is its axis, so the line is read off the same numbers the
+  // frame draws from.
+  const ca = Math.cos(C._UROT), sa = Math.sin(C._UROT);
+  const dx = -(C._UHA[0] * ca - C._UHA[1] * sa), dy = -(C._UHA[0] * sa + C._UHA[1] * ca);
+  const t = (a[0] - sp.tip[0]) / dx;
+  const miss = sp.tip[1] + t * dy - a[1];
+  ok('and the horn the player sees points along it',
+     Math.abs(miss) < 24,
+     'the horn line passes ' + Math.abs(miss).toFixed(0) + 'px from the crosshair' +
+     (Math.abs(miss) < 24 ? '' : ' - the drawing and the aim have come apart'));
   M.setFire(1);
 }
 
-console.log('');
 console.log('--- the bind -----------------------------------------------------');
 {
   M.setFire(0);
@@ -1110,46 +886,49 @@ console.log('--- the bind -----------------------------------------------------'
   rec.ops = []; tick();
   ok('and draws nothing once it is over', quads(rec.ops).length === 0, 'no rainbow quads left');
 
-  // --- the eyes ----------------------------------------------------------------
+  // --- the eye and the horn while charging -----------------------------------
+  // Both used to be found by their geometry - the eye a ten-point cone, the horn
+  // an opaque four-point quad. The sprite has neither, so they are found by what
+  // the model table SAYS they are, which is the same thing the frame reads.
+  const KIND = M.sprite().kinds.split('').map(Number);
+  const byKind = (k) => {
+    rec.ops = []; M.drawPuppet();
+    const fills = rec.ops.filter((o) => o.op === 'fill');
+    return fills.filter((_, i) => KIND[i] === k).map((o) => o.c);
+  };
+  const chan = (c) => c.match(/\d+/g).map(Number).slice(0, 3);
+
   M.restart(); M.place([]); M.look(0, 0);
-  rec.ops = []; tick();
-  const irisOf = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 10).map((o) => o.c);
-  const calm = irisOf(rec.ops);
+  tick();
+  const calm = byKind(3), calmH = byKind(2), calmB = byKind(0);
+  ok('the eye is a cool blue when nothing is charging',
+     calm.length > 0 && (() => { const v = chan(calm[0]); return v[2] > v[0] * 1.4 && v[2] > 60; })(),
+     calm[0] + ' - blue channel well clear of the red');
   hold(90);
-  rec.ops = []; tick();
-  const lit = irisOf(rec.ops);
-  const chan = (c) => c.match(/\d+/g).map(Number);
-  const idle = chan(calm[0]);
-  ok('the eyes are the blue iris when idle',
-     calm.length > 0 && Math.abs(idle[0] / C._IRIS[0] - idle[2] / C._IRIS[2]) < 0.02 &&
-       Math.abs(idle[1] / C._IRIS[1] - idle[2] / C._IRIS[2]) < 0.02,
-     calm[0] + ' is IRIS [' + C._IRIS + '] at ' + (idle[2] / C._IRIS[2]).toFixed(2) + ' shade');
-  ok('and go rainbow while charging', lit.length > 0 && lit[0] !== calm[0],
-     'blue ' + calm[0] + ' became ' + lit[0] + ' at ' + M.anim().bindR.toFixed(1) + 'm of charge');
+  const lit = byKind(3), litH = byKind(2);
+  ok('and it runs the rainbow while charging', lit.length > 0 && lit[0] !== calm[0],
+     calm[0] + ' became ' + lit[0] + ' at ' + M.anim().bindR.toFixed(1) + 'm of charge');
+  ok('and so does the horn, which is where the crosshair sits',
+     litH.length > 0 && litH[0] !== calmH[0],
+     calmH[0] + ' became ' + litH[0]);
   release(); tick();
 
-  // The horn is a swept box, so its faces are quads drawn with an opaque rgb();
-  // the eyes are cones (ten points) and the ground is rgba(). Filtering to opaque
-  // quads leaves the puppet's own body, of which only the horn is meant to move.
-  const puppetQ = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 4 &&
-    !o.c.startsWith('rgba')).map((o) => o.c).join('|');
   M.restart(); M.place([]); M.look(0, 0);
-  rec.ops = []; tick();
-  const still0 = puppetQ(rec.ops);
+  const still0 = byKind(0).join('|');
   for (let i = 0; i < 20; i++) tick();
-  rec.ops = []; tick();
-  ok('the puppet holds its colours when nothing is charging',
-     puppetQ(rec.ops) === still0, 'a third of a second later, not a face has changed');
+  ok('the body holds its colours when nothing is charging',
+     byKind(0).join('|') === still0, 'a third of a second later, not a face has changed');
 
   hold(60);
-  rec.ops = []; tick();
-  const horn0 = puppetQ(rec.ops);
+  const horn0 = byKind(2).join('|');
   for (let i = 0; i < 12; i++) tick();
-  rec.ops = []; tick();
-  ok('and the horn runs the rainbow while charging, like the eyes',
-     puppetQ(rec.ops) !== horn0 && horn0 !== still0,
-     'the horn changed colour twice over - once from gold when the charge started, ' +
-     'and again a fifth of a second later as the cycle moved on');
+  ok('and the horn keeps moving as the charge cycle turns over',
+     byKind(2).join('|') !== horn0,
+     'it changed twice - once from gold when the charge started, and again a ' +
+     'fifth of a second later as the cycle moved on');
+  ok('while the body stays out of it',
+     byKind(0).join('|') === still0,
+     'only the paths the table marks as horn and eye take the rainbow');
   release(); tick();
   M.setFire(1);
 }
@@ -1304,7 +1083,11 @@ console.log('--- the HUD ------------------------------------------------------'
      kills.c + ', so the two do not compete');
 
   // hearts, doubled
-  const hearts = rec.ops.filter((o) => o.op === 'fill' && o.n === 6 && !o.a);
+  // Six-point fills used to mean hearts and nothing else. The unicorn sprite has
+  // paths of six points too, so the HUD half of the frame is what separates them:
+  // hearts live in the top strip, the animal hangs off the bottom.
+  const hearts = rec.ops.filter((o) => o.op === 'fill' && o.n === 6 && !o.a &&
+    o.p.every((q) => q[1] < 500 / 2));
   const wide = Math.max(...hearts.map((o) => Math.max(...o.p.map((q) => q[0])))) -
                Math.min(...hearts.map((o) => Math.min(...o.p.map((q) => q[0]))));
   const tall = Math.max(...hearts[0].p.map((q) => q[1])) - Math.min(...hearts[0].p.map((q) => q[1]));
@@ -1459,7 +1242,8 @@ console.log('--- the game over screen -----------------------------------------'
   ok('and every game object is gone with it',
      !rec.ops.some((o) => o.a) &&                                   // no minimap, no blips
      !rec.ops.some((o) => o.op === 'fill' && /^rgb\(/.test(o.c)) && // no puppet, no ghosts
-     !rec.ops.some((o) => o.op === 'fill' && o.n === 6),            // no hearts
+     !rec.ops.some((o) => o.op === 'fill' && o.n === 6 &&
+       o.p.every((q) => q[1] < 500 / 2)),                          // no hearts
      'nothing drawn but a black field and four lines');
   const bestLine = texts.find((o) => /^BEST/.test(o.s));
   const gameOver = texts.find((o) => o.s === 'GAME OVER');
@@ -2335,14 +2119,17 @@ console.log('--- the crosshair, and what it picks ------------------------------
   const off = M.aimWorld(7);
   const side = 0.5;
   const dd = Math.hypot(off[0], off[2]) || 1;
-  const before = M.dbg().yaw, poseBefore = M.poseCheck().aim;
+  const before = M.dbg().yaw, tipBefore = M.sprite().tip.slice();
   for (let i = 0; i < 30; i++) {
     M.place([[off[0] - off[2] / dd * side, C._GY, off[2] + off[0] / dd * side, 99, 99, 0, 0, 0, 0]]);
     tick();
   }
+  // The unicorn is a viewmodel: it is drawn in screen space and pinned there, so
+  // turning must move the world and leave the animal exactly where it was.
+  const tipAfter = M.sprite().tip;
   ok('and it turns the camera rather than the puppet',
      Math.abs(M.dbg().yaw - before) > 0.01 &&
-     Math.abs(M.poseCheck().aim - poseBefore) < 1e-9,
+     Math.hypot(tipAfter[0] - tipBefore[0], tipAfter[1] - tipBefore[1]) < 1e-9,
      'the view came round by ' + ((M.dbg().yaw - before) * 180 / Math.PI).toFixed(1) +
      ' degrees and the unicorn never moved - the horn still points exactly where the ' +
      'shots go, which is what keeps the assist honest');
@@ -2492,7 +2279,7 @@ console.log('--- aim assist, and the rest of the pass --------------------------
   put(off);
   const y0 = M.dbg().yaw;
   const xh0 = M.aimPoint();
-  const pose0 = JSON.stringify(M.poseCheck());
+  const pose0 = JSON.stringify(M.sprite());
   tick();
   ok('a ghost beside the crosshair pulls the camera toward it',
      Math.abs(M.dbg().yaw - y0) > 1e-6,
@@ -2502,8 +2289,8 @@ console.log('--- aim assist, and the rest of the pass --------------------------
   // target's range, so it slides a fraction of a pixel when that range changes.
   // That is the parallax fix doing its job, not the unicorn turning.
   ok('and it turns the camera, not the unicorn - the pose is untouched',
-     JSON.stringify(M.poseCheck()) === pose0,
-     'every number in poseCheck identical, and the crosshair moved ' +
+     JSON.stringify(M.sprite()) === pose0,
+     'every number in the sprite pose identical, and the crosshair moved ' +
      Math.hypot(M.aimPoint()[0] - xh0[0], M.aimPoint()[1] - xh0[1]).toFixed(2) +
      'px, which is the aim point converging to the new range');
 
@@ -3001,7 +2788,8 @@ console.log('');
 console.log('--- the heal, seen -----------------------------------------------');
 {
   M.setFire(0);
-  const heartsOf = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 6);
+  const heartsOf = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 6 &&
+    o.p.every((q) => q[1] < 500 / 2));
   const red = 'rgba(' + C._HPC.join(',') + ',1)';
 
   // lose a heart, clear the wave, take a card, and watch it come back
@@ -4006,7 +3794,8 @@ console.log('--- the title, the how-to, and the best ---------------------------
      rec.ops.some((o) => o.op === 'rect' && /^grad\(/.test(o.c)),
      'the same dusk wave 1 starts in - it is already being drawn, so it costs nothing');
   ok('and nothing of the run is on it',
-     !rec.ops.some((o) => o.op === 'fill' && o.n === 6) &&          // no hearts
+     !rec.ops.some((o) => o.op === 'fill' && o.n === 6 &&
+       o.p.every((q) => q[1] < 500 / 2)) &&                         // no hearts
      !rec.ops.some((o) => o.a),                                     // no minimap
      'no HUD, no minimap, no puppet');
   ok('and the button breathes like the card square does',

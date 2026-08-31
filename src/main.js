@@ -83,11 +83,29 @@ export const C = {
   // frame so there is no hole to see into, the silhouette has to reach the right
   // side, and half the screen height has to be VISIBLE - measuring the whole
   // bounding box once scored a buried puppet at 60% tall.
-  _PUP: [0.96, 1.02, 0.7],      // camera-space placement
-  _PUPS: 2.7,          // scale applied to the model's own units
-  _PUPA: -0.092,       // yaw. Solved, not chosen: this is the value that puts the
+  // The sprite's pose. Fractions of the screen height, like everything else in
+  // the HUD, so it lands in the same place at any resolution; _UY is measured up
+  // from the BOTTOM, because the animal hangs off the bottom-right corner and
+  // that is the edge it should stay welded to.
+  // PROVISIONAL: sized and placed onto the footprint the 3D puppet held, so the
+  // game looks right until the pose is re-tuned against the real thing. The
+  // user's own numbers were window pixels and need their screen height to
+  // convert.
+  _US: 0.0065,         // grid units to pixels
+  _UX: 1.0261,         // the horn tip, from the left
+  _UY: 0.338,          // and up from the bottom
+  _UROT: -0.0873,      // radians the sprite is turned, on top of how it is drawn.
+                      // -5.00 degrees. Its horn is drawn along -121.50, so the
+                      // line it ends up aiming along is -126.50.
+  _UEY: 40.17,         // the eye's own centre in grid units, so a blink flattens
+                      // it about itself rather than about the model's origin
+  _UHA: [0.5533, 0.8330],       // the horn axis, tip to base: the way recoil kicks
+  _URC: 0.012,         // and how far it kicks, as a fraction of the height
+  // Where the horn is SEEN to point. Stated rather than derived now that the
+  // horn is drawn: this is exactly what the solved 3D pose resolved to.
+  _AIMO: [0.7774, 0.5557, 2.9087],
+  _AIMD: [-0.0863, -0.0571, 0.9946],
                       // horn's line through the middle of the screen.
-  _PUPB: -0.2945,      // pitch, solved with it - yaw only moves the crosshair
                       // sideways, and it was 59px high. The pose is otherwise
                       // yours to set from the view a player
                       // sees; the servo below takes care of the aim, so nothing
@@ -99,9 +117,6 @@ export const C = {
   // leaves its own horn behind. These are applied on the way out of the table,
   // so one slider moves everything attached. Step 9 needs exactly these handles
   // anyway: recoil offsets the head group, and a blink flattens the eyes.
-  _HEADO: [0, -0.036, -0.064],  // head group: sideways, up, forward
-  _HEADS: 1,           // and its scale
-  _HEADR: [0, 0, 0],   // and its rotation about the joint where it meets the neck:
                       // pitch, yaw, roll. The pivot is derived from the head row
                       // rather than stored, so a retuned neck keeps the joint.
   // Eyes are discs on the flanks of the head, not rows in the table. They were
@@ -110,13 +125,10 @@ export const C = {
   // made of the hard-edged polygons DESIGN.md 5 asks for - no rounded primitive.
   // Placed against the head rather than in model coordinates, so they stay on it
   // when the head is retuned:
-  _EYES: [0.028, 0.37, 0.78, 0.028, 0.005],
                       // up, how far along the head, how far out as a multiple of
                       // the head's own half-width there, radius, and how far the
                       // disc stands proud
-  _BODY: [246, 245, 252],       // the unicorn is white
   _GOLD: [255, 214, 10],        // the horn. The brightest single thing on screen.
-  _IRIS: [58, 150, 255],        // blue eyes
   // The mane is placed as ONE thing: where its middle sits along the neck and how
   // much of the neck it covers. It used to be a first position and a last one,
   // which meant moving the mane took two sliders that had to be moved by the same
@@ -126,15 +138,7 @@ export const C = {
   // not on it - along a crest direction computed from the raw table row rather
   // than the posed one. Rebuilt: every tuft is rooted exactly on the surface the
   // neck actually has, at the width it actually has there.
-  _MANEN: 5,           // tufts
-  _MANEC: 0.45,        // where the middle of the mane sits, 0 = base, 1 = poll
-  _MANEW: 0.7,         // and how much of the neck it covers
-  _MANEH: 0.09,        // how far each tuft rises off the surface
-  _MANEB: 0.01,        // and how far it sweeps back while it does. A mane lies
                       // back along the neck; straight up reads as a fin.
-  _MANER: 0.01,        // tuft thickness - a maximum, clamped to leave a gap
-  _MANEG: 0.31,        // that clamp, as a fraction of a tuft's own slot
-  _MANEP: 0.04,        // tip thickness as a fraction of the root. Low is pointy.
 
   // The rainbow IS the cooldown readout (DESIGN.md 6): fully coloured means the
   // bind is ready, washed out means it is recharging, and there is no bar to
@@ -202,11 +206,8 @@ export const C = {
   // A dark edge on the neck and head only. They are one colour meeting one
   // colour, so without it the joint between them is invisible; the horn, eyes and
   // mane already separate themselves by being a different colour entirely.
-  _OUTL: 0.0022,       // width, as a fraction of screen height. Thin on purpose.
-  _OUTA: 0.5,          // and its opacity
 
   // --- Animation (DESIGN.md 6) ----------------------------------------------
-  _RECOIL: 0.3,        // metres the puppet kicks back along its OWN axis on firing.
                       // Measured on screen: 0.1 moves the horn tip 5px, 0.3 moves
                       // it 16px, 0.6 moves it 35px.
   _RECT: 0.16,         // and the seconds it takes to ease back out
@@ -659,7 +660,6 @@ export const proj = (p) => {
 export let FACES = [];
 // Set around a part to have its faces outlined. A flag rather than a parameter
 // because it would otherwise have to be threaded through every generator.
-let OUT = 0;
 const ID = (x, y, z) => [x, y, z];             // for geometry already in the space it is wanted in
 
 const push = (vs, col, ins) => {
@@ -675,7 +675,7 @@ const push = (vs, col, ins) => {
   if ((ax / k - ins[0]) * nx + (ay / k - ins[1]) * ny + (az / k - ins[2]) * nz < 0) {
     nx = -nx; ny = -ny; nz = -nz;
   }
-  FACES.push([vs, nx, ny, nz, col, OUT]);
+  FACES.push([vs, nx, ny, nz, col]);
 };
 
 // A frame: an origin and three axes already scaled to the half-extents wanted.
@@ -778,14 +778,12 @@ export const flush = (world = 1) => {
     // the view vector to the face.
     const n = world ? cam([f[1], f[2], f[3]]) : [f[1], f[2], f[3]];
     if (n[0] * vs[0][0] + n[1] * vs[0][1] + n[2] * vs[0][2] >= 0) continue;
-    draw.push([z / vs.length, vs, shade(f[4], f[1], f[2], f[3]), f[5]]);
+    draw.push([z / vs.length, vs, shade(f[4], f[1], f[2], f[3])]);
   }
   // DESIGN.md 5 says the viewmodel is not depth sorted - meaning not sorted
   // against the world, which it never is: it is drawn afterwards, on top. Its own
   // parts still have to occlude each other, or the horn draws through the head.
   draw.sort((a, b) => b[0] - a[0]);
-  g.lineWidth = C._OUTL * H;
-  g.strokeStyle = 'rgba(0,0,0,' + C._OUTA + ')';
   for (const d of draw) {
     g.fillStyle = d[2];
     g.beginPath();
@@ -795,7 +793,6 @@ export const flush = (world = 1) => {
     }
     g.closePath();
     g.fill();
-    if (d[3]) g.stroke();
   }
   FACES = [];
   return draw.length;
@@ -860,13 +857,10 @@ try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode *
 // its tip, carried on out into the world. The crosshair sits on it and the shots
 // follow it, so what you are aiming at is what the horn is aiming at - the camera
 // axis is not involved.
-const aimRay = () => {
-  const q = eff(2);
-  const b = T(q[0], q[1], q[2]), t = T(q[3], q[4], q[5]);
-  const d = [t[0] - b[0], t[1] - b[1], t[2] - b[2]];
-  const L = hypot(d[0], d[1], d[2]) || 1;
-  return [t, [d[0] / L, d[1] / L, d[2] / L]];
-};
+// The horn is drawn, not modelled, so the line it aims along is stated rather
+// than derived. These two are the pose the 3D horn used to resolve to, kept so
+// the crosshair lands where it always did and every aiming check still holds.
+const aimRay = () => [C._AIMO, C._AIMD];
 
 // How far along that line the thing you are aiming at sits. Anything within AIMR
 // of the line counts; the closest to it wins.
@@ -932,8 +926,7 @@ const fire = () => {
   // From where the horn tip is SEEN to be, toward whatever is under the
   // crosshair. The puppet is posed, not aimed - so the shot's direction is the
   // player's, while its origin is the horn's.
-  const q = eff(2);
-  const c = T(q[3], q[4], q[5]);                 // the horn tip, camera space
+  const c = C._AIMO;                             // the horn tip, camera space
   const k = (C._F / (C._F + c[2])) / (C._F / (C._F + C._MUZZ));
   const o = unCam(c[2] > C._MUZZ ? [c[0] * k, c[1] * k, C._MUZZ] : c);
   const p = unCam(aimAt());
@@ -1086,12 +1079,6 @@ const onKey = (e) => {
 // pitching the whole puppet 66 degrees to achieve that buried the head below the
 // frame. It now leaves the forehead at 15 degrees, the same length as before.
 // ---------------------------------------------------------------------------
-export const PARTS = [
-  [0.1, 0.11, 0.2, 0.088, 0.27, 0.364, 0.075, 0.115, 0.05, 0.085, 0],    // neck
-  [0.076, 0.33, 0.346, 0.1, 0.324, 0.7, 0.06, 0.104, 0.06, 0.04, 0],     // head
-  [0.1, 0.336, 0.42, 0.1, 0.548, 1, 0.03, 0.03, 0.002, 0.002, 1],        // horn
-];
-const MAT = [C._BODY, C._GOLD];
 
 // A part's endpoints with its group offsets folded in. Everything that draws or
 // aims reads the table through this, so the head, horn and eyes cannot drift
@@ -1099,47 +1086,12 @@ const MAT = [C._BODY, C._GOLD];
 // The head group's rotation, applied to a direction. Kept separate from the point
 // version so the eyes can push out along the head's rotated flank instead of along
 // model x, which is where they would stay if only positions were rotated.
-const hrot = (a, b, c) => {
-  const [rx, ry, rz] = C._HEADR;
-  const cx = cos(rx), sx = sin(rx), cw = cos(ry), sw = sin(ry), cz = cos(rz), sz = sin(rz);
-  const a2 = a * cw + c * sw, c2 = c * cw - a * sw;    // yaw, about up
-  const b2 = b * cx - c2 * sx, c3 = c2 * cx + b * sx;  // pitch, about the flank
-  return [a2 * cz - b2 * sz, a2 * sz + b2 * cz, c3];   // roll, about the muzzle
-};
 // And to a point: scaled and rotated about the joint, then moved.
-const hmap = (x, y, z) => {
-  const P0 = PARTS[1], k = C._HEADS;
-  const v = hrot((x - P0[0]) * k, (y - P0[1]) * k, (z - P0[2]) * k);
-  return [P0[0] + v[0] + C._HEADO[0], P0[1] + v[1] + C._HEADO[1], P0[2] + v[2] + C._HEADO[2]];
-};
 
-export const eff = (i) => {
-  const q = PARTS[i].slice();
-  if (i) {                                       // head, horn and eyes ride together
-    const a = hmap(q[0], q[1], q[2]), b = hmap(q[3], q[4], q[5]);
-    q[0] = a[0]; q[1] = a[1]; q[2] = a[2];
-    q[3] = b[0]; q[4] = b[1]; q[5] = b[2];
-    for (const k of [6, 7, 8, 9]) q[k] *= C._HEADS;
-  }
-  return q;
-};
 // The neck's base: where the forearm enters, and so what the puppet pivots about.
-const PIV = [PARTS[0][0], PARTS[0][1], PARTS[0][2]];
 
 // Model space into camera space. A rigid placement plus a uniform scale, so
 // normals stay normals and push() can go on deriving them from the geometry.
-const T = (x, y, z) => {
-  const s = C._PUPS, ca = cos(C._PUPA), sa = sin(C._PUPA), cb = cos(C._PUPB), sb = sin(C._PUPB);
-  const a = (x - PIV[0]) * s, b = -(y - PIV[1]) * s, c = (z - PIV[2]) * s;
-  const a2 = a * ca + c * sa, c2 = c * ca - a * sa;
-  // Recoil, back along the puppet's own axis rather than straight at the camera:
-  // (sa, -ca*sb, ca*cb) is where its nose points once the pose has been applied.
-  // Squared, so it snaps back and then eases the last of the way out.
-  const k = rec * rec * C._RECOIL;
-  return [C._PUP[0] + a2 - k * sa,
-          C._PUP[1] + b * cb - c2 * sb + k * ca * sb,
-          C._PUP[2] + c2 * cb + b * sb - k * ca * cb];
-};
 
 // Charging, the eyes and the horn run the rainbow. It eases in over the charge,
 // so the colour arriving in them is also the clock: full rainbow is the moment it
@@ -1152,29 +1104,6 @@ const charged = (base) => {
 
 // The head lies in the sagittal plane, so its own lateral axis is exactly x and
 // an eye is a shallow disc pushed out along it.
-const eyes = () => {
-  const q = eff(1), t = C._EYES[1];
-  const ax = q[0] + (q[3] - q[0]) * t + hrot(0, C._EYES[0], 0)[0];
-  const u0 = hrot(0, C._EYES[0], 0);              // "up" is the head's up, not the world's
-  const ay = q[1] + (q[4] - q[1]) * t + u0[1];
-  const az = q[2] + (q[5] - q[2]) * t + u0[2];
-  const hw = q[6] + (q[8] - q[6]) * t;           // the head's half-width there
-  const r = C._EYES[3] * C._HEADS, d = C._EYES[4] * C._HEADS;
-  // Out along the head's OWN flank, which is only model x while the group is
-  // unrotated. The up and forward axes of the disc follow the head too.
-  const fl = hrot(1, 0, 0), up = hrot(0, 1, 0), fw = hrot(0, 0, 1);
-  // A blink is the eye's own height going to almost nothing and back. Shaped with
-  // a sine so it closes and opens rather than switching.
-  const bk = blink > 0 ? 1 - (1 - C._BLINKS) * sin(PI * blink / C._BLINKD) : 1;
-  const ic = charged(C._IRIS);
-  for (const sx of [1, -1]) {
-    const o = hw * C._EYES[2] * C._HEADS + d / 2;
-    cone(frame([ax + sx * fl[0] * o, ay + sx * fl[1] * o, az + sx * fl[2] * o],
-               [up[0] * r * bk, up[1] * r * bk, up[2] * r * bk],
-               [sx * fl[0] * d / 2, sx * fl[1] * d / 2, sx * fl[2] * d / 2],
-               [fw[0] * r, fw[1] * r, fw[2] * r]), 10, ic, T);
-  }
-};
 
 // The mane: a row of tufts standing on the neck's top face.
 //
@@ -1184,31 +1113,6 @@ const eyes = () => {
 // point is exactly how far out the surface is. Reading both off the POSED neck
 // means the mane follows it: retune the neck, lean it, scale it, and the mane
 // stays welded to the top of it.
-const mane = () => {
-  const nk = eff(0);
-  const dx = nk[3] - nk[0], dy = nk[4] - nk[1], dz = nk[5] - nk[2];
-  const L = hypot(dx, dy, dz) || 1;
-  const py = dy / L, pz = dz / L;
-  // Normalised in its own plane. Built from components already divided by the 3D
-  // length it came out short whenever the neck leaned sideways, and every root
-  // sank a fraction into the surface it was supposed to be standing on.
-  const pL = hypot(dy, dz) || 1;
-  const uy = dz / pL, uz = -dy / pL;             // straight up out of the top face
-  const span = C._MANEN > 1 ? (C._MANEW / (C._MANEN - 1)) * L : 1;
-  const r = min(C._MANER, span * C._MANEG);
-  // Washed by how far the bind has recharged: full colour ready, drained grey
-  // the moment it is cast. This is the cooldown readout.
-  const k = C._SAT0 + (1 - C._SAT0) * (1 - bindT / sCd());
-  for (let i = 0; i < C._MANEN; i++) {
-    const t = C._MANEC + (C._MANEN < 2 ? 0 : C._MANEW * (i / (C._MANEN - 1) - 0.5));
-    const h = nk[7] + (nk[9] - nk[7]) * t;       // the neck's half-height here
-    const ax = nk[0] + dx * t, ay = nk[1] + dy * t, az = nk[2] + dz * t;
-    const ry = ay + uy * h, rz = az + uz * h;    // the root, on the surface
-    swept(T, ax, ry, rz,
-          ax, ry + uy * C._MANEH - py * C._MANEB, rz + uz * C._MANEH - pz * C._MANEB,
-          r, r, r * C._MANEP, r * C._MANEP, wash(RBV[1 + (i % 5)], k));
-  }
-};
 
 const mix = (a, b, k) =>
   [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
@@ -1220,24 +1124,53 @@ const wash = (c, k) => {
   return [l + (c[0] - l) * k, l + (c[1] - l) * k, l + (c[2] - l) * k];
 };
 
-const puppet = () => {
-  for (let i = 0; i < PARTS.length; i++) {
-    const q = eff(i);
-    OUT = i < 2;                                 // neck and head carry the outline
-    // The horn is the last part, and the only one that takes the charge colour.
-    swept(T, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9],
-          i === 2 ? charged(C._GOLD) : MAT[q[10]], i ? C._HEADR[2] : 0);
-  }
-  OUT = 0;
-  eyes();
-  flush(0);
-  // The mane goes over the top, in its own pass. It sits ON the neck's surface,
-  // so depth sorting puts half of every tuft behind the neck it is standing on -
-  // correct, and unreadable. Painting it after the body it belongs to is the same
-  // trick DESIGN.md 5 uses for the viewmodel against the world.
-  mane();
-  flush(0);
+const UV="!!$#))-.2446659/:0;6;7>4@2A2B;F8G7H7HAJ?O<O<OHVDWDVJUQ\\N]M^M^R]Z\\\\eXfXe_djhomtpyp~8~7u6o5h2_2\\1\\/_+a)a%^#Y$V%R&N%J%F&B&@$=#7\"5&6*8,9(0$(!\"O<O<OHVDWDVJUQ\\N]M^M^R]Z\\\\eXfXe_diboXnUmPaLZFNFNELBGBEGAJ@^M^M^R]Z\\\\eXfXe_diboXnUmPbQ`S\\XV\\P]N^N0P1P5Y9c<v<~8~7u6o5h2_2\\1\\/_+a)a'_(^+X+W,W-U9/:0;6;7>4@2A2B;F8G7H7HAIAFCCE@E=A=?;?9<9:996947eXfXe_diboXnVmXi\\da]dYO<O<OIGMEMBGBEGAJ@cjekjqmupyp~o~kzftVnXmanbock\"5#5&8*<+A+E'N&N'V&Z&^%^#Y$V%R&N%J%F&B&@$=#7!!$#))-.244607-9,9&-#'!\"^M^M^R]Z\\\\QaPbQ`S\\XV\\P]N^NVDVDQLLUJVFNGMOHG7H7HAIAFCCE@E=A=?B;F8VDWEVJUQLWKWKUOOTHO<O<OIHMFMIGN>G7H7HAIAFCCEAEBC@2A2B8B<>?;?<=@4@3@4<>;>8;9:;7<7=6&L(L'N&N'V&Z&^%^#Y$V%R#5&6+9-9-;+<)<#6#%$'*1-8-9,9&-#',;-<-@,B+D+D*>*<9192796947'A(B(F'G&G&J%J%F&G(G(J(L&L&G*9-9-;+<*<UPUPUQMVLVSQTQ";
+const UL="f>479,*/7-.),*())*,)))&)'&(";
+const UC="eb_wQ\"m00MKHB\"ZS)*C\\7WTRROMyg4[=#vf($;n]O#8K+\"1Y+%O5,bXUSqml_O)][WS'l[UW4@[lhfVH\"";
+const UK="011011100211111111002010301";
+// The unicorn is a flat 3/4 sprite now (DESIGN.md 5's hard-edged polygons, drawn
+// in screen space rather than projected). Four packed strings: UV is the
+// vertices, two chars a point on a 0..93 grid; UL is how many points each path
+// has; UC is its colour, three chars; UK is what the path IS, which is what
+// lets the drawing keep carrying state:
+//   0 body   1 mane   2 horn   3 eye
+// The mane is still the cooldown readout DESIGN.md 6 asks for - fully coloured
+// means the bind is ready, washed grey means it is recharging - and the horn and
+// eye still run the rainbow while a charge builds. None of that survives baking
+// colours into a string unless the string also says which path is which.
+const uch = (s, i) => s.charCodeAt(i) - 33;
+// Where the sprite sits this frame, and how it is turned. Split out because the
+// horn tip is the model's own origin, so this IS the horn tip on screen - which
+// the aim seam and the checks both want, and neither should re-derive.
+// Recoil kicks the whole animal back along the horn's own axis, the same idea
+// the 3D transform used, in the plane it is now drawn in.
+const upos = () => {
+  const kick = rec * rec * C._URC * H;
+  const ca = cos(C._UROT), sa = sin(C._UROT);
+  return [C._UX * H + kick * (C._UHA[0] * ca - C._UHA[1] * sa),
+          H - C._UY * H + kick * (C._UHA[0] * sa + C._UHA[1] * ca),
+          C._US * H, ca, sa];
 };
+const puppet = () => {
+  const w = C._SAT0 + (1 - C._SAT0) * (1 - bindT / sCd());
+  const bk = blink > 0 ? 1 - (1 - C._BLINKS) * sin(PI * blink / C._BLINKD) : 1;
+  const [X, Y, S, ca, sa] = upos();
+  for (let i = 0, v = 0; i < UL.length; i++) {
+    const n = uch(UL, i), k = UK.charCodeAt(i) - 48;
+    let c = [uch(UC, i * 3) * 2.742, uch(UC, i * 3 + 1) * 2.742, uch(UC, i * 3 + 2) * 2.742];
+    if (k === 1) c = wash(c, w); else if (k) c = charged(c);
+    g.fillStyle = css(c, 1);
+    g.beginPath();
+    for (let j = 0; j < n; j++, v += 2) {
+      const ux = uch(UV, v) * S;
+      // A blink is the eye's own height going to almost nothing about its centre.
+      const uy = (k === 3 ? C._UEY + (uch(UV, v + 1) - C._UEY) * bk : uch(UV, v + 1)) * S;
+      g.lineTo(X + ux * ca - uy * sa, Y + ux * sa + uy * ca);
+    }
+    g.fill();
+  }
+};
+
 
 // ---------------------------------------------------------------------------
 // Ghosts (DESIGN.md 7). Not solid geometry: a blob outline with a sine-deformed
@@ -2756,6 +2689,12 @@ export const setScr = (v) => { scr = v; };
 export const hudBtn2 = hudBtn;
 // Test and editor seams. Dropped from the app build, so they cost nothing.
 export const drawPuppet = () => puppet();
+// What the sprite IS, for the checks: where its horn tip lands on screen, and
+// what each path is for. Both are read off the same data the frame draws from,
+// so a check cannot pass against a model the game is not using.
+export const sprite = () => ({ tip: upos().slice(0, 2), scale: upos()[2],
+                               paths: UL.length, kinds: UK,
+                               mane: UK.split('1').length - 1 });
 // What a pose has to satisfy, measured rather than eyeballed: how far the horn
 // points from the line a shot to a 10m target takes, and where the neck's arm
 // opening lands relative to the bottom of the frame.
@@ -2765,23 +2704,6 @@ export const aimPoint = () => proj(aimAt());   // editor and tests
 export const aimWorld = (r) => {
   const [o, u] = aimRay();
   return unCam([o[0] + u[0] * r, o[1] + u[1] * r, o[2] + u[2] * r]);
-};
-export const poseCheck = () => {
-  const q = eff(2), b = T(q[0], q[1], q[2]), t = T(q[3], q[4], q[5]);
-  const d = [t[0] - b[0], t[1] - b[1], t[2] - b[2]], dl = hypot(d[0], d[1], d[2]);
-  const w = [-t[0], -t[1], 10 - t[2]], wl = hypot(w[0], w[1], w[2]);
-  const k = eff(0);
-  const capY = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([su, sv]) => {
-    const P2 = T(k[0] + su * k[6], k[1], k[2] + sv * k[7]);
-    return P2[1] * (C._F / (C._F + P2[2])) * PX + H / 2;
-  });
-  return {
-    aim: Math.acos(max(-1, min(1, (d[0] * w[0] + d[1] * w[1] + d[2] * w[2]) / (dl * wl)))) * 180 / PI,
-    cap: min(...capY) - H,
-    // Where the horn tip lands on screen, through the real transform rather than
-    // a rebuilt copy of it.
-    tip: proj(t),
-  };
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
