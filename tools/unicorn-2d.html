@@ -57,7 +57,14 @@ const { C } = M;
 const KEYS = ['_US', '_UX', '_UY', '_UROT'];
 const DEF = {};
 KEYS.forEach((k) => (DEF[k] = C[k]));
-try { Object.assign(C, JSON.parse(localStorage.uni2d || '{}')); } catch (e) {}
+// Only restore keys this editor owns. The earlier version of this file kept a
+// different shape under the same name - scale/x/y/rot in window pixels - and
+// assigning that wholesale would bolt four junk properties onto C and restore
+// nothing, silently.
+try {
+  const saved = JSON.parse(localStorage.uni2d || '{}');
+  KEYS.forEach((k) => { if (typeof saved[k] === 'number') C[k] = saved[k]; });
+} catch (e) {}
 const save = () => {
   try { localStorage.uni2d = JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, C[k]]))); }
   catch (e) {}
