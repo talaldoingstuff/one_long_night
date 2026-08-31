@@ -57,16 +57,22 @@ const { C } = M;
 const KEYS = ['_US', '_UX', '_UY', '_UROT'];
 const DEF = {};
 KEYS.forEach((k) => (DEF[k] = C[k]));
-// Only restore keys this editor owns. The earlier version of this file kept a
-// different shape under the same name - scale/x/y/rot in window pixels - and
-// assigning that wholesale would bolt four junk properties onto C and restore
-// nothing, silently.
+// Only restore keys this editor owns, and only from the CURRENT key. _UX used to
+// mean "from the left edge" and now means "from the centre", so an older save is
+// not merely stale - applying it throws the unicorn clean off the side. The key
+// name carries the meaning, so a change of meaning gets a new name.
+// Values are sanity-checked too: anything outside the slider's own range is
+// ignored rather than trusted.
 try {
-  const saved = JSON.parse(localStorage.uni2d || '{}');
-  KEYS.forEach((k) => { if (typeof saved[k] === 'number') C[k] = saved[k]; });
+  const saved = JSON.parse(localStorage.uni2dc || '{}');
+  const SANE = { _US: [0.001, 0.03], _UX: [-1.5, 1.5], _UY: [-1, 2], _UROT: [-2, 2] };
+  KEYS.forEach((k) => {
+    const v = saved[k];
+    if (typeof v === 'number' && isFinite(v) && v >= SANE[k][0] && v <= SANE[k][1]) C[k] = v;
+  });
 } catch (e) {}
 const save = () => {
-  try { localStorage.uni2d = JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, C[k]]))); }
+  try { localStorage.uni2dc = JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, C[k]]))); }
   catch (e) {}
 };
 const DEG = 180 / Math.PI;
@@ -209,7 +215,8 @@ const tick = () => {
     '_UY: ' + C._UY.toFixed(4) + ',',
     '_UROT: ' + C._UROT.toFixed(4) + ',',
     '',
-    'window ' + innerWidth + ' x ' + innerHeight,
+    'window ' + innerWidth + ' x ' + innerHeight +
+      '   (aspect ' + (innerWidth / innerHeight).toFixed(2) + ')',
     'horn tip at ' + M.sprite().tip.map((v) => v.toFixed(0)).join(', ') +
       ', ' + (93 * M.sprite().scale).toFixed(0) + 'px tall',
     '',
