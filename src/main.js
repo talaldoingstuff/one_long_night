@@ -2274,8 +2274,10 @@ const overScreen = (u) => {
   g.fillStyle = '#fff';
   g.font = (u * 1.3 | 0) + 'px monospace';
   g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.5);
-  // Set apart from the result: it is an instruction, not part of the score.
-  g.fillStyle = '#8b93b8';
+  // Set apart from the result by its size, not by being dimmed: it is the one
+  // thing on the screen the player has to act on, and the three screens that
+  // carry this instruction all say it in the same white.
+  g.fillStyle = '#fff';
   g.font = (u * 0.8 | 0) + 'px monospace';
   g.fillText('CLICK ANYWHERE TO PLAY AGAIN', W / 2, H / 2 + u * 3.4);
   g.textAlign = 'left';
@@ -2375,7 +2377,7 @@ const HOWTO = [
 // the one thing that is not required - aiming at it. The game over screen has
 // said CLICK ANYWHERE all along; these two now agree with it.
 const anywhere = (label, y, u) => {
-  g.fillStyle = '#8b93b8';
+  g.fillStyle = '#fff';
   g.font = (u * 0.8 | 0) + 'px monospace';
   g.fillText(label, W / 2, y);
 };
