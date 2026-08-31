@@ -167,7 +167,7 @@ const paint = () => {
 
 h2('placement');
 slider('scale', '_US', 0.002, 0.02, 0.0001, 4, 0.0008);
-slider('x', '_UX', -0.8, 1.2, 0.001, 3, 0.04);
+slider('x', '_UX', 0.2, 2.2, 0.001, 3, 0.04);
 slider('y', '_UY', -0.4, 1.2, 0.001, 3, 0.04);
 slider('rotation', '_UROT', -60, 60, 0.01, 2, 3, (v) => v * DEG, (v) => v / DEG);
 btn('FINE off', (b) => {
@@ -178,7 +178,7 @@ btn('FINE off', (b) => {
 });
 note('drag for coarse, - and + for one step, or type an exact value. FINE narrows every slider to a small window around where it sits. A focused slider also takes arrow keys, one step each.');
 note('x and y place the HORN TIP, and rotation pivots on it - the model origin is the tip. Rotation shows degrees and stores radians.');
-note('x is measured from the CENTRE of the window, so the pose holds at any aspect ratio. Scale and y are fractions of the height; y counts UP from the bottom.');
+note('x is measured from the LEFT edge, y UP from the bottom, both as fractions of the screen HEIGHT. Measuring x from the centre would hold better across aspect ratios, but it moved the pose that was tuned by eye, so it does not.');
 
 h2('compare');
 btn('ghosts on', (b) => {

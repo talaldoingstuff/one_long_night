@@ -93,15 +93,22 @@ export const C = {
   // wrong about.
   //
   // All three are fractions of the screen HEIGHT, and x is measured from the
-  // CENTRE rather than the left edge. That last part matters: the 3D puppet was
-  // placed in camera space, which projects as W/2 plus something scaled by H, so
-  // it sat the same distance from the middle whatever the window. Measuring from
-  // the left instead put the unicorn 93% across a 4:3 window and 52% across a
-  // 21:9 one - out at the edge on one and stranded in the middle on the other -
-  // and dragged the crosshair 59px off centre with it, because the aim ray
-  // starts at the horn tip.
+  // LEFT edge. That is not what the 3D puppet did - it was placed in camera
+  // space, which projects as W/2 plus something scaled by H, so it held the same
+  // distance from the middle whatever the shape of the window - and measuring
+  // from the centre instead is defensible on paper: it keeps the animal 69%
+  // across at any aspect rather than 93% on a 4:3 screen and 52% on a 21:9 one,
+  // and it holds the crosshair within a few pixels of the middle rather than
+  // letting it drift up to 59px out.
+  //
+  // It is measured from the left anyway, because the pose was tuned by eye at
+  // one real window and the centre-anchored version moved it. Whatever the
+  // arithmetic says, the thing was right and then it was not. Changing this
+  // needs that window's aspect ratio to re-solve _UX against, so that the pose
+  // stays where it was tuned AND holds on other screens; until then, tuned
+  // beats theoretically portable.
   _US: 0.0060,         // grid units to pixels
-  _UX: 0.340,          // the horn tip, RIGHT of the screen centre
+  _UX: 1.240,          // the horn tip, from the left
   _UY: 0.400,          // and up from the bottom
   _UROT: -0.0873,      // radians the sprite is turned, on top of how it is drawn.
                       // -5.00 degrees. Its horn is drawn along -121.50, so the
@@ -1171,8 +1178,7 @@ const uch = (s, i) => s.charCodeAt(i) - 33;
 // checks all want. Deliberately without the recoil kick: that belongs to the
 // drawing, and a crosshair that shook every time you fired would be aiming at
 // the recoil rather than at the ghost.
-const upos = () => [W / 2 + C._UX * H, H - C._UY * H, C._US * H,
-                    cos(C._UROT), sin(C._UROT)];
+const upos = () => [C._UX * H, H - C._UY * H, C._US * H, cos(C._UROT), sin(C._UROT)];
 const puppet = () => {
   const w = C._SAT0 + (1 - C._SAT0) * (1 - bindT / sCd());
   const bk = blink > 0 ? 1 - (1 - C._BLINKS) * sin(PI * blink / C._BLINKD) : 1;
