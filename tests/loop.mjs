@@ -4092,7 +4092,10 @@ console.log('--- the title, the how-to, and the best ---------------------------
   M.restart(); M.look(0, 0); M.place([]);
   draw();
   const boxes = [0, 1].map((i) => M.hudBtn2(i));
-  const marks = rec.ops.filter((o) => o.op === 'text' && (o.s === 'M' || o.s === 'X'));
+  // M for mute, a right arrow for quit - leaving a run is going somewhere rather
+  // than closing something, and the arrow is the glyph the how-to line already
+  // uses for a direction.
+  const marks = rec.ops.filter((o) => o.op === 'text' && (o.s === 'M' || o.s === '→'));
   ok('a run carries a mute and a quit button, always',
      marks.length === 2 && boxes.every(([x, y, w2, h2]) =>
        x > 0 && y > 0 && x + w2 <= 900 && y + h2 <= 500),

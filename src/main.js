@@ -2049,7 +2049,9 @@ const hud = () => {
     g.fillStyle = i || !muted ? '#8b93b8' : css(C._GOLD, 1);
     g.font = (uu * 0.8 | 0) + 'px monospace';
     g.textAlign = 'center';
-    g.fillText(i ? 'X' : 'M', bx + bs / 2, by + bs * 0.72);
+    // A right arrow rather than an X: leaving a run is going somewhere, not
+    // closing something. The glyph is already in the file, on the how-to line.
+    g.fillText(i ? '→' : 'M', bx + bs / 2, by + bs * 0.72);
     g.textAlign = 'left';
   }
   g.globalAlpha = 1;
