@@ -381,16 +381,20 @@ game ceiling, so 505 bytes free with the 800-byte Wavedash reserve and the 1,012
 contingency untouched. All 149 commits are on `origin/main`
 (github.com/talaldoingstuff/one_long_night, private). Checks: 506 + 24 pass.
 
+**The jam theme is "Unicorns and Rainbows".**
+
 What remains is step 10, the ship pass, plus the unicorn rebrand.
 
 ### Blocked on answers only the user has
 
 - Wavedash global name (`Wavedash` or `WavedashJS`) and the third argument to
-  `uploadLeaderboardScore`. This ships in the **September 13** zip, not the 20th
-- **The 2026 jam theme.** Recorded nowhere in this document, and entries are
-  expected to follow it
-- Repo visibility. Private is right during the build; js13k needs the source
-  public at submission
+  `uploadLeaderboardScore`. Deferred: the user is handing over the SDK docs and
+  the answer comes out of those. Ships in the **September 13** zip, not the 20th
+- ~~The 2026 jam theme.~~ **Answered: "Unicorns and Rainbows".** The unicorn and
+  the rainbow that is both weapon and cooldown readout are the theme itself, not
+  flavour over a wave shooter, so nothing has to be added to be on it
+- ~~Repo visibility.~~ **Settled:** private through the build, flipped to public
+  immediately before submission
 - Confirm with the organisers that a feature-gated SDK global does not count as
   an external resource for the overall ranking (the rules invite the question)
 
@@ -407,13 +411,24 @@ What remains is step 10, the ship pass, plus the unicorn rebrand.
 5. **Store page metadata** - listing art, screenshots, description. Platform
    metadata, not inside the 13KB, and 15 says prepare it during the build
 
-### Flagged, unresolved, worth bytes only if the user says so
+### The four flagged items, ruled on 2026-08-31
 
-- `RAINBOW RADIUS` maxes at 18.66m inside a 16m arena, so the top upgrade tier
-  buys nothing
-- A waves-only leaderboard has no tiebreak
+- ~~`RAINBOW RADIUS`~~ **fixed.** It compounded at 1.2 from 9m, so the ladder ran
+  9, 10.8, 12.96, 15.55, 18.66 inside a 16m arena: the fourth card already caught
+  anything off the spawn ring and the fifth spent one of only three between-wave
+  offers on 3.11m of empty space outside the arena. The growth is metres added
+  rather than a factor now - 1.5 a level, so 9, 10.5, 12, 13.5, 15. Ghosts arrive
+  on a ring at a constant speed, so the number caught goes with r rather than r
+  squared and even steps in metres are even value four times over; the ground
+  covered still escalates, 11.4 points of the arena for the first card and 16.7
+  for the last. 15 leaves the spawn ring a sanctuary about a second wide, so a
+  maxed bind clears the floor without being a literal screen clear. Every level
+  above the base is weaker than it was, so no wave that survived can destabilise
+- A waves-only leaderboard has no tiebreak. **Won't fix** - fine as it is
 - `THREAT LEVEL` displays a cosmetic `max(budget, wave + 5)` rather than the real
-  budget
-- Keyboard median 13 waves against a mouse's 28, after one round of tuning
+  budget. **Works as intended:** it exists so the early waves read as escalating,
+  and it does not drive what those waves actually spend
+- Keyboard median 13 waves against a mouse's 28. **Won't fix** - that came out of
+  the simulated input, which is not a model of a human playing
 
 Mobile is out of scope unless revisited: the entry category is Desktop, landscape.

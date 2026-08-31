@@ -403,7 +403,17 @@ export const C = {
   _REGEN: 1,           // hearts healed between waves before any card
   _FIREG: 1.2,         // each fire rate level, compounding
   _DMGG: 1.25,         // each horn damage level
-  _RADG: 1.2,          // each bind radius level
+  // Metres ADDED per level, not a factor: 9 to 15 in four steps of 1.5. A
+  // radius has a hard ceiling the other stats do not - the arena is 16m and
+  // ghosts walk in from its edge - and compounding overshot it. At 1.2 the
+  // ladder ran 9, 10.8, 12.96, 15.55, 18.66: the fourth card already caught
+  // anything off the spawn ring and the fifth spent a whole between-wave draw
+  // on 3.11m of empty space outside the arena. Ghosts arrive on a ring at a
+  // constant speed, so the number caught goes with r and not r squared, and
+  // even steps in metres are even value four times over. 15 leaves the ring
+  // itself a sanctuary - about a second of a ghost's life - so a maxed bind
+  // clears the floor without ever being a literal screen clear.
+  _RADG: 1.5,          // metres onto the bind radius per level
   _CDG: 1,             // seconds off the cooldown per level
   _DURG: 0.5,          // seconds onto the hold per level
   _CARDW: 0.175,       // a card's width, as a fraction of the screen
@@ -1284,7 +1294,7 @@ const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
 // downstream knows a card exists.
 const sFire = () => C._FIRE / C._FIREG ** lv[0];
 const sDmg = () => C._DMGG ** lv[1];
-const sRad = () => C._BINDR * C._RADG ** lv[2];
+const sRad = () => C._BINDR + C._RADG * lv[2];
 const sCd = () => C._BINDCD - C._CDG * lv[3];
 const sDur = () => C._BINDDUR + C._DURG * lv[4];
 const sRegen = () => C._REGEN + lv[6];
@@ -1332,7 +1342,7 @@ const deal = () => {
 // What a stat reads at a given level, so a card can show the step it buys rather
 // than a percentage the player has to trust.
 const statAt = (i, l) => [
-  1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR * C._RADG ** l,
+  1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR + C._RADG * l,
   C._BINDCD - C._CDG * l, C._BINDDUR + C._DURG * l, C._HEARTS + l, C._REGEN + l,
 ][i];
 
