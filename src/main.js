@@ -97,9 +97,9 @@ export const C = {
   _UROT: -0.0873,      // radians the sprite is turned, on top of how it is drawn.
                       // -5.00 degrees. Its horn is drawn along -121.50, so the
                       // line it ends up aiming along is -126.50.
-  _UEY: 40.17,         // the eye's own centre in grid units, so a blink flattens
+  _UEY: 39.80,         // the eye's own centre in grid units, so a blink flattens
                       // it about itself rather than about the model's origin
-  _UHA: [0.5533, 0.8330],       // the horn axis, tip to base: the way recoil kicks
+  _UHA: [0.5013, 0.8653],       // the horn axis, tip to base: the way recoil kicks
   _URC: 0.012,         // and how far it kicks, as a fraction of the height
   // Where the horn is SEEN to point. Stated rather than derived now that the
   // horn is drawn, and left exactly as the solved 3D pose resolved to: the
@@ -1133,17 +1133,18 @@ const wash = (c, k) => {
   return [l + (c[0] - l) * k, l + (c[1] - l) * k, l + (c[2] - l) * k];
 };
 
-const UV="!!$#))-.2446659/:0;6;7>4@3A2B;F8G7H7HAJ?O<O<OHVDWDVJUQ\\N^M^M^R]Z\\\\eXfXe_djhomtpyp~8~7u6o5h2_2\\1\\/_+a)a%^#Y$V%R&N%J%F&B&@$=#7\"5&6*8,9(0$(!\"O<O<OHVDWDVJUQ\\N^M^M^R]Z\\\\eXfXe_diboXnUmPaLZFNFNELBGBEHAJ?^M^M^R]Z\\\\eXfXe_diboXnUmPbQ`S\\XV\\P]N^N0P1P5Y9c<v<~8~7u6o5h2_2\\1\\/_+a)a'_(^+X+W,W-U9/:0;6;7>4@3A2B;F8G7H7HAIAFCCEAE=A=?;?8<9:996947eXfXe_diboXnUmXi\\da]dYO<O<OHGMFMBGBEHAJ?cjekjqmupyp~o~kzftVnXnanbock\"5#5&8*<+A+D'N&N'V&Z&^%^#Y$V%R&N%J%F&B&@$=#7!!$#))-.244607-9,9&-#'!\"^M^M^R]Z\\\\QaPbQ`S\\XV\\P]N^NVDWDQLLUJVFNGMOHG7H7HAIAFCCEAE=A=?B;F8WDWEVJUQLWKWKUOOTHO<O<OHHMFMIGN>G7H7HAIAFCCEAEBC@3A2B8B;>?;?<=@4@3@4<>;>8<9:;7<7=6&L(L'N&N'V&Z&^%^#Y$V%R#5&6+9-9,;+<)<#6#%$'*1-8-9,9&-#',;-<-@,B+D+D*>*<9192796947'A(B(F'G&G%J%J%F&G'G(J(L&L&G*8-9,;+<*<UPUPUQMVLVSQTQ";
-const UL="f>479,*/7-.),*())*,)))&)'&(";
-const UC="eb_wQ\"m00MKHB\"ZS)*C\\7WTRROMyg4[=#vf($;n]O#8K+\"1Y+%O5,bXUSqml_O)][WS'l[UW4@[lhfVH\"";
-const UK="011011100211111111002010301";
-// Vertices are welded before they are quantised. Two paths that share a corner
-// have to land in ONE grid cell, or the edges meeting there split and whatever
-// is behind them shows through - which is what was bleeding along the mane. The
-// grid is 2.58 model units, about 4.8px at a 800-tall window, so a corner given
-// twice at slightly different coordinates could round two ways and leave a
-// sliver up to 3px wide. Welding at 1.5 units closed all 53 of them and moves
-// the shape by at most 1.06 units, which is under a quarter of a grid step.
+const UV="!!%%46659/;7A2B;H7HAO<OHWDVQ^M\\\\fXdjpyp~8~5j2\\0\\/^-`)`%]#Y&N%F'A#8\"5+9,9!\"!!%%35565779998;<?>?=@AE6G?\\L~8~5j2\\0\\/^-`*`)`%]#X&N%F'A#8\"5+9,9!\"O<OHWDVQ^M\\\\fXdibnVmFNHMFMAFBEAECEN<\"5*<-;->+C9d<w<~8~5j2\\0\\/^-`*`)`%]#X&N%F'A#8\"5^M\\\\fXdibnVmPa]N!!%%35565779998;<?>?=@AE6G+C->-;*<\"5,9+6!\"djpyp~`~Vmbndj1P9d<w<~8~5j2\\0\\._+`)`%^(_+X0Q+C6G?\\?]9d+C9/;7A2B;H7H7HACEAE=@>?<?8;9979579/fXdgbnVmdYO<OHHMFMAFBEAECEN<djpyp~o~gtVmbndj!!%%4616,9!\"+C1P+W'O+C^M\\\\PaPa]NWDKVFNWDH7HACEAE=@H71P2\\0\\/^-`)`%^(_+X0Q\"5,9/:6G+C->-;*<\"5WDWDVQKWKVVDO<OHHMFMO<'O+W(_%]'UH7HACEAEG8#\"4616#\"A2B;>?<?@4A2<?8;@3!!-8,9!\"0[2\\0\\._,`)`+`,[/[\"5*8*<\"5-;->+C*<,<<w<~8~;y9/79579/'A(B(E'G&G%I%F'B^M]Z\\\\[]^N&G'G'L&K&GH7HACEBEHA&I(I'L&K&J";
+const UL="FB38)6(0'2&*)'&&%'+*'&&&%&%%*%&%%)&&&&";
+const UC="jge`]ZwQ\"SQNn00romc`^OMK[YV@#WR))C]7WURyf/WUR]>\"vg(#;nIGDjgd\\O\"7J*POK!1[zk7(%M5,b^P&=<:rol][XTSOS'lZXUL7$4A`\"-G.:V";
+const UK="00101000011102011100110121120000101313";
+// Built from the DETAILED drawing, not from the simplified one. The simplified
+// SVG was the detailed one divided by four and rounded, and rounding it twice -
+// once there, once onto this grid - is what was bleeding along the mane: the
+// mane is bright spikes over dark strips that run under several of them, and
+// once the spikes stop quite covering the strips, the strips show through. The
+// detailed drawing has four times the room, so quantising it directly keeps the
+// overlaps. Decimated to 344 vertices, welded at 1.5 units so a corner two paths
+// share lands in one grid cell, then put on the grid.
 //
 // The unicorn is a flat 3/4 sprite now (DESIGN.md 5's hard-edged polygons, drawn
 // in screen space rather than projected). Four packed strings: UV is the

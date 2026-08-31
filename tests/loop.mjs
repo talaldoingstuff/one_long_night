@@ -750,7 +750,9 @@ console.log('--- the bind -----------------------------------------------------'
   press();
   for (let i = 0; i < ARMF - 2; i++) tick();     // the sampling tick below is the last one
   rec.ops = []; tick();
-  const ground = rec.ops.filter((o) => o.op === 'fill' && o.n === 4 &&
+  // Additive, like everything the bind puts on the floor - which is also what
+  // keeps the unicorn's own four-point rainbow paths out of the count.
+  const ground = rec.ops.filter((o) => o.op === 'fill' && o.n === 4 && o.comp === 'lighter' &&
     o.c.startsWith('rgba(') && !o.c.startsWith('rgba(' + C._RINGC.join(',') + ','));
   ok('nothing is drawn on the ground while it is only arming',
      ground.length === 0 && M.anim().charging === 0,
@@ -834,7 +836,12 @@ console.log('--- the bind -----------------------------------------------------'
   // thing on that floor which is never a rainbow colour.
   const RINGC = 'rgba(' + C._RINGC.join(',') + ',';
   const isBow = (c) => c.startsWith('rgba(') && !c.startsWith(RINGC);
-  const quads = (ops) => ops.filter((o) => o.op === 'fill' && isBow(o.c) && o.n === 4);
+  // A four-point fill in a rainbow colour used to mean the bind and nothing
+  // else. The unicorn's mane is rainbow-coloured too and has four-point paths of
+  // its own, so what separates them is the blending: the bind is drawn additively
+  // over the world, the sprite is not.
+  const quads = (ops) => ops.filter((o) => o.op === 'fill' && isBow(o.c) && o.n === 4 &&
+    o.comp === 'lighter');
   M.restart(); M.place([]); M.look(0, 0);
   hold(60);
   rec.ops = []; tick();
