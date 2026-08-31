@@ -410,10 +410,12 @@ export const C = {
   // a hard competition rule rather than a nicety.
   _LSK: 'oln.best',
   _VER: 'v 0.1',
-  // The mute and quit squares: size and margin, in HUD units. Twice what they
-  // were - they are the only things in the game meant to be TOUCHED rather than
-  // aimed at, and a finger is not a cursor.
-  _HBTN: [3, 0.4],
+  // The mute and quit squares: size and margin, in HUD units. They are the only
+  // two things in the game meant to be TOUCHED rather than aimed at, and a
+  // finger is not a cursor - but twice the old size read as furniture, so a
+  // quarter off that: half again as big as they began, which is a target
+  // without being the thing you look at.
+  _HBTN: [2.25, 0.4],
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
