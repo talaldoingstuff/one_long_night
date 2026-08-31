@@ -453,8 +453,9 @@ console.log('--- and it is sized off the frame, not in fixed pixels ------------
 }
 console.log('--- recoil and blink ---------------------------------------------');
 {
-  // The horn tip IS the model origin, so the sprite seam reports it directly.
-  const tipNow = () => M.sprite().tip;
+  // Recoil moves what is DRAWN, not what is aimed: a crosshair that shook on
+  // every shot would be aiming at the kick. sprite() reports both.
+  const tipNow = () => M.sprite().drawn;
   M.restart(); M.place([]); M.look(0, 0);
   M.setFire(0);
   for (let i = 0; i < 6; i++) tick();
@@ -2328,13 +2329,23 @@ console.log('--- aim assist, and the rest of the pass --------------------------
      rec.ops.some((o) => o.op === 'stroke' && o.c === gold1),
      'it started ' + off.toFixed(2) + 'm off and is now targeted');
 
-  // it does not reach past ASSISTR, or it would be aiming for you
-  put(C._TYPES[0][5] * C._ASSISTR * 2);
+  // It does not reach past ASSISTR, or it would be aiming for you.
+  //
+  // From a clean camera, and with the ghost PINNED. Both matter. The checks above
+  // leave the view turned and conv eased out to whatever they were tracking, and
+  // this one is about how far the assist reaches from where you are looking, not
+  // about where the last one left you. Pinning it measures the reach rather than
+  // the reach plus however far the ghost walked in while being measured - a ghost
+  // that starts outside the radius and strolls into it proves nothing.
+  M.restart(); M.look(0, 0);
+  const far = C._TYPES[0][5] * C._ASSISTR * 2;
+  const wf = M.aimWorld(7), df = Math.hypot(wf[0], wf[2]) || 1;
+  const gf = [wf[0] - wf[2] / df * far, C._GY, wf[2] + wf[0] / df * far, 9, 9, 0, 0, 0, 0];
   const y1 = M.dbg().yaw;
-  for (let i = 0; i < 60; i++) tick();
+  for (let i = 0; i < 60; i++) { M.place([gf.slice()]); tick(); }
   ok('but it does not reach for something far off the crosshair',
      Math.abs(M.dbg().yaw - y1) < 1e-9,
-     (C._TYPES[0][5] * C._ASSISTR * 2).toFixed(2) + 'm away is outside ASSISTR of ' +
+     far.toFixed(2) + 'm away is outside ASSISTR of ' +
      C._ASSISTR + ' radii, and the camera did not move a thing');
 
   // nothing to assist toward, nothing happens

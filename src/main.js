@@ -105,8 +105,7 @@ export const C = {
   // horn is drawn, and left exactly as the solved 3D pose resolved to: the
   // crosshair lands where it always did, and the sprite above was aligned onto
   // it rather than the other way round.
-  _AIMO: [0.7774, 0.5557, 2.9087],
-  _AIMD: [-0.0863, -0.0571, 0.9946],
+  _AIMD: [-0.06611, -0.01534, 0.99769],
                       // horn's line through the middle of the screen.
                       // sideways, and it was 59px high. The pose is otherwise
                       // yours to set from the view a player
@@ -859,10 +858,19 @@ try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode *
 // its tip, carried on out into the world. The crosshair sits on it and the shots
 // follow it, so what you are aiming at is what the horn is aiming at - the camera
 // axis is not involved.
-// The horn is drawn, not modelled, so the line it aims along is stated rather
-// than derived. These two are the pose the 3D horn used to resolve to, kept so
-// the crosshair lands where it always did and every aiming check still holds.
-const aimRay = () => [C._AIMO, C._AIMD];
+// The horn is drawn, not modelled, so the line it aims along cannot come out of
+// the model. It starts at the drawn horn tip - unprojected at the muzzle depth,
+// off the same placement the frame paints from, so it follows the pose and
+// survives a change of resolution - and runs along a stated direction.
+//
+// Origin and muzzle being the same point is the whole trick: while they were
+// apart, a shot and the crosshair started 68px from each other and the angle
+// between them swung with the target's range, which is why aiming came apart
+// as a ghost closed in. Now the shot leaves along the ray it is aimed down.
+const aimRay = () => {
+  const [tx, ty] = upos(), k = C._F / (C._F + C._MUZZ);
+  return [[(tx - W / 2) / (k * PX), (ty - H / 2) / (k * PX), C._MUZZ], C._AIMD];
+};
 
 // How far along that line the thing you are aiming at sits. Anything within AIMR
 // of the line counts; the closest to it wins.
@@ -925,16 +933,9 @@ const fire = () => {
   if (over || fireT > 0) return;
   fireT = sFire();
   sfx(0);
-  // From where the horn tip is DRAWN, toward whatever is under the crosshair.
-  // Those are two different points now: the crosshair is fixed and the unicorn
-  // is posed against it, so a shot that started at AIMO would leave 60px below
-  // the horn the player is looking at. upos() is the same placement the frame
-  // paints from, unprojected at the muzzle depth, so the tracer starts exactly
-  // on the drawn tip at any resolution - and it still ends up under the
-  // crosshair, because that is what it is aimed at.
-  const [tx, ty] = upos();
-  const k = C._F / (C._F + C._MUZZ);
-  const o = unCam([(tx - W / 2) / (k * PX), (ty - H / 2) / (k * PX), C._MUZZ]);
+  // From the horn tip the player can see, along the line it is aimed down. Both
+  // come off aimRay, so the shot and the crosshair cannot disagree.
+  const o = unCam(aimRay()[0]);
   const p = unCam(aimAt());
   const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
   const L = hypot(d[0], d[1], d[2]) || 1;
@@ -1145,22 +1146,21 @@ const UK="011011100211111111002010301";
 // eye still run the rainbow while a charge builds. None of that survives baking
 // colours into a string unless the string also says which path is which.
 const uch = (s, i) => s.charCodeAt(i) - 33;
-// Where the sprite sits this frame, and how it is turned. Split out because the
-// horn tip is the model's own origin, so this IS the horn tip on screen - which
-// the aim seam and the checks both want, and neither should re-derive.
-// Recoil kicks the whole animal back along the horn's own axis, the same idea
-// the 3D transform used, in the plane it is now drawn in.
-const upos = () => {
-  const kick = rec * rec * C._URC * H;
-  const ca = cos(C._UROT), sa = sin(C._UROT);
-  return [C._UX * H + kick * (C._UHA[0] * ca - C._UHA[1] * sa),
-          H - C._UY * H + kick * (C._UHA[0] * sa + C._UHA[1] * ca),
-          C._US * H, ca, sa];
-};
+// Where the sprite RESTS, and how it is turned. The horn tip is the model's own
+// origin, so this is the horn tip on screen - which the aim, the muzzle and the
+// checks all want. Deliberately without the recoil kick: that belongs to the
+// drawing, and a crosshair that shook every time you fired would be aiming at
+// the recoil rather than at the ghost.
+const upos = () => [C._UX * H, H - C._UY * H, C._US * H, cos(C._UROT), sin(C._UROT)];
 const puppet = () => {
   const w = C._SAT0 + (1 - C._SAT0) * (1 - bindT / sCd());
   const bk = blink > 0 ? 1 - (1 - C._BLINKS) * sin(PI * blink / C._BLINKD) : 1;
-  const [X, Y, S, ca, sa] = upos();
+  const [X0, Y0, S, ca, sa] = upos();
+  // Recoil kicks the whole animal back along the horn's own axis, the same idea
+  // the 3D transform used, in the plane it is now drawn in.
+  const kick = rec * rec * C._URC * H;
+  const X = X0 + kick * (C._UHA[0] * ca - C._UHA[1] * sa);
+  const Y = Y0 + kick * (C._UHA[0] * sa + C._UHA[1] * ca);
   for (let i = 0, v = 0; i < UL.length; i++) {
     const n = uch(UL, i), k = UK.charCodeAt(i) - 48;
     let c = [uch(UC, i * 3) * 2.742, uch(UC, i * 3 + 1) * 2.742, uch(UC, i * 3 + 2) * 2.742];
@@ -2698,9 +2698,14 @@ export const drawPuppet = () => puppet();
 // What the sprite IS, for the checks: where its horn tip lands on screen, and
 // what each path is for. Both are read off the same data the frame draws from,
 // so a check cannot pass against a model the game is not using.
-export const sprite = () => ({ tip: upos().slice(0, 2), scale: upos()[2],
-                               paths: UL.length, kinds: UK,
-                               mane: UK.split('1').length - 1 });
+export const sprite = () => {
+  const [x, y, scale, ca, sa] = upos();
+  const kick = rec * rec * C._URC * H;
+  return { tip: [x, y],                          // at rest: what the aim starts from
+           drawn: [x + kick * (C._UHA[0] * ca - C._UHA[1] * sa),
+                   y + kick * (C._UHA[0] * sa + C._UHA[1] * ca)],   // with the kick
+           scale, paths: UL.length, kinds: UK, mane: UK.split('1').length - 1 };
+};
 // What a pose has to satisfy, measured rather than eyeballed: how far the horn
 // points from the line a shot to a 10m target takes, and where the neck's arm
 // opening lands relative to the bottom of the frame.
