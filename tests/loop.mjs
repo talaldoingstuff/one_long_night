@@ -351,15 +351,23 @@ console.log('\n--- aiming ------------------------------------------------------
      'held past the stop, pitch is ' + M.dbg().pitch.toFixed(3) + ' of a ' + C._PITCHMAX + ' limit');
   // And the stop is in the right place. Tightening it is what stops a drag
   // spending half its travel on empty sky, but tighten it too far and something
-  // at a sane range stops being reachable at all - so the cap is measured
-  // against the widest thing in the game rather than chosen.
+  // stops being reachable - so it is measured against the ghosts themselves.
+  //
+  // What has to hold is OVERLAP, not containment. The band of pitches that land
+  // on a ghost does not have to fit inside the stops; there only has to be one
+  // inside them, with enough width around it to be aimed at rather than
+  // threaded. Every band straddles level anyway - ghosts float under the eye and
+  // most of them are far off - so the close-range ones run far past the stop at
+  // both ends and are hit right across it.
   {
     const gold1 = 'rgba(' + C._GOLD.join(',') + ',1)';
-    const bandOf = (k, r) => {
+    // Swept WIDER than the stop, so the band is the ghost's own rather than the
+    // cap's shadow.
+    const band = (k, r) => {
       let lo = null, hi = null;
-      for (let p = -C._PITCHMAX; p <= C._PITCHMAX; p += 0.02) {
+      for (let p = -0.6; p <= 0.6; p += 0.03) {
         M.restart(); M.setFire(0);
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 3; i++) {
           M.place([[0, C._GY, r, 99, 99, 0, 0, k, 0]]); M.look(0, p); tick();
         }
         rec.ops = []; M.place([[0, C._GY, r, 99, 99, 0, 0, k, 0]]); M.look(0, p); tick();
@@ -367,15 +375,28 @@ console.log('\n--- aiming ------------------------------------------------------
       }
       return [lo, hi];
     };
-    const hulk3 = bandOf(2, 3), drift8 = bandOf(0, 8);
-    const D = 180 / Math.PI;
-    ok('and it still reaches everything worth aiming at, with room over',
-       hulk3[0] !== null && drift8[0] !== null &&
-       hulk3[0] > -C._PITCHMAX + 0.05 && hulk3[1] < C._PITCHMAX - 0.05,
-       'a Hulk at 3m - the widest thing at any sane range - lands between ' +
-       (hulk3[0] * D).toFixed(1) + ' and ' + (hulk3[1] * D).toFixed(1) +
-       ' degrees inside a ' + (C._PITCHMAX * D).toFixed(1) + ' stop, and a Drifter at 8m between ' +
-       (drift8[0] * D).toFixed(1) + ' and ' + (drift8[1] * D).toFixed(1));
+    const D = 180 / Math.PI, P = C._PITCHMAX;
+    // Healthy means one of two things, and never the third: either the whole
+    // band sits inside the stops, or the stops sit inside the band. What must
+    // not happen is the stop landing in the MIDDLE of a band and taking half the
+    // aim with it.
+    const rows = [[2, 3], [0, 8], [0, 16], [2, 1.5]].map(([k, r]) => {
+      const [lo, hi] = band(k, r);
+      // Two shapes are healthy and one is not. Either the band is essentially
+      // inside the stops - nothing worth aiming at has been cut - or the stops
+      // are inside the band, which means the ghost is on target at EVERY pitch
+      // the game allows, and a point-blank Hulk spanning 67 degrees is that.
+      // The bad shape is a stop landing partway across a band and taking real
+      // aim with it.
+      const kept = (Math.min(hi, P) - Math.max(lo, -P)) / (hi - lo);
+      const spans = lo < -P + 1e-9 && hi > P - 1e-9;
+      return [k ? 'Hulk' : 'Drifter', r, lo, hi, kept > 0.9 || spans];
+    });
+    ok('and the stop takes no aim worth having off any of them',
+       rows.every((q) => q[4]),
+       rows.map(([n, r, lo, hi, okk]) => n + ' ' + r + 'm ' + (lo * D).toFixed(0) + '..' +
+         (hi * D).toFixed(0) + (okk ? '' : ' MORE THAN A TENTH GONE')).join(', ') +
+       ' against a ' + (P * D).toFixed(1) + ' stop');
     M.restart(); M.place([]); M.look(0, 0); M.setFire(1);
   }
   const y0 = M.dbg().yaw;

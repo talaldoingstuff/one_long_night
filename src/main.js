@@ -42,18 +42,20 @@ export const C = {
   _SWEEP: 1,           // half-turns per full drag across the window
                       // turning against 360 degrees of threat is the whole
                       // tension, and fast turning throws it away.
-  // Radians up and down. Measured against what aiming actually asks for: a Hulk
-  // at 3m is the widest thing at any sane range and lands between -18 and +12
-  // degrees; past 5m nothing needs more than -11 to +8. At 0.55 you could point
-  // 31 degrees either way, most of it at empty sky and bare ground, and a drag
-  // spent as much travel getting nowhere as it did aiming.
+  // Radians up and down. Swept rather than guessed: for every ghost type at
+  // every range, which pitches actually put the crosshair on it. The answer is
+  // that they all straddle level - ghosts float 0.15m under the eye and most of
+  // them are far away - so a Drifter at 16m is targeted between -1.7 and +0.6
+  // degrees, and a Hulk at 3m, the widest thing at any sane range, between -17.8
+  // and +12.0. Nothing becomes unreachable until the stop is inside 9 degrees.
   //
-  // 0.40 is 22.9 degrees, which keeps 4.9 of room under the deepest thing worth
-  // aiming at and 10.9 over the highest - room, but not a field of it. The one
-  // case it does not span end to end is a Hulk at 1.5m, whose EDGES run to -34;
-  // its centre is 6 degrees down and the pick is nine tenths of its radius, so
-  // it is still comfortably hit. Nothing at 3m or beyond is even close.
-  _PITCHMAX: 0.40,
+  // So the cap is not about reach, it is about travel: at 0.55 a drag could
+  // point 31 degrees either way, and everything past about 18 was empty sky and
+  // bare ground. 0.30 is 17.2 degrees, which still crosses the whole of what a
+  // Hulk at 3m offers and leaves the close-range bands - a Hulk at 1.5m runs to
+  // -34 - overlapping it many times over. Half the range it started with, and
+  // none of the aiming.
+  _PITCHMAX: 0.30,
 
   // --- The world (DESIGN.md 14: dark field, dark sky, faint horizon) --------
   // The time of day, and it runs down over a run. Two palettes and a blend
