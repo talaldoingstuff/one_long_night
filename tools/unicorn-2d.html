@@ -57,23 +57,27 @@ const { C } = M;
 const KEYS = ['_US', '_UX', '_UY', '_UROT'];
 const DEF = {};
 KEYS.forEach((k) => (DEF[k] = C[k]));
-// Only restore keys this editor owns, and only from the CURRENT key. _UX used to
-// mean "from the left edge" and now means "from the centre", so an older save is
-// not merely stale - applying it throws the unicorn clean off the side. The key
-// name carries the meaning, so a change of meaning gets a new name.
-// Values are sanity-checked too: anything outside the slider's own range is
-// ignored rather than trusted.
+// The editor tunes the SHIPPED constants, so the source is the truth and a saved
+// edit is only ever a session in progress. Twice now a saved value has outlived a
+// change in what it MEANS - _UX went from "from the left edge" to "from the
+// centre" and back - and restoring it under the new meaning threw the unicorn off
+// one side of the screen and then the other, in the editor only, while the game
+// looked fine. Renaming the key each time is a fix that has to be remembered.
+//
+// So the save carries the defaults it was taken against. If the source has moved
+// since, the save is from a different world and is dropped. Nothing to remember.
+const stamp = () => JSON.stringify(KEYS.map((k) => DEF[k]));
 try {
-  const saved = JSON.parse(localStorage.uni2dc || '{}');
-  const SANE = { _US: [0.001, 0.03], _UX: [-1.5, 1.5], _UY: [-1, 2], _UROT: [-2, 2] };
-  KEYS.forEach((k) => {
-    const v = saved[k];
-    if (typeof v === 'number' && isFinite(v) && v >= SANE[k][0] && v <= SANE[k][1]) C[k] = v;
-  });
+  const saved = JSON.parse(localStorage.uni2d || '{}');
+  if (saved.stamp === stamp() && saved.cur) {
+    KEYS.forEach((k) => { if (typeof saved.cur[k] === 'number' && isFinite(saved.cur[k])) C[k] = saved.cur[k]; });
+  }
 } catch (e) {}
 const save = () => {
-  try { localStorage.uni2dc = JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, C[k]]))); }
-  catch (e) {}
+  try {
+    localStorage.uni2d = JSON.stringify(
+      { stamp: stamp(), cur: Object.fromEntries(KEYS.map((k) => [k, C[k]])) });
+  } catch (e) {}
 };
 const DEG = 180 / Math.PI;
 let guide = 1;
