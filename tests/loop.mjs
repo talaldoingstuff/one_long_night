@@ -3947,6 +3947,24 @@ console.log('--- the title, the how-to, and the best ---------------------------
     M.restart(); M.place([]); M.setScr(0);
   }
 
+  // Every press on a menu is heard. The run is the exception: there a press means
+  // the horn, which has a sound of its own.
+  {
+    const CLICK = C._SFX[4];
+    const heardClick = () => { const b = snd.notes.length; press(); release(); tick();
+      return snd.notes.slice(b).filter((n) => Math.abs(n.f0 - CLICK[0]) < 1).length; };
+    M.setScr(0);
+    const onTitle = heardClick();
+    const onHowTo = heardClick();
+    for (let i = 0; i < 30; i++) tick();
+    const inRun = heardClick();
+    release();
+    ok('a press on a menu clicks, and a press in the run does not',
+       onTitle > 0 && onHowTo > 0 && inRun === 0,
+       'title yes, how-to yes, and silent in the run where the horn has its own sound');
+    M.setScr(0);
+  }
+
   // a press moves it on
   press(); release();
   draw();

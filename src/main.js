@@ -984,7 +984,10 @@ const onDown = (e) => {
   audio();
   // The first press of the game is the one that builds the audio context, which a
   // browser will not allow outside a gesture - so START is where the sound starts.
-  if (scr < 2) { if (++scr > 1) reset(); return; }
+  // Every press on a menu is heard, including the very first: audio() built the
+  // context a line ago, inside the gesture that a browser requires. The run is
+  // the exception, where a press means the horn and has its own sound.
+  if (scr < 2) { sfx(4); if (++scr > 1) reset(); return; }
   if (!over && !picking) {
     for (let i = 0; i < 2; i++) {
       const [bx, by, bs] = hudBtn(i);
