@@ -42,7 +42,18 @@ export const C = {
   _SWEEP: 1,           // half-turns per full drag across the window
                       // turning against 360 degrees of threat is the whole
                       // tension, and fast turning throws it away.
-  _PITCHMAX: 0.55,     // radians up and down
+  // Radians up and down. Measured against what aiming actually asks for: a Hulk
+  // at 3m is the widest thing at any sane range and lands between -18 and +12
+  // degrees; past 5m nothing needs more than -11 to +8. At 0.55 you could point
+  // 31 degrees either way, most of it at empty sky and bare ground, and a drag
+  // spent as much travel getting nowhere as it did aiming.
+  //
+  // 0.40 is 22.9 degrees, which keeps 4.9 of room under the deepest thing worth
+  // aiming at and 10.9 over the highest - room, but not a field of it. The one
+  // case it does not span end to end is a Hulk at 1.5m, whose EDGES run to -34;
+  // its centre is 6 degrees down and the pick is nine tenths of its radius, so
+  // it is still comfortably hit. Nothing at 3m or beyond is even close.
+  _PITCHMAX: 0.40,
 
   // --- The world (DESIGN.md 14: dark field, dark sky, faint horizon) --------
   // The time of day, and it runs down over a run. Two palettes and a blend

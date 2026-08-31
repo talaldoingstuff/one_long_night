@@ -349,6 +349,35 @@ console.log('\n--- aiming ------------------------------------------------------
   for (let i = 0; i < 40; i++) drag(500, 150 - i * 40);
   ok('pitch is clamped', Math.abs(M.dbg().pitch) <= C._PITCHMAX + 1e-9,
      'held past the stop, pitch is ' + M.dbg().pitch.toFixed(3) + ' of a ' + C._PITCHMAX + ' limit');
+  // And the stop is in the right place. Tightening it is what stops a drag
+  // spending half its travel on empty sky, but tighten it too far and something
+  // at a sane range stops being reachable at all - so the cap is measured
+  // against the widest thing in the game rather than chosen.
+  {
+    const gold1 = 'rgba(' + C._GOLD.join(',') + ',1)';
+    const bandOf = (k, r) => {
+      let lo = null, hi = null;
+      for (let p = -C._PITCHMAX; p <= C._PITCHMAX; p += 0.02) {
+        M.restart(); M.setFire(0);
+        for (let i = 0; i < 5; i++) {
+          M.place([[0, C._GY, r, 99, 99, 0, 0, k, 0]]); M.look(0, p); tick();
+        }
+        rec.ops = []; M.place([[0, C._GY, r, 99, 99, 0, 0, k, 0]]); M.look(0, p); tick();
+        if (rec.ops.some((o) => o.op === 'stroke' && o.c === gold1)) { if (lo === null) lo = p; hi = p; }
+      }
+      return [lo, hi];
+    };
+    const hulk3 = bandOf(2, 3), drift8 = bandOf(0, 8);
+    const D = 180 / Math.PI;
+    ok('and it still reaches everything worth aiming at, with room over',
+       hulk3[0] !== null && drift8[0] !== null &&
+       hulk3[0] > -C._PITCHMAX + 0.05 && hulk3[1] < C._PITCHMAX - 0.05,
+       'a Hulk at 3m - the widest thing at any sane range - lands between ' +
+       (hulk3[0] * D).toFixed(1) + ' and ' + (hulk3[1] * D).toFixed(1) +
+       ' degrees inside a ' + (C._PITCHMAX * D).toFixed(1) + ' stop, and a Drifter at 8m between ' +
+       (drift8[0] * D).toFixed(1) + ' and ' + (drift8[1] * D).toFixed(1));
+    M.restart(); M.place([]); M.look(0, 0); M.setFire(1);
+  }
   const y0 = M.dbg().yaw;
   for (let i = 0; i < 200; i++) drag(500 + i * 50, 150);
   ok('yaw is not clamped - the arena is 360 degrees',
@@ -1373,11 +1402,16 @@ console.log('--- the keyboard -------------------------------------------------'
        (l * 180 / Math.PI).toFixed(0) + ' and ' + (r * 180 / Math.PI).toFixed(0) +
        ' degrees in half a second, symmetric');
   }
+  // Twenty frames, not thirty. The pitch stop is at PITCHMAX and the keyboard
+  // reaches it in PITCHMAX/KPITCH seconds - 0.37s at the values here - so half a
+  // second of holding measures the clamp rather than the rate.
+  const PF = Math.floor(C._PITCHMAX / C._KPITCH * 60) - 2;
   for (const [name, up, down] of [['W and S', 'KeyW', 'KeyS'], ['up and down', 'ArrowUp', 'ArrowDown']]) {
-    const u = turnBy(up, 30).pitch, d = turnBy(down, 30).pitch;
+    const u = turnBy(up, PF).pitch, d = turnBy(down, PF).pitch;
     ok(name + ' look up and down', u > 0.01 && d < -0.01,
        (u * 180 / Math.PI).toFixed(0) + ' and ' + (d * 180 / Math.PI).toFixed(0) + ' degrees');
-    ok('and pitch has its own, slower rate', Math.abs(u - C._KPITCH / 2) < 0.01 && C._KPITCH < C._KTURN,
+    ok('and pitch has its own, slower rate',
+       Math.abs(u - C._KPITCH * PF / 60) < 0.01 && C._KPITCH < C._KTURN,
        'KPITCH ' + C._KPITCH + ' against KTURN ' + C._KTURN + ' - the pitch range is only ' +
        (2 * C._PITCHMAX * 180 / Math.PI).toFixed(0) + ' degrees, so one rate for both was twitchy');
   }
