@@ -602,19 +602,24 @@ console.log('--- the crosshair sits on the drawn horn --------------------------
   console.log('       (the crosshair is at (' + a.map((v) => v.toFixed(0)).join(', ') +
               '), ' + Math.hypot(a[0] - 450, a[1] - 250).toFixed(0) + 'px from the centre of a 900x500 frame)');
 
-  // What MUST hold is that the drawn horn points at it. The horn is art now and
-  // the aim ray is two constants, so nothing keeps the two together except this
-  // check - which is exactly why it is here. The horn tip is the sprite's own
-  // origin and _UHA is its axis, so the line is read off the same numbers the
-  // frame draws from.
+  // Whether the drawn horn ALSO points at it is a pose decision, and the pose
+  // says no: the crosshair is pinned to the centre of the screen and the animal
+  // sits where it looks right, so the horn casts its own line past it. Reported,
+  // never asserted - asserting it would be this file overruling the pose.
   const ca = Math.cos(C._UROT), sa = Math.sin(C._UROT);
   const dx = -(C._UHA[0] * ca - C._UHA[1] * sa), dy = -(C._UHA[0] * sa + C._UHA[1] * ca);
   const t = (a[0] - sp.tip[0]) / dx;
-  const miss = sp.tip[1] + t * dy - a[1];
-  ok('and the horn the player sees points along it',
-     Math.abs(miss) < 24,
-     'the horn line passes ' + Math.abs(miss).toFixed(0) + 'px from the crosshair' +
-     (Math.abs(miss) < 24 ? '' : ' - the drawing and the aim have come apart'));
+  console.log('       (the drawn horn casts its line ' +
+              Math.abs(sp.tip[1] + t * dy - a[1]).toFixed(0) + 'px from the crosshair)');
+
+  // What MUST hold is that shots leave the horn the player is looking at. AIMO
+  // is a constant, so nothing ties it to the drawing except this - and a pose
+  // moved without re-solving it would have the shots coming out of thin air.
+  const muz = M.proj(C._AIMO);
+  ok('and shots leave the horn the player can see',
+     Math.hypot(muz[0] - sp.tip[0], muz[1] - sp.tip[1]) < 6,
+     'the muzzle projects to ' + muz.map((v) => v.toFixed(0)).join(', ') +
+     ' against a drawn horn tip at ' + sp.tip.map((v) => v.toFixed(0)).join(', '));
   M.setFire(1);
 }
 
@@ -2194,31 +2199,39 @@ console.log('--- the crosshair, and what it picks ------------------------------
   // budget is left for sideways. In play you pitch onto the thing and it does not
   // arise; here the pitch is held at zero to isolate the pick.
   const ranges = [4, 7, 12].map((z) => [z, edgeAt(z), M.aimWorld(z)[1] - C._GY]);
+  // Where the horn's line comes closest to the band the ghosts float in. It used
+  // to be 7m and was written in as 7m; taking the shot origin off the drawn horn
+  // moved it, so it is found rather than assumed.
+  const near = ranges.reduce((a, b) => (Math.abs(b[2]) < Math.abs(a[2]) ? b : a));
   ok('and at every range the tolerance is the body, never a patch of screen',
      ranges.every(([, e]) => e > 0 && e <= C._TYPES[0][5] * 1.05),
      ranges.map(([z, e, dy]) => z + 'm: ' + e.toFixed(2) + 'm wide, ' +
        (dy >= 0 ? '+' : '') + dy.toFixed(2) + 'm of vertical offset').join('; ') +
      ' - all inside the ' + C._TYPES[0][5] + 'm radius');
-  ok('and it is widest where the horn line actually crosses the ghosts',
-     ranges[1][1] >= ranges[0][1] && ranges[1][1] >= ranges[2][1],
-     'best at 7m, where the line is ' + Math.abs(ranges[1][2]).toFixed(3) +
+  ok('and it is widest where the horn line comes closest to the ghosts',
+     ranges.every(([, e]) => e <= near[1] + 1e-9),
+     'best at ' + near[0] + 'm, where the line is ' + Math.abs(near[2]).toFixed(3) +
      'm off the float height - which is where the aim and the band meet');
 
-  // a bigger ghost is a bigger target, which is what it looks like
+  // A bigger ghost is a bigger target, which is what it looks like. Measured at
+  // the range where the line is closest to the band: anywhere else the vertical
+  // offset eats a fixed slice out of both budgets, which costs the smaller ghost
+  // proportionally more and moves the ratio for a reason that is not size.
+  const wn = M.aimWorld(near[0]);
   const bigEdge = (() => {
-    const d = Math.hypot(w[0], w[2]) || 1;
+    const d = Math.hypot(wn[0], wn[2]) || 1;
     for (let x = 0; x < 4; x += 0.02) {
       M.restart(); M.look(0, 0);
-      const g4 = [w[0] - w[2] / d * x, C._GY, w[2] + w[0] / d * x, 9, 9, 0, 0, 2, 0];
+      const g4 = [wn[0] - wn[2] / d * x, C._GY, wn[2] + wn[0] / d * x, 9, 9, 0, 0, 2, 0];
       for (let i = 0; i < 80; i++) { M.place([g4.slice()]); M.look(0, 0); tick(); }
       if (!rec.ops.some((o) => o.op === 'stroke' && o.c === 'rgba(' + C._GOLD.join(',') + ',1)')) return x;
     }
     return 4;
   })();
   ok('and a Hulk is a bigger target than a Drifter, in the same proportion it is drawn',
-     Math.abs(bigEdge / edge - C._TYPES[2][5] / C._TYPES[0][5]) < 0.15,
-     bigEdge.toFixed(2) + 'm against ' + edge.toFixed(2) + 'm - ' +
-     (bigEdge / edge).toFixed(2) + 'x, and it is drawn ' +
+     Math.abs(bigEdge / near[1] - C._TYPES[2][5] / C._TYPES[0][5]) < 0.15,
+     bigEdge.toFixed(2) + 'm against ' + near[1].toFixed(2) + 'm at ' + near[0] + 'm - ' +
+     (bigEdge / near[1]).toFixed(2) + 'x, and it is drawn ' +
      (C._TYPES[2][5] / C._TYPES[0][5]).toFixed(2) + 'x the size');
   C._ASSIST = wasAssist;
 

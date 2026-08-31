@@ -87,13 +87,14 @@ export const C = {
   // the HUD, so it lands in the same place at any resolution; _UY is measured up
   // from the BOTTOM, because the animal hangs off the bottom-right corner and
   // that is the edge it should stay welded to.
-  // PROVISIONAL: sized and placed onto the footprint the 3D puppet held, so the
-  // game looks right until the pose is re-tuned against the real thing. The
-  // user's own numbers were window pixels and need their screen height to
-  // convert.
-  _US: 0.0065,         // grid units to pixels
-  _UX: 1.0261,         // the horn tip, from the left
-  _UY: 0.338,          // and up from the bottom
+  // The pose the user set: scale 1.200, rotation -5.00, tip at 677,325 in their
+  // own window. Converted to fractions of the height at H = 600, which is the
+  // one number in here that is an assumption rather than a measurement - the
+  // editor drives these live, so it is a nudge away from right on a real screen.
+  // A grid unit is 240/93 model units, which is where the 2.581 comes from.
+  _US: 0.0052,         // grid units to pixels
+  _UX: 1.1283,         // the horn tip, from the left
+  _UY: 0.4583,         // and up from the bottom
   _UROT: -0.0873,      // radians the sprite is turned, on top of how it is drawn.
                       // -5.00 degrees. Its horn is drawn along -121.50, so the
                       // line it ends up aiming along is -126.50.
@@ -101,10 +102,21 @@ export const C = {
                       // it about itself rather than about the model's origin
   _UHA: [0.5533, 0.8330],       // the horn axis, tip to base: the way recoil kicks
   _URC: 0.012,         // and how far it kicks, as a fraction of the height
-  // Where the horn is SEEN to point. Stated rather than derived now that the
-  // horn is drawn: this is exactly what the solved 3D pose resolved to.
-  _AIMO: [0.7774, 0.5557, 2.9087],
-  _AIMD: [-0.0863, -0.0571, 0.9946],
+  // Where the horn is SEEN to point. Both are stated rather than derived now
+  // that the horn is drawn, and both are solved off the pose above:
+  //   AIMO is the drawn horn tip, unprojected at the muzzle depth, so shots
+  //     leave the horn the player is looking at rather than some remembered
+  //     place. Move the pose and this moves with it - there is a check.
+  //   AIMD is solved to put the convergence point on the camera axis, which
+  //     lands the crosshair on the exact centre of the screen at CONV.
+  // Taking the origin off the drawn tip rather than off the old 3D one also
+  // halved how far the aim line strays from the band the ghosts float in: it
+  // now runs 0.07m over them at 4m and 0.26m at 16m, against -0.18m and 0.51m.
+  // The crosshair still slides as the range eases between 1.4m and 16m, which
+  // is honest parallax between a muzzle off to one side and a target straight
+  // ahead, not something to paint over by pinning a reticle at H/2.
+  _AIMO: [0.7817, 0.1428, 2.9087],
+  _AIMD: [-0.08685, -0.01586, 0.99609],
                       // horn's line through the middle of the screen.
                       // sideways, and it was 59px high. The pose is otherwise
                       // yours to set from the view a player
