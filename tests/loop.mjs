@@ -448,6 +448,37 @@ console.log('--- and it is sized off the frame, not in fixed pixels ------------
   ok('twice the height draws twice the unicorn',
      Math.abs(b / a - 2) < 0.02,
      a.toFixed(0) + 'px tall at 500, ' + b.toFixed(0) + 'px at 1000 - a ratio of ' + (b / a).toFixed(3));
+
+  // Height was never the problem; SHAPE was. x used to be a fraction of the
+  // height measured from the left edge, so keeping the width and taking height
+  // away - which is all docking a console does - walked the animal from 71% of
+  // the way across the frame to 38%, while the crosshair stayed on the middle.
+  // Measured from the centre it cannot: the offset is the same number of pixels
+  // whatever the width.
+  const across = (w, h) => {
+    globalThis.innerWidth = w; globalThis.innerHeight = h;
+    (L.resize || []).forEach((f) => f());
+    tick();
+    return M.sprite().tip[0] / w;
+  };
+  const shapes = [[1280, 551], [1280, 860], [1920, 1080], [1024, 768], [2560, 1080]];
+  const pcs = shapes.map(([w, h]) => across(w, h));
+  ok('and the same window at a different SHAPE keeps it in the same place',
+     Math.max(...pcs) - Math.min(...pcs) < 0.04,
+     'from 4:3 to 21:9 it sits ' + (Math.min(...pcs) * 100).toFixed(1) + '% to ' +
+     (Math.max(...pcs) * 100).toFixed(1) + '% across, a spread of ' +
+     ((Math.max(...pcs) - Math.min(...pcs)) * 100).toFixed(1) + ' points');
+  // and the crosshair holds the middle through all of it
+  const offs = shapes.map(([w, h]) => {
+    globalThis.innerWidth = w; globalThis.innerHeight = h;
+    (L.resize || []).forEach((f) => f());
+    tick();
+    return Math.abs(M.aimPoint()[0] - w / 2);
+  });
+  ok('while the crosshair stays on the middle of every one of them',
+     Math.max(...offs) < 0.5,
+     'worst ' + Math.max(...offs).toFixed(2) + 'px off centre across five window shapes');
+  across(900, 500);                               // put the frame back for what follows
   globalThis.innerWidth = 900; globalThis.innerHeight = 500;
   (L.resize || []).forEach((f) => f());
   M.setFire(1);
@@ -2360,10 +2391,14 @@ console.log('--- aim assist, and the rest of the pass --------------------------
      far.toFixed(2) + 'm away is outside ASSISTR of ' +
      C._ASSISTR + ' radii, and the camera did not move a thing');
 
-  // nothing to assist toward, nothing happens
+  // Nothing to assist toward, nothing happens. Emptied EVERY frame, not once:
+  // wave 1 goes on spawning through the second being measured, so a single
+  // place([]) leaves the field empty for one frame and full for the rest - and
+  // whether that passes comes down to whether a spawn happens to land near the
+  // crosshair, which is luck rather than a check.
   M.restart(); M.look(0, 0); M.place([]);
   const y2 = M.dbg().yaw, p2 = M.dbg().pitch;
-  for (let i = 0; i < 60; i++) tick();
+  for (let i = 0; i < 60; i++) { M.place([]); tick(); }
   ok('and an empty field leaves the camera alone',
      M.dbg().yaw === y2 && M.dbg().pitch === p2,
      'a second of nothing there and the view has not drifted');

@@ -171,7 +171,7 @@ const paint = () => {
 
 h2('placement');
 slider('scale', '_US', 0.002, 0.02, 0.0001, 4, 0.0008);
-slider('x', '_UX', 0.2, 2.2, 0.001, 3, 0.04);
+slider('x', '_UX', -0.8, 1.2, 0.0005, 4, 0.04);
 slider('y', '_UY', -0.4, 1.2, 0.001, 3, 0.04);
 slider('rotation', '_UROT', -60, 60, 0.01, 2, 3, (v) => v * DEG, (v) => v / DEG);
 btn('FINE off', (b) => {
@@ -182,7 +182,7 @@ btn('FINE off', (b) => {
 });
 note('drag for coarse, - and + for one step, or type an exact value. FINE narrows every slider to a small window around where it sits. A focused slider also takes arrow keys, one step each.');
 note('x and y place the HORN TIP, and rotation pivots on it - the model origin is the tip. Rotation shows degrees and stores radians.');
-note('x is measured from the LEFT edge, y UP from the bottom, both as fractions of the screen HEIGHT. Measuring x from the centre would hold better across aspect ratios, but it moved the pose that was tuned by eye, so it does not.');
+note('x is measured from the CENTRE of the window and y UP from the bottom, both as fractions of the screen HEIGHT. That is what keeps the pose where it is when the window changes shape.');
 
 h2('compare');
 btn('ghosts on', (b) => {
@@ -250,10 +250,7 @@ const tick = () => {
       '   (aspect ' + (innerWidth / innerHeight).toFixed(2) + ')',
     'horn tip at ' + M.sprite().tip.map((v) => v.toFixed(0)).join(', ') +
       ', ' + (93 * M.sprite().scale).toFixed(0) + 'px tall',
-    '',
-    '_UX measured from the CENTRE instead of the left edge,',
-    'which is what makes the pose hold at any aspect ratio:',
-    '_UX_CENTRED: ' + (C._UX - innerWidth / (2 * innerHeight)).toFixed(4),
+    'x is measured from the centre, so this holds at any aspect.',
     '',
     M.sprite().paths + ' paths, ' + M.sprite().mane + ' of them mane.',
     '',
