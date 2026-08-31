@@ -177,8 +177,8 @@ btn('FINE off', (b) => {
   RANGES.forEach((f) => f());
 });
 note('drag for coarse, - and + for one step, or type an exact value. FINE narrows every slider to a small window around where it sits. A focused slider also takes arrow keys, one step each.');
-note('x and y place the HORN TIP, and rotation pivots on it - the model origin is the tip.');
-note('defaults are solved onto the old horn: tip 563.5,331.1 at -145.09 deg, 136.7 px long.');
+note('x and y place the HORN TIP, and rotation pivots on it - the model origin is the tip. Rotation shows degrees and stores radians.');
+note('x is measured from the CENTRE of the window, so the pose holds at any aspect ratio. Scale and y are fractions of the height; y counts UP from the bottom.');
 
 h2('compare');
 btn('ghosts on', (b) => {
@@ -197,16 +197,19 @@ btn('back to the shipped pose', () => { Object.assign(C, DEF); sync(); save(); }
 btn('restart', () => M.restart());
 
 const out = document.createElement('pre'); out.id = 'out'; panel.append(out);
-// The gold path's axis runs from its tip (0,0) to the centroid of its base,
-// which is -121.50 deg - not the -131.63 of its outer edge.
 // The horn's direction on screen, read off the sprite's own axis constant and
 // its rotation - the same two numbers puppet() draws from.
 const hornDir = () => {
   const ca = Math.cos(C._UROT), sa = Math.sin(C._UROT);
   return [-(C._UHA[0] * ca - C._UHA[1] * sa), -(C._UHA[0] * sa + C._UHA[1] * ca)];
 };
+// How far the horn's line passes from a point on screen. Positive means the horn
+// points below it.
+const missAt = (cx, cy) => {
+  const tip = M.sprite().tip, [dx, dy] = hornDir();
+  return tip[1] + (cx - tip[0]) / dx * dy - cy;
+};
 const miss = () => missAt(...M.aimPoint());
-const missC = () => missAt(innerWidth / 2, innerHeight / 2);
 const tick = () => {
   const m = miss();
   const L = [
@@ -220,8 +223,7 @@ const tick = () => {
     'horn tip at ' + M.sprite().tip.map((v) => v.toFixed(0)).join(', ') +
       ', ' + (93 * M.sprite().scale).toFixed(0) + 'px tall',
     '',
-    '370 vertices, 27 paths.',
-    'packed cost 298 bytes; 972 would stay free.',
+    M.sprite().paths + ' paths, ' + M.sprite().mane + ' of them mane.',
     '',
     (Math.abs(m) < 6 ? 'HORN ON THE RETICLE' :
       'horn misses the reticle by ' + m.toFixed(0) + 'px'),
