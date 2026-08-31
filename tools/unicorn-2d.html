@@ -208,9 +208,9 @@ btn('restart', () => M.restart());
  'wheel', 'keydown', 'keyup'].forEach((t) =>
   panel.addEventListener(t, (e) => e.stopPropagation()));
 
-const copy = btn('copy the four numbers', (b) => {
-  const four = out.textContent.split(String.fromCharCode(10)).slice(0, 4).join(String.fromCharCode(10));
-  const done = () => { b.textContent = 'copied'; setTimeout(() => (b.textContent = 'copy the four numbers'), 1200); };
+const copy = btn('copy the readout', (b) => {
+  const four = out.textContent;
+  const done = () => { b.textContent = 'copied'; setTimeout(() => (b.textContent = 'copy the readout'), 1200); };
   // navigator.clipboard needs a secure context, and localhost counts - but fall
   // back to selecting the text so there is always a way to get it out.
   if (navigator.clipboard) navigator.clipboard.writeText(four).then(done, () => sel());
@@ -220,7 +220,7 @@ const copy = btn('copy the four numbers', (b) => {
     r.selectNodeContents(out);
     const s2 = getSelection(); s2.removeAllRanges(); s2.addRange(r);
     b.textContent = 'selected - press Ctrl+C';
-    setTimeout(() => (b.textContent = 'copy the four numbers'), 2000);
+    setTimeout(() => (b.textContent = 'copy the readout'), 2000);
   }
 });
 
@@ -251,13 +251,17 @@ const tick = () => {
     'horn tip at ' + M.sprite().tip.map((v) => v.toFixed(0)).join(', ') +
       ', ' + (93 * M.sprite().scale).toFixed(0) + 'px tall',
     '',
+    '_UX measured from the CENTRE instead of the left edge,',
+    'which is what makes the pose hold at any aspect ratio:',
+    '_UX_CENTRED: ' + (C._UX - innerWidth / (2 * innerHeight)).toFixed(4),
+    '',
     M.sprite().paths + ' paths, ' + M.sprite().mane + ' of them mane.',
     '',
     (Math.abs(m) < 6 ? 'HORN ON THE RETICLE' :
       'horn misses the reticle by ' + m.toFixed(0) + 'px'),
     '(negative = pointing above it)',
     '',
-    'paste the four lines above to Claude.',
+    'copy this and paste it to Claude.',
   ];
   out.textContent = L.join(String.fromCharCode(10));
   requestAnimationFrame(tick);
