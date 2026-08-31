@@ -850,9 +850,6 @@ const reset = () => {
   // before setting it, and the fresh run arms itself and starts charging with the
   // pointer never having been held.
   armT = -1;
-  // The sequencer outlives a run otherwise, so a new one starts halfway through a
-  // phrase on whichever chord the last one died on. A run gets its own beginning.
-  mS = mI = mW = mP = 0;
   yaw = 0; pitch = 0; aim();
 };
 
@@ -2756,7 +2753,7 @@ export const aimWorld = (r) => {
   return unCam([o[0] + u[0] * r, o[1] + u[1] * r, o[2] + u[2] * r]);
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
-export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv,
+export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv, mS,
                              wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp, scr, muted,
                              pts: points(),
                              healT, healA, healN,
@@ -2780,6 +2777,11 @@ export const playCharge = chargeTick;
 export const resetCharge = () => { chgN = 0; };
 export const playArp = arp;
 export const stepMusic = musicStep;
+// The sequencer deliberately outlives a reset now, so the music started by the
+// first press on the title screen plays straight through the how-to and into the
+// run rather than jumping back to the top of the phrase. Tests that compare one
+// phrase against another need a known beginning, and this is how they get one.
+export const setMusic = () => { mS = mI = mW = mP = 0; };
 export const setMuted = (v) => { muted = v; };
 
 addEventListener('resize', resize);

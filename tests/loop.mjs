@@ -3645,7 +3645,9 @@ console.log('--- sound ---------------------------------------------------------
   // rather than a texture.
   M.restart(); M.look(0, 0); M.place([]); M.setFire(0);
   const music = (secs, w) => {
-    M.restart(); M.place([]); M.setFire(0); M.setWave(w);
+    // The sequencer outlives a restart now - the music runs from the title press
+    // straight into the run - so a phrase to compare against has to be asked for.
+    M.restart(); M.setMusic(); M.place([]); M.setFire(0); M.setWave(w);
     heard();
     const out = [];
     for (let i = 0; i < secs * 60; i++) {
@@ -3905,6 +3907,31 @@ console.log('--- the title, the how-to, and the best ---------------------------
        Math.abs(lo - C._CARDSP[0]) < 0.02 && hi > 0.98,
        'alpha runs ' + lo.toFixed(2) + ' to ' + hi.toFixed(2) + ' against CARDSP dimmest ' +
        C._CARDSP[0] + ', a full cycle every ' + (2 * Math.PI / C._CARDSP[1]).toFixed(2) + 's');
+  }
+
+  // The music starts on the FIRST press and is not started again. It used to be:
+  // the press that leaves the how-to calls reset(), reset zeroed the sequencer,
+  // and the phrase jumped back to its opening - which is heard as the music
+  // firing a second time rather than carrying on.
+  {
+    // The audio context is already up by this point in the suite - a press in an
+    // earlier block built it - so what is checked is not silence but that the
+    // sequencer only ever goes FORWARD through the two presses.
+    M.setScr(0); M.setMusic();
+    for (let i = 0; i < 60; i++) tick();
+    const a1 = M.anim().mS;
+    press(); release();                            // title -> how-to
+    for (let i = 0; i < 60; i++) tick();
+    const a2 = M.anim().mS;
+    press(); release();                            // how-to -> the run
+    for (let i = 0; i < 30; i++) tick();
+    const a3 = M.anim().mS;
+    ok('the music is never restarted by walking into the run',
+       a1 > 4 && a2 > a1 && a3 > a2,     // ~8 sixteenths a second at BPM 126
+       'sequencer ' + a1 + ' -> ' + a2 + ' -> ' + a3 +
+       ' across both presses; it used to drop to 0 on the second, which is heard ' +
+       'as the music firing again rather than carrying on');
+    M.setScr(0);
   }
 
   // a press moves it on
