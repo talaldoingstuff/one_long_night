@@ -78,3 +78,8 @@ for (const f of fs.readdirSync(new URL('../tools/', import.meta.url)).filter((n)
 const NL = String.fromCharCode(10);
 console.log(bad ? NL + '  ' + bad + ' problem(s)'
   : NL + '  every editor parses, resolves every name it uses, and runs a frame');
+// Running an editor means running whatever it starts, and ghost-editor.html
+// starts a setInterval it never clears - so the event loop never empties and the
+// process printed everything and then sat there. Say the answer in the exit code
+// and go.
+process.exit(bad ? 1 : 0);

@@ -200,3 +200,4 @@ for (const [name, re] of [['eval', /\beval\s*\(/], ['new Function', /new Functio
   console.log('  ' + (re.test(src) ? 'packer ' : 'absent ') + P(name) +
     (re.test(src) ? "Roadroller's decompressor, expected" : ''));
 }
+process.exitCode = bad ? 1 : 0;

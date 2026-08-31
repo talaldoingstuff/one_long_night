@@ -49,3 +49,8 @@ const rbv = /const RBV = \[([^\]]*\])[^;]*;/.exec(s);
 console.log('  RBV present: ' + (rbv ? 'yes' : 'NO'));
 const uses = (s.match(/RBV/g) || []).length;
 console.log('  referenced ' + (uses - 1) + ' time(s) beyond its declaration');
+
+// An unused config key is dead weight in a 13KB budget, and anything left from
+// the previous game is a name that should not be in this one. Both were reported
+// and neither could be noticed by anything but a person reading the output.
+process.exitCode = (unused.length || found.length) ? 1 : 0;

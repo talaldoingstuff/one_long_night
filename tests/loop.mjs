@@ -113,7 +113,11 @@ const M = await import('../src/main.js');
 // six to seven and four checks were still counting to six.
 const BOWN = 7;
 const C = M.C;
-const ok = (l, c, x) => console.log((c ? 'PASS  ' : 'FAIL  ') + l + (x ? '  ' + x : ''));
+// Printing FAIL and exiting 0 means nothing downstream can tell. It counts.
+let failed = 0;
+const ok = (l, c, x) => { if (!c) failed++;
+  console.log((c ? 'PASS  ' : 'FAIL  ') + l + (x ? '  ' + x : '')); };
+process.on('exit', () => failed && process.exitCode === undefined && (process.exitCode = 1));
 let t = 0;
 const tick = (n = 1) => { for (let i = 0; i < n; i++) { rec.ops = []; t += 1000 / 60; rafCb(t); } };
 const fire = (t2, e) => (L[t2] || []).forEach((f) => f(e));

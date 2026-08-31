@@ -367,7 +367,14 @@ node tests/audit.mjs       every config key referenced, nothing left from the ol
 node tests/api.mjs         every browser call exists; the competition rules
 node --experimental-vm-modules tests/edcheck.mjs    the editors parse, resolve and RUN
 node tests/browsers.mjs    the shipped file, run in Chrome and Firefox
+
+npm run check              all of the above, building first, in one command
 ```
+
+Every one of them **exits non-zero when it fails**, which is what makes `npm run
+check` mean anything. They did not until 2026-09-01: all five printed FAIL and
+exited 0, so a hundred failing assertions and a clean run were the same thing to
+anything that was not a person reading the output.
 
 `api.mjs` and `browsers.mjs` read `dist/index.html`, so both need `npm run build`
 first — `dist/` is not tracked.
@@ -439,10 +446,11 @@ What remains is step 10, the ship pass, plus the unicorn rebrand.
 5. **Store page metadata** - listing art, screenshots, description. Platform
    metadata, not inside the 13KB, and 15 says prepare it during the build
 
-**Known, not blocking:** `tests/browsers.mjs` reports success when it finds no
-browser to run - two SKIP lines and an exit code of zero. On a machine without
-Firefox or Chrome at the paths it knows, it says the file is clean without
-having opened it.
+`browsers.mjs` knows the install paths for Windows, macOS and Linux and falls
+back to PATH; `FIREFOX=` and `CHROME=` in the environment beat all of it. A
+browser it cannot open is a **failure with an instruction**, not a skip - the
+rule names both, so checking one is not checking. It used to crash on an
+unhandled ENOENT and never reach the second browser.
 
 ### The four flagged items, ruled on 2026-08-31
 

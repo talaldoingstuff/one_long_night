@@ -23,14 +23,23 @@ let DIST;
 try { DIST = readFileSync(new URL('./dist/index.html', ROOT), 'utf8'); }
 catch { console.log('  no dist/index.html - run `npm run build` first'); process.exit(1); }
 
-// Where the browsers are. The Windows paths first, then the bare names for
-// anywhere else; whichever exists is what gets driven.
+// Where the browsers are. Installed paths for the three platforms first, then
+// the bare names to try on PATH. FIREFOX= and CHROME= in the environment beat
+// all of it, which is the answer for anywhere this list does not know about.
 const CANDIDATES = [
-  ['Firefox', ['C:/Program Files/Mozilla Firefox/firefox.exe',
-               'C:/Program Files (x86)/Mozilla Firefox/firefox.exe', 'firefox'],
+  ['Firefox', process.env.FIREFOX, [
+    'C:/Program Files/Mozilla Firefox/firefox.exe',
+    'C:/Program Files (x86)/Mozilla Firefox/firefox.exe',
+    '/Applications/Firefox.app/Contents/MacOS/firefox',
+    '/usr/bin/firefox', '/usr/local/bin/firefox', '/snap/bin/firefox',
+    'firefox', 'firefox-esr'],
    (profile) => ['--headless', '--no-remote', '--profile', profile]],
-  ['Chrome', ['C:/Program Files/Google/Chrome/Application/chrome.exe',
-              'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'google-chrome'],
+  ['Chrome', process.env.CHROME, [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
+    'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'],
    (profile) => ['--headless=new', '--disable-gpu', '--no-first-run', '--user-data-dir=' + profile]],
 ];
 
@@ -98,7 +107,11 @@ const REPORTER = `(() => {
 
 const page = '<script>' + REPORTER + '</script>' + DIST;
 
-const which = (paths) => paths.find((p) => { try { readFileSync(p); return true; } catch { return p.indexOf('/') < 0; } });
+// An installed path is proved by reading it. A bare name cannot be proved from
+// here, so it is handed to spawn and the ENOENT is caught below - which is what
+// turns "not installed" into a message instead of a stack trace.
+const onDisk = (p) => { try { readFileSync(p); return true; } catch { return false; } };
+const which = (env, paths) => env || paths.find(onDisk) || paths.filter((p) => !p.includes('/'));
 
 const run = (name, exe, args) => new Promise((done) => {
   let got = null;
@@ -116,25 +129,41 @@ const run = (name, exe, args) => new Promise((done) => {
     const port = srv.address().port;
     const profile = join(tmpdir(), 'oln-' + name + '-' + Date.now());
     mkdirSync(profile, { recursive: true });
-    const child = spawn(exe, [...args(profile), 'http://localhost:' + port + '/'],
-                        { stdio: 'ignore' });
+    // A name that is not on PATH makes spawn emit 'error', and with no listener
+    // that is an unhandled exception which takes the whole run down before the
+    // second browser is ever tried.
+    const names = Array.isArray(exe) ? exe : [exe];
+    let child = null, idx = 0;
     const finish = (result) => {
       clearInterval(poll); clearTimeout(bail);
-      try { child.kill(); } catch {}
+      try { child && child.kill(); } catch {}
       srv.close();
       try { rmSync(profile, { recursive: true, force: true }); } catch {}
       done(result);
     };
+    const tryNext = () => {
+      if (idx >= names.length) return finish({ missing: names.join(' / ') });
+      child = spawn(names[idx++], [...args(profile), 'http://localhost:' + port + '/'],
+                    { stdio: 'ignore' });
+      child.on('error', () => tryNext());
+    };
+    tryNext();
     const poll = setInterval(() => got && finish(JSON.parse(got)), 200);
     const bail = setTimeout(() => finish(null), 90000);
   });
 });
 
+// The rule names BOTH browsers, so a run that could only open one has not
+// checked it. Anything short of two passes is a failure with a reason, never a
+// quiet green.
 let bad = 0, ran = 0;
-for (const [name, paths, args] of CANDIDATES) {
-  const exe = which(paths);
-  if (!exe) { console.log('SKIP  ' + name.padEnd(9) + ' not installed'); continue; }
-  const r = await run(name, exe, args);
+for (const [name, env, paths, args] of CANDIDATES) {
+  const r = await run(name, which(env, paths), args);
+  if (r && r.missing) {
+    console.log('FAIL  ' + name.padEnd(9) + 'NOT INSTALLED where this can find it - tried ' +
+      r.missing + '. Point at it with ' + name.toUpperCase() + '=/path/to/binary');
+    bad++; continue;
+  }
   ran++;
   if (!r) { console.log('FAIL  ' + name.padEnd(9) + ' no report came back in 90s'); bad++; continue; }
   const ok = r.bad.length === 0 && r.moved && r.lit > 0;
@@ -149,6 +178,6 @@ for (const [name, paths, args] of CANDIDATES) {
   console.log('        ' + r.ua);
 }
 console.log('');
-console.log(bad ? '  ' + bad + ' of ' + ran + ' browser(s) reported a problem'
-                : '  the shipped file runs clean in ' + ran + ' browser(s)');
+console.log(bad ? '  ' + bad + ' of ' + CANDIDATES.length + ' browser(s) failed or could not be run'
+                : '  the shipped file runs clean in all ' + ran + ' browser(s) the rule names');
 process.exit(bad ? 1 : 0);

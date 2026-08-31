@@ -27,7 +27,11 @@ globalThis.requestAnimationFrame = () => {};
 
 const M = await import('../src/main.js');
 const C = M.C;
-const ok = (l, c, x) => console.log((c ? 'PASS  ' : 'FAIL  ') + l + (x ? '  ' + x : ''));
+// Printing FAIL and exiting 0 means nothing downstream can tell. It counts.
+let failed = 0;
+const ok = (l, c, x) => { if (!c) failed++;
+  console.log((c ? 'PASS  ' : 'FAIL  ') + l + (x ? '  ' + x : '')); };
+process.on('exit', () => failed && process.exitCode === undefined && (process.exitCode = 1));
 const near = (a, b, e = 1e-6) => Math.abs(a - b) < e;
 const W = 900, H = 500, PX = C._ZOOM * H;
 const BOXR = 0.55, BOXZ = 3.2, BOXC = [190, 196, 224];

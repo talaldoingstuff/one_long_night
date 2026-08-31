@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "size": "vite build && node tools/size.js"
+    "size": "vite build && node tools/size.js",
+    "check": "npm run build && node tests/loop.mjs && node tests/render.mjs && node tests/audit.mjs && node tests/api.mjs && node --experimental-vm-modules tests/edcheck.mjs && node tests/browsers.mjs && node tools/size.js"
   },
   "devDependencies": {
     "js13k-vite-plugins": "1.0.4",
