@@ -3931,7 +3931,20 @@ console.log('--- the title, the how-to, and the best ---------------------------
        'sequencer ' + a1 + ' -> ' + a2 + ' -> ' + a3 +
        ' across both presses; it used to drop to 0 on the second, which is heard ' +
        'as the music firing again rather than carrying on');
-    M.setScr(0);
+    // Dying is the one thing that does put it back, so a new run gets a downbeat
+    // instead of picking up on whichever chord the last one died on.
+    M.restart(); M.look(0, 0); M.setFire(0);
+    for (let i = 0; i < 60; i++) tick();
+    const alive = M.anim().mS;
+    let d = 0;
+    while (!M.dbg().over && d++ < 60 * 60) {
+      if (!M.dbg().ghosts.length) M.place([[4, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
+      tick();
+    }
+    ok('but dying does put it back to the top',
+       alive > 4 && M.dbg().over === 1 && M.anim().mS === 0,
+       'it was at ' + alive + ' and is at ' + M.anim().mS + ' on the frame the run ended');
+    M.restart(); M.place([]); M.setScr(0);
   }
 
   // a press moves it on

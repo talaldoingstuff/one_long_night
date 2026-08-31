@@ -1690,6 +1690,11 @@ const step = (dt) => {
     if (hearts <= 0) {
       hearts = 0; over = 1; sfx(5);
       saveBest();
+      // Death is the ONE thing that puts the sequencer back to the top. It runs
+      // unbroken from the first press on the title screen through the how-to and
+      // every wave after it; what it must not do is pick a new run up halfway
+      // through a phrase, on whichever chord the last one died on.
+      mS = mI = mW = mP = 0;
     }
   }
 };
@@ -2777,10 +2782,11 @@ export const playCharge = chargeTick;
 export const resetCharge = () => { chgN = 0; };
 export const playArp = arp;
 export const stepMusic = musicStep;
-// The sequencer deliberately outlives a reset now, so the music started by the
-// first press on the title screen plays straight through the how-to and into the
-// run rather than jumping back to the top of the phrase. Tests that compare one
-// phrase against another need a known beginning, and this is how they get one.
+// The sequencer deliberately outlives a reset, so the music started by the first
+// press on the title screen plays straight through the how-to and into the run
+// rather than jumping back to the top of the phrase. Only dying puts it back.
+// Tests that compare one phrase against another need a known beginning, and this
+// is how they get one.
 export const setMusic = () => { mS = mI = mW = mP = 0; };
 export const setMuted = (v) => { muted = v; };
 
