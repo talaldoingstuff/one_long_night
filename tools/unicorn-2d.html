@@ -25,7 +25,7 @@
          font:inherit;margin:2px 3px 2px 0}
   button.on{background:#ffd60a;color:#111;border-color:#ffd60a}
   #out{margin-top:10px;padding:8px;background:#070810;border:1px solid #1e2233;color:#7de08a;
-       white-space:pre-wrap;font-size:11px}
+       white-space:pre-wrap;font-size:11px;user-select:text;cursor:text}
   .note{color:#8b93b8;font-size:11px;margin:6px 0}
 </style>
 </head>
@@ -195,6 +195,30 @@ btn('guides on', (b) => {
 }, 1);
 btn('back to the shipped pose', () => { Object.assign(C, DEF); sync(); save(); });
 btn('restart', () => M.restart());
+
+// The game listens for pointer events on the window, so a drag anywhere - the
+// panel included - turns the camera and steals the selection. Swallow them
+// before they get that far, which makes the sliders and the text behave like
+// controls rather than like the game.
+['pointerdown', 'pointermove', 'pointerup', 'mousedown', 'mousemove', 'mouseup',
+ 'wheel', 'keydown', 'keyup'].forEach((t) =>
+  panel.addEventListener(t, (e) => e.stopPropagation()));
+
+const copy = btn('copy the four numbers', (b) => {
+  const four = out.textContent.split(String.fromCharCode(10)).slice(0, 4).join(String.fromCharCode(10));
+  const done = () => { b.textContent = 'copied'; setTimeout(() => (b.textContent = 'copy the four numbers'), 1200); };
+  // navigator.clipboard needs a secure context, and localhost counts - but fall
+  // back to selecting the text so there is always a way to get it out.
+  if (navigator.clipboard) navigator.clipboard.writeText(four).then(done, () => sel());
+  else sel();
+  function sel() {
+    const r = document.createRange();
+    r.selectNodeContents(out);
+    const s2 = getSelection(); s2.removeAllRanges(); s2.addRange(r);
+    b.textContent = 'selected - press Ctrl+C';
+    setTimeout(() => (b.textContent = 'copy the four numbers'), 2000);
+  }
+});
 
 const out = document.createElement('pre'); out.id = 'out'; panel.append(out);
 // The horn's direction on screen, read off the sprite's own axis constant and
