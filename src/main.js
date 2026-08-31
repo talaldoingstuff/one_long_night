@@ -2368,16 +2368,16 @@ const HOWTO = [
 
 // The same breathing square the selected card wears, so the two read as one
 // language rather than as two different games.
-const button = (label, y, u) => {
-  const w = u * 7, h = u * 1.9, p = C._CARDSP;
-  g.globalAlpha = p[0] + (1 - p[0]) * (0.5 + 0.5 * sin(clock * p[1]));
-  g.strokeStyle = C._CARDSC;
-  g.lineWidth = C._CARDSW;
-  g.strokeRect(W / 2 - w / 2, y, w, h);
-  g.globalAlpha = 1;
-  g.fillStyle = '#fff';
-  g.font = (u | 0) + 'px monospace';
-  g.fillText(label, W / 2, y + h * 0.7);
+// What to press, said rather than drawn as a control. There was a bordered box
+// labelled START and another labelled PLAY, and neither was ever hit-tested:
+// onDown takes ANY press while scr < 2, and so do space and enter. A box that
+// looks like a button and is not one is worse than no box, because it invites
+// the one thing that is not required - aiming at it. The game over screen has
+// said CLICK ANYWHERE all along; these two now agree with it.
+const anywhere = (label, y, u) => {
+  g.fillStyle = '#8b93b8';
+  g.font = (u * 0.8 | 0) + 'px monospace';
+  g.fillText(label, W / 2, y);
 };
 
 const menuScreen = () => {
@@ -2416,11 +2416,11 @@ const menuScreen = () => {
     g.fillStyle = '#fff';
     g.fillText(tail, x0 + wn, H * 0.69);
     g.textAlign = 'center';
-    button('PLAY', H * 0.75, u);
+    anywhere('CLICK ANYWHERE TO PLAY', H * 0.79, u);
   } else {
     g.font = (u * 2.4 | 0) + 'px monospace';
     g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
-    button('START', H * 0.56, u);
+    anywhere('CLICK ANYWHERE TO START', H * 0.58, u);
   }
   // The version belongs at the foot of whichever screen you are on, not in the
   // middle of the title.

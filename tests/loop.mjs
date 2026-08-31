@@ -3829,7 +3829,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
   M.setScr(0);
   draw();
   ok('the game opens on a title screen, not in a run',
-     txt().includes('ONE LONG NIGHT') && txt().includes('START'),
+     txt().includes('ONE LONG NIGHT') && txt().some((t) => /START/.test(t)),
      txt().map((t) => '"' + t + '"').join(', '));
   const verOp = rec.ops.find((o) => o.op === 'text' && o.s === C._VER);
   ok('and it carries a version, at the foot of the screen',
@@ -3844,14 +3844,19 @@ console.log('--- the title, the how-to, and the best ---------------------------
        o.p.every((q) => q[1] < 500 / 2)) &&                         // no hearts
      !rec.ops.some((o) => o.a),                                     // no minimap
      'no HUD, no minimap, no puppet');
-  ok('and the button breathes like the card square does',
-     sq().length === 1,
-     'the same outline, so the two read as one language rather than two games');
+  // It used to draw a bordered box labelled START, in the same breathing outline
+  // the card screen puts round the card the keyboard is on. It was never hit
+  // tested - any press anywhere moves the screen on, and so do space and enter -
+  // so it was a control that did not exist, drawn in the language of one that
+  // does. What it says now is what actually works.
+  ok('it says what to press rather than drawing a button that is not one',
+     sq().length === 0 && txt().some((t) => /^CLICK ANYWHERE/.test(t)),
+     '"' + txt().find((t) => /^CLICK ANYWHERE/.test(t)) + '", and no outlined box on the screen');
 
   // a press moves it on
   press(); release();
   draw();
-  ok('a press goes to the how-to', txt().includes('HOW TO PLAY') && txt().includes('PLAY'),
+  ok('a press goes to the how-to', txt().includes('HOW TO PLAY') && txt().some((t) => /PLAY/.test(t)),
      txt().slice(0, 3).map((t) => '"' + t + '"').join(', ') + ' ...');
   // What you do, then every way to do it - and every input route has to be on it,
   // or somebody plays the whole game without knowing one of them exists.
