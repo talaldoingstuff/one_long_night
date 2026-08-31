@@ -410,7 +410,10 @@ export const C = {
   // a hard competition rule rather than a nicety.
   _LSK: 'oln.best',
   _VER: 'v 0.1',
-  _HBTN: [1.5, 0.4],   // the mute and quit squares: size and margin, in HUD units
+  // The mute and quit squares: size and margin, in HUD units. Twice what they
+  // were - they are the only things in the game meant to be TOUCHED rather than
+  // aimed at, and a finger is not a cursor.
+  _HBTN: [3, 0.4],
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -2039,19 +2042,27 @@ const hud = () => {
 
   // Mute and quit, always there. A touch player has no keyboard for M or ESC, and
   // a mouse player loses nothing by being able to click them.
-  const uu = min(W, H) * C._HUDU;
   for (let i = 0; i < 2; i++) {
     const [bx, by, bs] = hudBtn(i);
-    g.globalAlpha = i || !muted ? 0.5 : 0.9;
-    g.strokeStyle = '#8b93b8';
+    g.globalAlpha = i || !muted ? 0.85 : 1;
+    g.strokeStyle = '#fff';
     g.lineWidth = 2;
     g.strokeRect(bx, by, bs, bs);
-    g.fillStyle = i || !muted ? '#8b93b8' : css(C._GOLD, 1);
-    g.font = (uu * 0.8 | 0) + 'px monospace';
+    g.fillStyle = i || !muted ? '#fff' : css(C._GOLD, 1);
+    // Sized off the SQUARE rather than off the HUD unit, so the glyph keeps its
+    // proportion whatever HBTN is set to.
+    g.font = (bs * 0.53 | 0) + 'px monospace';
     g.textAlign = 'center';
     // A right arrow rather than an X: leaving a run is going somewhere, not
     // closing something. The glyph is already in the file, on the how-to line.
-    g.fillText(i ? '→' : 'M', bx + bs / 2, by + bs * 0.72);
+    //
+    // Centred by the BASELINE rule rather than by a fraction of the box. 0.72
+    // was tuned for a capital M, which sits on the baseline; an arrow sits on
+    // the maths axis, half a glyph higher, so the same number put it low. This
+    // one centres anything.
+    g.textBaseline = 'middle';
+    g.fillText(i ? '→' : 'M', bx + bs / 2, by + bs / 2);
+    g.textBaseline = 'alphabetic';
     g.textAlign = 'left';
   }
   g.globalAlpha = 1;

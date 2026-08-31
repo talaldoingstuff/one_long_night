@@ -3865,7 +3865,10 @@ console.log('--- what a run is worth -------------------------------------------
 console.log('--- the title, the how-to, and the best ----------------------------');
 {
   const txt = () => rec.ops.filter((o) => o.op === 'text').map((o) => o.s);
-  const sq = () => rec.ops.filter((o) => o.op === 'srect' && o.c === C._CARDSC);
+  // White outlines are not unique any more - the mute and quit squares are
+  // stroked white too - so the card's own border width is what names it.
+  const sq = () => rec.ops.filter((o) => o.op === 'srect' && o.c === C._CARDSC &&
+    o.lw === C._CARDSW);
   const draw = () => { rec.ops = []; tick(); };
 
   M.setScr(0);
@@ -4245,7 +4248,10 @@ console.log('--- arriving apart, and the card screen by keyboard ---------------
      M.anim().sel === 0, 'so a keyboard run has somewhere to be');
   rec.ops = []; tick();
   const boxOf = (n) => M.boxes()[n];
-  const sq = () => rec.ops.filter((o) => o.op === 'srect' && o.c === C._CARDSC);
+  // White outlines are not unique any more - the mute and quit squares are
+  // stroked white too - so the card's own border width is what names it.
+  const sq = () => rec.ops.filter((o) => o.op === 'srect' && o.c === C._CARDSC &&
+    o.lw === C._CARDSW);
   ok('and the one it is on wears a white square',
      sq().length === 1 &&
        Math.abs(sq()[0].x - (boxOf(0)[0] - C._CARDSO)) < 0.01 &&
