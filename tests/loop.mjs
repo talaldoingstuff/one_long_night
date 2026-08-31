@@ -612,16 +612,29 @@ console.log('--- the crosshair sits on the drawn horn --------------------------
   console.log('       (the drawn horn casts its line ' +
               Math.abs(sp.tip[1] + t * dy - a[1]).toFixed(0) + 'px from the crosshair)');
 
-  // Where shots leave from is the same decision, and it went the same way. AIMO
-  // is the point the solved 3D horn resolved to, kept so the crosshair does not
-  // move; the sprite's own tip is wherever the pose puts it. Both are reported so
-  // the gap is visible every run, and neither is asserted - the pose is the
-  // user's, and this file does not overrule it.
-  const muz = M.proj(C._AIMO);
-  console.log('       (shots leave ' +
-              Math.hypot(muz[0] - sp.tip[0], muz[1] - sp.tip[1]).toFixed(0) +
-              'px from the drawn horn tip: muzzle ' + muz.map((v) => v.toFixed(0)).join(', ') +
-              ', tip ' + sp.tip.map((v) => v.toFixed(0)).join(', ') + ')');
+  // But a shot must still LEAVE the horn the player is looking at, and end up
+  // under the crosshair. Those are two different points now - AIMO holds the
+  // crosshair still, the sprite sits where the pose puts it - so the trajectory
+  // is what joins them: born on the drawn tip, aimed at the convergence point.
+  M.restart(); M.place([]); M.look(0, 0); M.setFire(1);
+  for (let i = 0; i < 200 && !M.dbg().horns.length; i++) tick();
+  const h0 = M.dbg().horns[0].slice();            // the game moves these in place
+  const born = M.proj(M.cam([h0[0] - h0[3] / 60, h0[1] - h0[4] / 60, h0[2] - h0[5] / 60]));
+  const xh = M.aimPoint();
+  M.setFire(0);
+  let n2 = 0; while (M.anim().rec > 0 && n2++ < 120) tick();   // let the kick ease out
+  const tip = M.sprite().tip;
+  ok('a shot leaves the horn the player can see',
+     Math.hypot(born[0] - tip[0], born[1] - tip[1]) < 2,
+     'born at ' + born.map((v) => v.toFixed(1)).join(', ') +
+     ' against a drawn horn tip at ' + tip.map((v) => v.toFixed(1)).join(', '));
+  const at = (t) => M.proj(M.cam([h0[0] + h0[3] * t, h0[1] + h0[4] * t, h0[2] + h0[5] * t]));
+  const off = [0.1, 0.2, 0.35].map((t) => Math.hypot(at(t)[0] - xh[0], at(t)[1] - xh[1]));
+  ok('and flies to the crosshair, closing the whole way',
+     off[0] > off[1] && off[1] > off[2] && off[2] < 6,
+     'it comes in ' + off.map((v) => v.toFixed(0)).join('px, ') +
+     'px off the crosshair at 0.10s, 0.20s and 0.35s');
+  M.setFire(1);
   M.setFire(1);
 }
 

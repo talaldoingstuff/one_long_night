@@ -926,12 +926,16 @@ const fire = () => {
   if (over || fireT > 0) return;
   fireT = sFire();
   sfx(0);
-  // From where the horn tip is SEEN to be, toward whatever is under the
-  // crosshair. The puppet is posed, not aimed - so the shot's direction is the
-  // player's, while its origin is the horn's.
-  const c = C._AIMO;                             // the horn tip, camera space
-  const k = (C._F / (C._F + c[2])) / (C._F / (C._F + C._MUZZ));
-  const o = unCam(c[2] > C._MUZZ ? [c[0] * k, c[1] * k, C._MUZZ] : c);
+  // From where the horn tip is DRAWN, toward whatever is under the crosshair.
+  // Those are two different points now: the crosshair is fixed and the unicorn
+  // is posed against it, so a shot that started at AIMO would leave 60px below
+  // the horn the player is looking at. upos() is the same placement the frame
+  // paints from, unprojected at the muzzle depth, so the tracer starts exactly
+  // on the drawn tip at any resolution - and it still ends up under the
+  // crosshair, because that is what it is aimed at.
+  const [tx, ty] = upos();
+  const k = C._F / (C._F + C._MUZZ);
+  const o = unCam([(tx - W / 2) / (k * PX), (ty - H / 2) / (k * PX), C._MUZZ]);
   const p = unCam(aimAt());
   const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
   const L = hypot(d[0], d[1], d[2]) || 1;
