@@ -360,11 +360,20 @@ node tests/loop.mjs        the suite: 506 checks over the whole game
 node tests/render.mjs      the projection and the primitives
 node tests/audit.mjs       every config key referenced, nothing left from the old game
 node tests/api.mjs         every browser call exists; the competition rules
-node --experimental-vm-modules tests/edcheck.mjs    the editors parse and resolve
+node --experimental-vm-modules tests/edcheck.mjs    the editors parse, resolve and RUN
+node tests/browsers.mjs    the shipped file, run in Chrome and Firefox
 ```
 
-`api.mjs` reads `dist/index.html`, so it needs `npm run build` first — `dist/` is
-not tracked.
+`api.mjs` and `browsers.mjs` read `dist/index.html`, so both need `npm run build`
+first — `dist/` is not tracked.
+
+`browsers.mjs` is the competition's zero-console-errors rule, checked rather than
+assumed. It needs no automation library: a tiny server puts a reporter in front
+of the shipped file, the page plays itself for eleven seconds — title, how-to,
+clicks, drags, a keyboard turn, a held charge, mute — and posts back everything
+`console.error`, `console.warn`, `window.onerror` and `unhandledrejection` saw.
+It also samples the canvas twice a second apart, because a game that throws
+nothing and paints a frozen frame passes a console check and is still broken.
 
 Measurement probes, which answer a question rather than assert:
 `playtest.mjs` (how far a run gets, several player profiles - slow, minutes),
