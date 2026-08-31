@@ -40,9 +40,17 @@ const REPORTER = `(() => {
   addEventListener('error', (e) => note('window.error',
     (e.message || e.type) + ' @ ' + (e.filename || '?') + ':' + (e.lineno || '?')), true);
   addEventListener('unhandledrejection', (e) => note('unhandledrejection', e.reason));
+  // error and warn are what the rule is about. log, info and debug are caught
+  // too and reported separately: a dev server's HMR client chatters on those,
+  // and the only way to say the SHIPPED file is silent is to listen to them.
+  const said = [];
   for (const k of ['error', 'warn']) {
     const orig = console[k].bind(console);
     console[k] = (...a) => { note('console.' + k, a.map(String).join(' ')); orig(...a); };
+  }
+  for (const k of ['log', 'info', 'debug']) {
+    const orig = console[k].bind(console);
+    console[k] = (...a) => { said.push('console.' + k + ': ' + a.map(String).join(' ')); orig(...a); };
   }
   addEventListener('load', () => {
     const down = (x, y) => dispatchEvent(new PointerEvent('pointerdown',
@@ -82,7 +90,7 @@ const REPORTER = `(() => {
       if (s >= 110) {
         clearInterval(iv);
         try { navigator.sendBeacon('/report', JSON.stringify(
-          { bad, ua: navigator.userAgent, size, lit, moved })); } catch (e) {}
+          { bad, said, ua: navigator.userAgent, size, lit, moved })); } catch (e) {}
       }
     }, 100);
   });
@@ -133,8 +141,11 @@ for (const [name, paths, args] of CANDIDATES) {
   if (!ok) bad++;
   console.log((ok ? 'PASS  ' : 'FAIL  ') + name.padEnd(9) +
     r.size + ', ' + r.lit + ' lit samples, ' + (r.moved ? 'animating' : 'FROZEN') +
-    (r.bad.length ? '  ' + r.bad.length + ' PROBLEM(S)' : ', nothing on the console'));
+    (r.bad.length ? '  ' + r.bad.length + ' PROBLEM(S)'
+      : r.said.length ? ', no errors but ' + r.said.length + ' log line(s)'
+      : ', console completely silent'));
   r.bad.forEach((b) => console.log('        ' + b));
+  r.said.forEach((b) => console.log('        (log) ' + b));
   console.log('        ' + r.ua);
 }
 console.log('');
