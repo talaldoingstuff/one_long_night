@@ -166,7 +166,7 @@ Canvas2D with painter's-algorithm fake-3D. **No WebGL.**
 
 ### Right arm — unicorn puppet
 
-A unicorn head and neck worn over the forearm. **Drawn, not modelled** (changed 2026-08-31): a flat 3/4 low-poly sprite painted straight in screen space, 370 vertices over 27 paths, viewed from behind-right so it faces away to the front-left. It was a mesh of swept boxes until the rebrand; going flat cost nothing in the read and gave back 259 bytes, because a viewmodel that never moves against the camera was paying for a transform, a projection and a depth sort it never used.
+A unicorn head and neck worn over the forearm. **Drawn, not modelled** (changed 2026-08-31): a flat 3/4 low-poly sprite painted straight in screen space, 344 vertices over 38 paths, viewed from behind-right so it faces away to the front-left. It was a mesh of swept boxes until the rebrand; going flat cost nothing in the read and gave back 259 bytes, because a viewmodel that never moves against the camera was paying for a transform, a projection and a depth sort it never used.
 
 The model is four packed strings - vertices on a 0..93 grid, per-path lengths, per-path colours, and **what each path IS**: body, mane, horn or eye. That last one is what lets the drawing keep carrying state rather than being a picture: the mane still washes toward grey with the cooldown, and the horn and eye still run the rainbow while a charge builds.
 
@@ -181,13 +181,18 @@ Because the horn is art now rather than geometry, the line it aims along is **st
 - **Recoil** — offset the whole sprite back along the horn's own axis on fire, ease out over `_RECT`
 - **Blink** — collapse the eye path's Y about its own centre on a randomised timer
 
-### Left arm — casting arm
+### Left arm — ~~casting arm~~ **cut**
 
-A forearm wrapped in rainbow bands, palm open, bottom-left of the frame.
+There is no second arm. It was to be a forearm wrapped in rainbow bands, palm
+open, bottom-left, carrying the cooldown in its saturation. The unicorn casts
+instead, and **the cooldown lives on its mane** - the same idea in a place that
+already existed, for none of the bytes a second limb would have cost. Fifteen of
+the sprite's paths are mane, and `wash()` drains them toward grey against
+`bindT`: fully coloured means ready, washed means recharging.
 
-- **The rainbow is always visible on the arm.** Saturation is the cooldown readout: fully coloured = ready, faded = recharging
-- This replaces an on-screen cooldown bar. One multiplier on band colours driven by cooldown fraction (~20 bytes)
-- **Animation:** damped sine rotation about the elbow while a cast is active (~40 bytes)
+`tests/loop.mjs` asserts the arm is gone from the source rather than merely
+off-screen, by name - CAST, CASTL, CASTR, SLEEVE, PALM, WRAPT, BANDN - so this
+section cannot quietly come back.
 
 ### Bind — the AOE
 
@@ -291,7 +296,7 @@ Three upgrade cards are offered. Pick one.
 - **Minimap, top-left.** Circular. Shows: view cone, player dot, ghost blips at true bearing including behind, and the current bind circle. This is a **primary display**, not decoration — a threat may only be perceivable here. Do not shrink it for tidiness, but it should not exceed roughly a quarter of the screen height
 - **Hearts, top-right.** Filled and empty states
 - **Wave counter**, small
-- No cooldown bar — the casting arm's saturation carries that
+- No cooldown bar — the unicorn's mane carries that, washing toward grey as the bind recharges (6 above)
 
 ---
 
@@ -389,12 +394,18 @@ a number was arrived at. Some are stale against the current code.
 
 ## 17. Open items
 
-**Status, 2026-08-31.** Build order steps 1-9 are complete, and the unicorn
-rebrand with them. 10,741 of the 11,500 game ceiling, so **759 bytes free** with
-the 800-byte Wavedash reserve and the 1,012 contingency untouched - more room
-than before the rebrand, because replacing the 3D puppet gave back more than the
-sprite costs. All 149 commits are on `origin/main`
-(github.com/talaldoingstuff/one_long_night, private). Checks: 506 + 24 pass.
+**Status, 2026-09-01.** Build order steps 1-9 are complete, and with them the
+unicorn rebrand, the Firefox pass, and a round of input and audio tuning.
+**10,733 of the 11,500 game ceiling, so 767 bytes free**, with the 800-byte
+Wavedash reserve and the 1,012 contingency untouched - more room than before
+the rebrand, because replacing the 3D puppet gave back more than the sprite
+costs. Repo at github.com/talaldoingstuff/one_long_night, private until
+submission. Checks: 507 + 24 pass, plus the shipped file running clean in
+Chrome and Firefox.
+
+Figures in this document are the ones that were true when they were written and
+some of them will not be by the time they are read; `node tools/size.js` and the
+five commands in 16 are the current answer.
 
 **The jam theme is "Unicorns and Rainbows".**
 
@@ -419,12 +430,19 @@ What remains is step 10, the ship pass, plus the unicorn rebrand.
    flat 3/4 low-poly sprite (6 above). It reads better, and it *gained* 259
    bytes rather than spending any. Its pose still wants a last look on a real
    screen - `tools/unicorn-2d.html` drives the shipped constants directly
-2. **Firefox smoke test.** Cheap, and a Firefox-only WebAudio or canvas fault is
-   expensive to find late
-3. **Console-error hunt**, both browsers, per 1
-4. **README.** The repo has none
+2. ~~**Firefox smoke test.**~~ and 3. ~~**console-error hunt.**~~ **Both done,
+   and they are a check rather than an afternoon:** `node tests/browsers.mjs`
+   runs the shipped file in Firefox and Chrome and reports every console level,
+   not only the ones that fail. Both come back completely silent, drawing, and
+   still animating a second later
+4. **README.** The repo has none, and it goes public at submission
 5. **Store page metadata** - listing art, screenshots, description. Platform
    metadata, not inside the 13KB, and 15 says prepare it during the build
+
+**Known, not blocking:** `tests/browsers.mjs` reports success when it finds no
+browser to run - two SKIP lines and an exit code of zero. On a machine without
+Firefox or Chrome at the paths it knows, it says the file is clean without
+having opened it.
 
 ### The four flagged items, ruled on 2026-08-31
 
