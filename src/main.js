@@ -80,7 +80,7 @@ export const C = {
   _RING: [4, 0.02, 0.6],    // radius in metres, width as a fraction of it, alpha
   // A second circle outside it, as a MULTIPLE of the first radius so the two
   // cannot drift apart when either is tuned, then its own width and alpha.
-  _RING2: [1.26, 0.012, 0.45],
+  _RING2: [1.26, 0.0159, 0.6],
   // And the crown between them: how many triangles, and their alpha. Their bases
   // meet corner to corner on the inner circle and their apexes touch the outer
   // one, so the gaps they leave are themselves triangles pointing inward - the
@@ -89,6 +89,11 @@ export const C = {
   // than a bump. Dimmer than either circle, so the circles stay the shape and
   // this stays the texture.
   _RINGT: [32, 0.28],
+  // The ring breathes: radians a second, and how much of its alpha the swing is
+  // worth. Drawn additively, so brightening reads as a glow rather than as the
+  // shape changing. Slow on purpose - 1.6 rad/s is a four-second breath, and
+  // anything faster reads as a warning rather than as something merely alive.
+  _RINGP: [1.6, 0.35],
   // Stars sit at a fixed bearing and height on a far cylinder, so they go through
   // the same projection as the floor and swing with the view instead of being
   // painted on the glass. Anything behind you culls itself.
@@ -1228,7 +1233,7 @@ const wash = (c, k) => {
 const UV="1134438195=4=9>9A8B=B>E>FEIEIIILLLKSKTNVM[OiRmUoXuYyY~C~Az>t:t3m3k2i2e1c2`1_2Z/V0T3S0R*N(G%D%@&?)<,6'/!!1134438195=4=9>9A8B=B>E>ECEEBHBJEODQFVFXG]F^9U5T3S0R*N(G%D%@&?)<,6'/!!HpDtB{Bz>t:t3m3k2i2e1c2`1_2Z/V0T7W<]Bd113444467789;<;=?A?CBGBHBKCOFY@Y=N:F9E6H3B1@-<-;-:,9+:)?&B%@)<,6'/!!,:-:-<1?1@2G3H5Q5T5S3S0R*N(G%D%@&B)?*>+;BLCOFY@Y=N:F5<194689;>FEIEIIILLLKSKTNVM[L\\L^K_J_G^FYFVERDMBJBIBGEEHpDtBsFlBl6[2X1Z/V0T7W<]BdB>E>FEEEBG?C?AA>433414/0/5,6,7'/!!:e>o>t:t3m3k6k7j8e7b8^9aOmRnUoXuRtNvJxIyHoNmL\\N_OiRmUoPmOmLkGlIfF^J_K_L^BKCOFY@Y=NKTNVM[L^K_J_G^FYFUJT=9<:;<897795963J2G1@1?6G9T5T3S9T?Z<]7W2U1THoIyF~DtDQDQHPJTGUFVDSBHBJEODQFVFXG]F^<W@YEYCOBH:e>o>t:t:l:cA>E>EEBBA?JLLLKSKTHPDQDPHL1I2K2N-M,L-I.F.H.I-J,L,J,G*F(E)D-E2G3G5Q5S3S0R1R2O7789;<;=>A?CBGBHBK;>46=99695=4HLEODNBJFIFXKYK_J_G^FY-6,7'/$(\"#.5//1134444605/0A8B:B<B>=>=9=9><A>B:B>A>?A>@;=;<<:0F2G2K1I/I.I.G.F-ELLKTJTHP//19.7438595774634958554436281,:-:-<,>*>+;FEIEFIEGFE,=+>-<";
 const UL="UD4C5,7.)*-+/&+(((%(.'&)',),%&''(',*%$'''&$";
 const UC="D;1ole2.)plfb^Tywt]f):4.'UFp_8[VL_N9<5/vtog0)68_c_VJA:OA.bG#je\\OKA0j_y`440*OKAZVLsqkKKtOV$W+&bS0yws6av&4JUQGrT(RNDL1`bLq,Djho<&4J";
-const UK="0000001012000011000100110000111001101011310";
+const UK="0000001012000011000100110000111201101011310";
 // THE ALICORN: a gloved hand carrying a unicorn-headed gun. It replaces the 3/4
 // unicorn sprite, and it is placed the same way - the model's own origin is the
 // HORN TIP, which is what upos() returns and what the aim, the muzzle and the
@@ -1250,8 +1255,9 @@ const UK="0000001012000011000100110000111001101011310";
 // The kinds were assigned by eye in tools/sprite-picker.html, which hit-tests the
 // shape actually painted at a pixel - the drawing has 43 flat facets and no other
 // way to tell them apart is reliable. 16 of them are mane, which is what carries
-// the cooldown wash; one is the horn and one the eye, and those two run the
-// rainbow as a charge builds.
+// the cooldown wash. TWO are the horn, not one: it is drawn as a bright face and
+// a darker one beside it, and marking only the bright one left half the horn
+// sitting gold while the other half ran the rainbow. One is the eye.
 //
 // _UEY and _UHA are MEASURED off the art rather than carried over: the eye's own
 // centre in grid units, so a blink flattens it about itself, and the horn's axis
@@ -2773,16 +2779,19 @@ const render = () => {
   // The floor ring, under everything standing on it. Drawn with the same band()
   // the ground rainbow uses, so its width is in metres and a stroked circle's
   // fat-near-thin-far problem never arises.
-  band(C._RING[0] * (1 - C._RING[1]), C._RING[0] * (1 + C._RING[1]), C._RINGC, C._RING[2]);
+  // One breath, shared by the inner circle, the outer one and the crown between
+  // them, so the ornament pulses as a single thing rather than three.
+  const rp = 1 + C._RINGP[1] * sin(clock * C._RINGP[0]);
+  band(C._RING[0] * (1 - C._RING[1]), C._RING[0] * (1 + C._RING[1]), C._RINGC, C._RING[2] * rp);
   // The outer circle and the crown filling the gap. Same band() for the circle,
   // and the triangles go through gpt() like everything else on this floor, so
   // they sit ON the ground in metres rather than being a shape drawn at the
   // screen - which is what stops the far side of the ring being as thick as the
   // near side. Additive, along with the circle they hang off.
   const rb = C._RING[0] * C._RING2[0];
-  band(rb * (1 - C._RING2[1]), rb * (1 + C._RING2[1]), C._RINGC, C._RING2[2]);
+  band(rb * (1 - C._RING2[1]), rb * (1 + C._RING2[1]), C._RINGC, C._RING2[2] * rp);
   const ra = C._RING[0] * (1 + C._RING[1]), rn = C._RINGT[0];
-  g.fillStyle = css(C._RINGC, C._RINGT[1]);
+  g.fillStyle = css(C._RINGC, C._RINGT[1] * rp);
   for (let i = 0; i < rn; i++) {
     const ai = i / rn * 2 * PI, aj = (i + 1) / rn * 2 * PI;
     const tq = [gpt(ai, ra, 0), gpt(aj, ra, 0), gpt((ai + aj) / 2, rb * (1 - C._RING2[1]), 0)];
