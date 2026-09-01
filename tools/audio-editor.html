@@ -79,10 +79,11 @@ const SFX = [
   'A ghost reaching you and taking a heart. The screen shakes and flashes red on the same frame.',
   'Any press: taking a card between waves, and the click that starts a new run. More buttons will use it.',
   'The last heart lost.',
+  'The trail behind a shot, 12ms under it. Not fired on its own - fire() plays row 0 and this together, and the pair is what makes the shot a comet rather than a crack.',
 ];
 // Named for the moment, not for the sound: two of these were impossible to find
 // by ear because 'wave' and 'caught' said nothing about the rainbow.
-const SHORT = ['horn shot', 'ghost hit', 'ghost killed', 'you get hit', 'click', 'game over'];
+const SHORT = ['horn shot', 'ghost hit', 'ghost killed', 'you get hit', 'click', 'game over', 'shot trail'];
 // The two that are more than one note. They live in _ARP, not _SFX, and have
 // their own section - a chime is a list of intervals, not a shape.
 const ARP = ['RAINBOW WAVE', 'wave cleared'];

@@ -581,12 +581,22 @@ export const C = {
   // same gain as a pitched one is far quieter. Wide enough to keep the weight.
   _NQ: 0.8,
   _SFX: [
-    [1100, 260, 0.080, 1.350, 4],  // 0  a shot leaving the horn
+    [2000, 300, 0.038, 0.720, 2],  // 0  a shot leaving the horn: the CRACK half of
+                      // it. A burst, not a rush of air - it was noise swept 1100 to
+                      // 260, which read as a thrust and sat on the music bass. Row 4,
+                      // the click, is a clean triangle moving 1.5x, so anything narrow
+                      // and pitched is heard as a button; 6.7x in 38ms cannot be
     [420, 150, 0.050, 0.660, 3],   // 1  one landing
     [300, 90,  0.160, 0.660, 3],   // 2  something dying
     [170, 50,  0.240, 0.960, 2],   // 3  being hit
     [520, 780, 0.070, 0.840, 3],   // 4  a click: taking a card, and any press after it
     [300, 60,  0.900, 0.840, 3],   // 5  the run ending
+    [900, 120, 0.420, 0.360, 4, 0.012], // 6  and the TRAIL half, 12ms behind it. One
+                      // voice cannot crack and then linger: the frequency ramp runs the
+                      // whole length of a sound, so a long one glides where it should
+                      // snap. Two voices instead - the crack IS the shot, this is the
+                      // bolt going away. The sixth number is that delay, and only this
+                      // row carries one; every other leaves it undefined and gets 0
   ],
 
   // The two sounds that are more than one note. Same shape as _SFX, one row each:
@@ -989,7 +999,7 @@ const cast = () => {
 const fire = () => {
   if (over || fireT > 0) return;
   fireT = sFire();
-  sfx(0);
+  sfx(0); sfx(6);                                 // the crack, then its trail
   // From the horn tip the player can see, along the line it is aimed down. Both
   // come off aimRay, so the shot and the crosshair cannot disagree.
   const o = unCam(aimRay()[0]);
@@ -1893,7 +1903,7 @@ const tone = (f0, f1, dur, vol, wave, at) => {
 
 const sfx = (i) => {
   const q = C._SFX[i];
-  tone(q[0], q[1], q[2], q[3] * C._SFXV, C._OSC[q[4]]);
+  tone(q[0], q[1], q[2], q[3] * C._SFXV, C._OSC[q[4]], q[5]);
 };
 
 // Scheduled ahead on the audio clock in one go, so it needs no state, cannot be

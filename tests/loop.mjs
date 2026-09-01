@@ -3677,15 +3677,62 @@ console.log('--- sound ---------------------------------------------------------
      'refusing it - the shrug is still drawn, it is just no longer heard');
   release();
 
-  // noise, which is the only way one voice makes a rush of air
+  // A burst, and one that cannot be confused with the click
   M.restart(); M.look(0, 0); M.place([]);
   M.setFire(1);
   heard();
   tick();
-  const shot = heard().find((n) => is(n, 0));
-  ok('the shot is a rush of air rather than a pitch', shot.type === 'noise',
-     'from and to sweep a bandpass across noise instead of an oscillator, which is ' +
-     'what separates a thrust from a retro blip - one voice cannot make one otherwise');
+  const fired = heard();
+  const shot = fired.find((n) => is(n, 0));
+  // How far a sound travels, as a multiple. This is the number that decides
+  // whether something is heard as a burst or as a tone that moved.
+  const span = (q) => Math.max(q[0], q[1]) / Math.min(q[0], q[1]);
+  ok('the shot is a pitched burst, not a rush of air', shot.type !== 'noise',
+     'it was noise swept across a bandpass, which read as a thrust. A burst wants ' +
+     'an edge, and ' + shot.type + ' has one - the horn fires energy, it does not ' +
+     'blow air');
+  ok('and it cannot be heard as the click, because it sweeps far wider',
+     span(C._SFX[0]) > span(C._SFX[4]) * 3 && C._SFX[0][2] < C._SFX[4][2],
+     'the shot covers ' + span(C._SFX[0]).toFixed(1) + 'x in ' + C._SFX[0][2] * 1000 +
+     'ms against the clicks ' + span(C._SFX[4]).toFixed(1) + 'x in ' + C._SFX[4][2] * 1000 +
+     'ms. Width is the whole difference: a click is a clean tone that moved a ' +
+     'little, and every short rising tone tried here sounded like one until the ' +
+     'sweep got wide enough');
+
+  // The trail. A shot is TWO voices, because one cannot crack and then linger:
+  // the frequency ramp runs the whole length of a sound, so a long one glides
+  // where it should snap.
+  const trail = fired.find((n) => is(n, 6));
+  ok('a shot is two voices, a crack and a trail behind it',
+     !!shot && !!trail && shot !== trail,
+     'one press of the trigger, two sounds - a ' + shot.type + ' crack at ' +
+     shot.f0 + 'Hz and a ' + trail.type + ' trail at ' + trail.f0 + 'Hz');
+  ok('and the trail arrives behind the crack, not on top of it',
+     trail.at > shot.at && trail.at === C._SFX[6][5],
+     trail.at * 1000 + 'ms late, so the pair reads as one sound with a thick ' +
+     'front. Started together, the crack simply drowns it');
+  ok('and it is texture where the crack is pitch',
+     trail.type === 'noise' && shot.type !== 'noise',
+     'a ' + shot.type + ' crack and a noise trail - the contrast is the point, ' +
+     'and two sawtooths would have read as one buzz held too long');
+  ok('and it is quieter and far longer than the thing it follows',
+     C._SFX[6][3] < C._SFX[0][3] && C._SFX[6][2] > C._SFX[0][2] * 5,
+     C._SFX[6][2] * 1000 + 'ms at ' + C._SFX[6][3] + ' behind ' +
+     C._SFX[0][2] * 1000 + 'ms at ' + C._SFX[0][3] + ' - a trail not clearly ' +
+     'under its crack is just a second shot');
+  // Deliberate: the trail outlasts the gap between shots at a maxed SHOT RATE, so
+  // at full rate they run into each other and the weapon reads as a stream rather
+  // than as eight separate cracks. That is what it was chosen for.
+  const gap = C._FIRE / C._FIREG ** C._CARDS[0][0];
+  ok('and at a maxed fire rate the trails deliberately run into each other',
+     C._SFX[6][2] > gap,
+     'a ' + C._SFX[6][2] * 1000 + 'ms trail against a ' + (gap * 1000).toFixed(0) +
+     'ms gap at SHOT RATE ' + C._CARDS[0][0] + ', so the tails overlap');
+  // Every other row leaves the sixth number off, and tone() reads undefined as 0.
+  ok('and it is the only sound that carries a delay',
+     C._SFX.every((q, i) => (i === 6 ? q[5] > 0 : q[5] === undefined)),
+     'one row of seven has a sixth number - tone() takes it as at, and undefined ' +
+     'falls through to 0, so no other row had to change to gain the field');
   // The wave went the other way: it was a noise whoosh and is now a chime, so the
   // check is that it is a clean tone rather than a rush of air.
   ok('and the rainbow wave is not - it is a chime', C._OSC[C._ARP[0][5]] !== 'noise',
