@@ -128,15 +128,15 @@ export const C = {
   // actually tuned at, 1280x551. The editor did that arithmetic against the real
   // window rather than me guessing the aspect ratio, which had moved the pose
   // twice before.
-  _US: 0.0060,         // grid units to pixels
-  _UX: 0.0785,         // the horn tip, right of the screen's CENTRE
-  _UY: 0.400,          // and up from the bottom
-  _UROT: -0.0873,      // radians the sprite is turned, on top of how it is drawn.
+  _US: 0.0050,         // grid units to pixels
+  _UX: 0.0800,         // the horn tip, right of the screen's CENTRE
+  _UY: 0.4000,          // and up from the bottom
+  _UROT: -0.1745,      // radians the sprite is turned, on top of how it is drawn.
                       // -5.00 degrees. Its horn is drawn along -121.50, so the
                       // line it ends up aiming along is -126.50.
-  _UEY: 39.80,         // the eye's own centre in grid units, so a blink flattens
+  _UEY: 27.00,         // the eye's own centre in grid units, so a blink flattens
                       // it about itself rather than about the model's origin
-  _UHA: [0.5013, 0.8653],       // the horn axis, tip to base: the way recoil kicks
+  _UHA: [0.5930, 0.8052],       // the horn axis, tip to base: the way recoil kicks
   _URC: 0.012,         // and how far it kicks, as a fraction of the height
   // Where the horn is SEEN to point. Stated rather than derived now that the
   // horn is drawn, and left exactly as the solved 3D pose resolved to: the
@@ -1225,29 +1225,37 @@ const wash = (c, k) => {
   return [l + (c[0] - l) * k, l + (c[1] - l) * k, l + (c[2] - l) * k];
 };
 
-const UV="!!%%46659/;7A2B;H7HAO<OHWDVQ^M\\\\fXdjpyp~8~5j2\\0\\/^-`)`%]#Y&N%F'A#8\"5+9,9!\"!!%%35565779998;<?>?=@AE6G?\\L~8~5j2\\0\\/^-`*`)`%]#X&N%F'A#8\"5+9,9!\"O<OHWDVQ^M\\\\fXdibnVmFNHMFMAFBEAECEN<\"5*<-;->+C9d<w<~8~5j2\\0\\/^-`*`)`%]#X&N%F'A#8\"5^M\\\\fXdibnVmPa]N!!%%35565779998;<?>?=@AE6G+C->-;*<\"5,9+6!\"djpyp~`~Vmbndj1P9d<w<~8~5j2\\0\\._+`)`%^(_+X0Q+C6G?\\?]9d+C9/;7A2B;H7H7HACEAE=@>?<?8;9979579/fXdgbnVmdYO<OHHMFMAFBEAECEN<djpyp~o~gtVmbndj!!%%4616,9!\"+C1P+W'O+C^M\\\\PaPa]NWDKVFNWDH7HACEAE=@H71P2\\0\\/^-`)`%^(_+X0Q\"5,9/:6G+C->-;*<\"5WDWDVQKWKVVDO<OHHMFMO<'O+W(_%]'UH7HACEAEG8#\"4616#\"A2B;>?<?@4A2<?8;@3!!-8,9!\"0[2\\0\\._,`)`+`,[/[\"5*8*<\"5-;->+C*<,<<w<~8~;y9/79579/'A(B(E'G&G%I%F'B^M]Z\\\\[]^N&G'G'L&K&GH7HACEBEHA&I(I'L&K&J";
-const UL="FB38)6(0'2&*)'&&%'+*'&&&%&%%*%&%%)&&&&";
-const UC="jge`]ZwQ\"SQNn00romc`^OMK[YV@#WR))C]7WURyf/WUR]>\"vg(#;nIGDjgd\\O\"7J*POK!1[zk7(%M5,b^P&=<:rol][XTSOS'lZXUL7$4A`\"-G.:V";
-const UK="00101000011102011100110121120000101313";
-// Built from the DETAILED drawing, not from the simplified one. The simplified
-// SVG was the detailed one divided by four and rounded, and rounding it twice -
-// once there, once onto this grid - is what was bleeding along the mane: the
-// mane is bright spikes over dark strips that run under several of them, and
-// once the spikes stop quite covering the strips, the strips show through. The
-// detailed drawing has four times the room, so quantising it directly keeps the
-// overlaps. Decimated to 344 vertices, welded at 1.5 units so a corner two paths
-// share lands in one grid cell, then put on the grid.
+const UV="1134438195=4=9>9A8B=B>E>FEIEIIILLLKSKTNVM[OiRmUoXuYyY~C~Az>t:t3m3k2i2e1c2`1_2Z/V0T3S0R*N(G%D%@&?)<,6'/!!1134438195=4=9>9A8B=B>E>ECEEBHBJEODQFVFXG]F^9U5T3S0R*N(G%D%@&?)<,6'/!!HpDtB{Bz>t:t3m3k2i2e1c2`1_2Z/V0T7W<]Bd113444467789;<;=?A?CBGBHBKCOFY@Y=N:F9E6H3B1@-<-;-:,9+:)?&B%@)<,6'/!!,:-:-<1?1@2G3H5Q5T5S3S0R*N(G%D%@&B)?*>+;BLCOFY@Y=N:F5<194689;>FEIEIIILLLKSKTNVM[L\\L^K_J_G^FYFVERDMBJBIBGEEHpDtBsFlBl6[2X1Z/V0T7W<]BdB>E>FEEEBG?C?AA>433414/0/5,6,7'/!!:e>o>t:t3m3k6k7j8e7b8^9aOmRnUoXuRtNvJxIyHoNmL\\N_OiRmUoPmOmLkGlIfF^J_K_L^BKCOFY@Y=NKTNVM[L^K_J_G^FYFUJT=9<:;<897795963J2G1@1?6G9T5T3S9T?Z<]7W2U1THoIyF~DtDQDQHPJTGUFVDSBHBJEODQFVFXG]F^<W@YEYCOBH:e>o>t:t:l:cA>E>EEBBA?JLLLKSKTHPDQDPHL1I2K2N-M,L-I.F.H.I-J,L,J,G*F(E)D-E2G3G5Q5S3S0R1R2O7789;<;=>A?CBGBHBK;>46=99695=4HLEODNBJFIFXKYK_J_G^FY-6,7'/$(\"#.5//1134444605/0A8B:B<B>=>=9=9><A>B:B>A>?A>@;=;<<:0F2G2K1I/I.I.G.F-ELLKTJTHP//19.7438595774634958554436281,:-:-<,>*>+;FEIEFIEGFE,=+>-<";
+const UL="UD4C5,7.)*-+/&+(((%(.'&)',),%&''(',*%$'''&$";
+const UC="D;1ole2.)plfb^Tywt]f):4.'UFp_8[VL_N9<5/vtog0)68_c_VJA:OA.bG#je\\OKA0j_y`440*OKAZVLsqkKKtOV$W+&bS0yws6av&4JUQGrT(RNDL1`bLq,Djho<&4J";
+const UK="0000001012000011000100110000111001101011310";
+// THE ALICORN: a gloved hand carrying a unicorn-headed gun. It replaces the 3/4
+// unicorn sprite, and it is placed the same way - the model's own origin is the
+// HORN TIP, which is what upos() returns and what the aim, the muzzle and the
+// crosshair all read.
 //
-// The unicorn is a flat 3/4 sprite now (DESIGN.md 5's hard-edged polygons, drawn
-// in screen space rather than projected). Four packed strings: UV is the
-// vertices, two chars a point on a 0..93 grid; UL is how many points each path
-// has; UC is its colour, three chars; UK is what the path IS, which is what
-// lets the drawing keep carrying state:
+// Reduced from the drawing by ranked area: 127 paths and 4,421 vertices down to
+// 41 paths and 349, simplified with Douglas-Peucker at 12.2 SVG units and then
+// quantised onto the 0..93 grid. Ranking by area alone drops the EYE - it is a
+// stack of small facets - so the two that make it read are kept by name.
+//
+// Held to the vertex count it replaces on purpose. Measured: the four strings
+// cost about 515 bytes packed at 344 vertices, roughly 1.5 bytes a vertex, which
+// makes the sprite the single most expensive piece of art in the game.
+//
+// Four packed strings: UV is the vertices, two chars a point on a 0..93 grid; UL
+// is how many points each path has; UC is its colour, three chars; UK is what the
+// path IS:
 //   0 body   1 mane   2 horn   3 eye
-// The mane is still the cooldown readout DESIGN.md 6 asks for - fully coloured
-// means the bind is ready, washed grey means it is recharging - and the horn and
-// eye still run the rainbow while a charge builds. None of that survives baking
-// colours into a string unless the string also says which path is which.
+// The kinds were assigned by eye in tools/sprite-picker.html, which hit-tests the
+// shape actually painted at a pixel - the drawing has 43 flat facets and no other
+// way to tell them apart is reliable. 16 of them are mane, which is what carries
+// the cooldown wash; one is the horn and one the eye, and those two run the
+// rainbow as a charge builds.
+//
+// _UEY and _UHA are MEASURED off the art rather than carried over: the eye's own
+// centre in grid units, so a blink flattens it about itself, and the horn's axis
+// as the direction of its own centroid from the tip, which is the model origin.
 const uch = (s, i) => s.charCodeAt(i) - 33;
 // Where the sprite RESTS, and how it is turned. The horn tip is the model's own
 // origin, so this is the horn tip on screen - which the aim, the muzzle and the
