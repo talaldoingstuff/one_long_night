@@ -3364,12 +3364,43 @@ console.log('--- the world -----------------------------------------------------
   // own projection rather than counting quads: the ones behind you cull themselves.
   const ahead = (rr) => M.proj(M.cam([0, C._EYE, rr]))[1];
   ok('there is one ring on the floor, close in',
-     r.length > 0 && [...new Set(r.map(alphaOf))].length === 1 &&
+     r.length > 0 &&
        r.some((o) => o.p.some((t) => Math.abs(t[1] - ahead(q[0])) < 3 &&
          Math.abs(t[0] - 900 / 2) < 40)),
      'at ' + q[0] + 'm, where the projection says ' + q[0] + 'm is. Four of them ' +
      'every 4m out to the arena read as pattern rather than as scale; one close in ' +
      'is the distance at which a ghost has become your problem');
+  // One ring with a BAND on it is not the same thing as a series of rings. The
+  // second circle sits just outside the first and the gap between them is filled,
+  // so the pair reads as a single ornament - two circles set far apart would be
+  // exactly the scale the check above exists to prevent.
+  ok('and a second circle just outside it, not a second ring further out',
+     [...new Set(r.map(alphaOf))].length === 2 && C._RING2[0] < 1.5,
+     'outer at ' + (q[0] * C._RING2[0]).toFixed(2) + 'm against ' + q[0] + 'm, ' +
+     C._RING2[0] + 'x - near enough to read as one band rather than as two marks');
+  const crown = rec.ops.filter((o) => o.op === 'fill' && o.n === 3 &&
+    o.c === 'rgba(' + C._RINGC.join(',') + ',' + C._RINGT[1] + ')');
+  ok('and the gap between them is filled with triangles',
+     crown.length > 0 && crown.length <= C._RINGT[0],
+     crown.length + ' of ' + C._RINGT[0] + ' drawn - the rest are behind the eye and ' +
+     'drop themselves, which is what gpt() returning null is for');
+  // Depth is what decides where a ground point lands, so this is asked STRAIGHT
+  // AHEAD: to the side, a point on the inner circle is nearer than one on the outer
+  // and sits lower on the screen, which would make a naive min/max meaningless.
+  const rIn = C._RING[0] * (1 + C._RING[1]);
+  const rOut = C._RING[0] * C._RING2[0] * (1 - C._RING2[1]);
+  const mid = crown.flatMap((o) => o.p)
+    .filter((t) => Math.abs(t[0] - 900 / 2) < 60).map((t) => t[1]);
+  ok('and it spans exactly the gap - bases on the inner circle, apexes on the outer',
+     mid.length > 2 && Math.abs(Math.max(...mid) - ahead(rIn)) < 3 &&
+       Math.min(...mid) >= ahead(rOut) - 1 && Math.min(...mid) < ahead(rIn) - 5,
+     'straight ahead its nearest point is where ' + rIn.toFixed(2) + 'm projects and ' +
+     'its furthest stops at ' + rOut.toFixed(2) + 'm, so it fills the gap and spills ' +
+     'past neither circle');
+  ok('and they are dimmer than the two circles they hang between',
+     C._RINGT[1] < C._RING[2] && C._RINGT[1] < C._RING2[2],
+     C._RINGT[1] + ' against ' + C._RING[2] + ' and ' + C._RING2[2] + ' - the circles ' +
+     'are the shape, the crown is the texture, so it must not shout over them');
   ok('and it is white, the one thing on that floor that is not a rainbow',
      r.every((o) => o.c.startsWith('rgba(255,255,255,')),
      'so it can never be mistaken for the bind, which owns every other colour down there');
