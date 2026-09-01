@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sprite editor</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060e;overflow:hidden;
+            font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#c8cee6}
+  #wrap{display:flex;height:100%}
+  #stage{flex:1;position:relative;background:#3a322b}
+  canvas{position:absolute;inset:0;cursor:crosshair}
+  #panel{width:340px;background:#0c0e18;border-left:1px solid #232a44;
+         overflow-y:auto;padding:12px 14px 40px}
+  h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7f89b0;
+     margin:16px 0 6px;border-bottom:1px solid #232a44;padding-bottom:4px}
+  h2:first-child{margin-top:0}
+  .hint{color:#59618a;margin:0 0 8px}
+  b{color:#9fe6ff;font-weight:400}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}
+  button{background:#1a2138;border:1px solid #2e3860;color:#c8cee6;padding:5px 9px;
+         border-radius:4px;cursor:pointer;font:inherit}
+  button:hover{background:#232c4a}
+  button.on{background:#34c9ff;border-color:#34c9ff;color:#04121a}
+  button.warn{border-color:#5b2740;color:#ff9ab0}
+  textarea{width:100%;height:120px;background:#070912;color:#9fb0d8;
+           border:1px solid #232a44;border-radius:4px;font:11px/1.45 ui-monospace,monospace;
+           padding:6px;resize:vertical}
+  input[type=color]{width:46px;height:26px;background:#131a2e;border:1px solid #2e3860;
+                    border-radius:4px;padding:1px;cursor:pointer}
+  .row{display:flex;align-items:center;gap:8px;margin:3px 0;padding:4px 6px;
+       border:1px solid #232a44;border-radius:4px;background:#131a2e}
+  .sw{width:20px;height:20px;border-radius:3px;border:1px solid #0006;flex:none}
+  #read{position:absolute;left:10px;top:10px;background:#0c0e18d8;border:1px solid #232a44;
+        border-radius:4px;padding:6px 9px;color:#9fe6ff;pointer-events:none;white-space:pre}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage"><canvas id="c"></canvas><div id="read"></div></div>
+  <div id="panel">
+    <h2>1 · pick a shape</h2>
+    <p class="hint"><b>Click</b> a shape - it selects the one actually painted at that
+    pixel, which is the one you can see. Its vertices appear as handles.</p>
+    <h2>2 · edit its vertices</h2>
+    <p class="hint"><b>Click a handle</b> to select it, shift-click for more.
+    <b>Drag</b> to move one - it snaps to the grid the format stores.
+    <b>Delete</b> or the button below removes the selected handles, which is how you
+    straighten an edge that curves inward.</p>
+    <div class="btns">
+      <button id="del" class="warn">delete vertices</button>
+      <button id="undo">undo</button>
+      <button id="resetpath">reset shape</button>
+    </div>
+    <h2>view</h2>
+    <div class="btns">
+      <button id="z6">6x</button><button id="z10">10x</button>
+      <button id="z16">16x</button><button id="z24">24x</button>
+      <button id="iso">isolate</button>
+      <button id="ghost">ghost others</button>
+    </div>
+    <p class="hint">Scroll to zoom, drag the background to pan.</p>
+    <h2>colour</h2>
+    <div class="btns">
+      <input type="color" id="pick" value="#d8aa3f">
+      <button id="apply">paint shape</button>
+      <button id="dropit" class="warn">delete whole shape</button>
+    </div>
+    <h2>selected</h2>
+    <div id="list"></div>
+    <h2>3 · send this back</h2>
+    <div class="btns"><button id="mkexport">build export</button></div>
+    <textarea id="dump" readonly></textarea>
+  </div>
+</div>
+<script type="module">
+// Read the art from the module itself, the way every other editor here does -
+// edcheck rewrites this import to a file URL when it runs the page headless, and
+// a copy of the strings would only fall out of step with the game.
+const M = await import('/src/main.js');
+const C = M.C;
+const { UV, UL, UC, UK } = M.spriteData();
+const UROT = C._UROT;
+const uch = (s, i) => s.charCodeAt(i) - 33;
+const chr = (n) => String.fromCharCode(Math.max(0, Math.min(93, Math.round(n))) + 33);
+
+let PATHS = [];
+{
+  let v = 0;
+  for (let i = 0; i < UL.length; i++) {
+    const n = uch(UL, i), pts = [];
+    for (let j = 0; j < n; j++, v += 2) pts.push([uch(UV, v), uch(UV, v + 1)]);
+    const hex = '#' + [0, 1, 2].map((k) =>
+      Math.round(uch(UC, i * 3 + k) * 2.742).toString(16).padStart(2, '0')).join('');
+    PATHS.push({ id: i, pts, hex, kind: UK[i], live: true,
+                 pts0: pts.map((p) => p.slice()), hex0: hex });
+  }
+}
+
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const idc = document.createElement('canvas');
+const ig = idc.getContext('2d', { willReadFrequently: true });
+const read = document.getElementById('read');
+
+let zoom = 12, panX = 90, panY = 40;
+let selPath = -1, selVerts = new Set(), iso = false, ghost = false;
+const undoStack = [];
+const snap = () => undoStack.push(PATHS.map((p) => ({ id: p.id, pts: p.pts.map((q) => q.slice()),
+                                                      hex: p.hex, live: p.live })));
+
+const place = (p, j) => {
+  const ca = Math.cos(UROT), sa = Math.sin(UROT);
+  const ux = p.pts[j][0] * zoom, uy = p.pts[j][1] * zoom;
+  return [panX + ux * ca - uy * sa, panY + ux * sa + uy * ca];
+};
+const trace = (ctx, p) => {
+  ctx.beginPath();
+  for (let j = 0; j < p.pts.length; j++) {
+    const q = place(p, j);
+    ctx.lineTo(q[0], q[1]);
+  }
+  ctx.closePath();
+};
+
+const draw = () => {
+  g.fillStyle = '#3a322b'; g.fillRect(0, 0, cv.width, cv.height);
+  for (const p of PATHS) {
+    if (!p.live) continue;
+    if (iso && selPath >= 0 && p.id !== selPath) continue;
+    g.globalAlpha = (ghost && selPath >= 0 && p.id !== selPath) ? 0.25 : 1;
+    g.fillStyle = p.hex;
+    trace(g, p);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+  if (selPath >= 0 && PATHS[selPath].live) {
+    const p = PATHS[selPath];
+    trace(g, p);
+    g.lineWidth = 2; g.strokeStyle = '#ff2ea6'; g.stroke();
+    for (let j = 0; j < p.pts.length; j++) {
+      const q = place(p, j);
+      const on = selVerts.has(j);
+      g.fillStyle = on ? '#ffe14d' : '#ff2ea6';
+      g.fillRect(q[0] - (on ? 5 : 3), q[1] - (on ? 5 : 3), on ? 10 : 6, on ? 10 : 6);
+    }
+  }
+  ig.clearRect(0, 0, idc.width, idc.height);
+  for (const p of PATHS) {
+    if (!p.live) continue;
+    ig.fillStyle = 'rgb(' + (p.id + 1) + ',0,0)';
+    trace(ig, p);
+    ig.fill();
+  }
+  paint();
+};
+
+const paint = () => {
+  const list = document.getElementById('list');
+  if (selPath < 0) { list.innerHTML = '<p class="hint">nothing selected</p>'; return; }
+  const p = PATHS[selPath];
+  list.innerHTML = '<div class="row"><span class="sw" style="background:' + p.hex + '"></span>' +
+    '<span>path ' + p.id + '   ' + p.hex + (p.hex !== p.hex0 ? ' (was ' + p.hex0 + ')' : '') +
+    '<br>' + p.pts.length + ' of ' + p.pts0.length + ' vertices' +
+    (selVerts.size ? '   ·   ' + selVerts.size + ' handle(s) picked' : '') + '</span></div>';
+};
+
+const hitPath = (x, y) => {
+  const d = ig.getImageData(x, y, 1, 1).data;
+  return d[3] && d[0] ? d[0] - 1 : -1;
+};
+const hitVert = (x, y) => {
+  if (selPath < 0) return -1;
+  const p = PATHS[selPath];
+  for (let j = 0; j < p.pts.length; j++) {
+    const q = place(p, j);
+    if (Math.abs(q[0] - x) < 7 && Math.abs(q[1] - y) < 7) return j;
+  }
+  return -1;
+};
+
+let drag = null;
+cv.addEventListener('pointerdown', (e) => {
+  const r = cv.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const vj = hitVert(x, y);
+  if (vj >= 0) {
+    if (!e.shiftKey && !selVerts.has(vj)) selVerts.clear();
+    selVerts.add(vj);
+    snap();
+    drag = { kind: 'vert', x, y, start: PATHS[selPath].pts.map((q) => q.slice()) };
+  } else {
+    drag = { kind: 'pan', x: e.clientX, y: e.clientY, px: panX, py: panY, moved: 0 };
+  }
+  cv.setPointerCapture(e.pointerId);
+  draw();
+});
+cv.addEventListener('pointermove', (e) => {
+  const r = cv.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (!drag) {
+    const i = hitPath(x | 0, y | 0);
+    const vj = hitVert(x, y);
+    read.textContent = vj >= 0
+      ? 'vertex ' + vj + ' of path ' + selPath + '   grid ' + PATHS[selPath].pts[vj].join(', ')
+      : i < 0 ? 'background' : 'path ' + i + '   ' + PATHS[i].hex + '   ' + PATHS[i].pts.length + ' pts';
+    return;
+  }
+  if (drag.kind === 'pan') {
+    drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+    panX = drag.px + (e.clientX - drag.x);
+    panY = drag.py + (e.clientY - drag.y);
+  } else {
+    const ca = Math.cos(UROT), sa = Math.sin(UROT);
+    const dx = x - drag.x, dy = y - drag.y;
+    // screen delta back into grid space, then snap
+    const gx = (dx * ca + dy * sa) / zoom, gy = (-dx * sa + dy * ca) / zoom;
+    const p = PATHS[selPath];
+    for (const j of selVerts) {
+      p.pts[j][0] = Math.max(0, Math.min(93, Math.round(drag.start[j][0] + gx)));
+      p.pts[j][1] = Math.max(0, Math.min(93, Math.round(drag.start[j][1] + gy)));
+    }
+  }
+  draw();
+});
+cv.addEventListener('pointerup', (e) => {
+  const was = drag; drag = null;
+  if (!was || was.kind === 'vert' || was.moved > 4) return;
+  const r = cv.getBoundingClientRect();
+  const i = hitPath((e.clientX - r.left) | 0, (e.clientY - r.top) | 0);
+  selPath = i; selVerts.clear();
+  draw();
+});
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const k = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  panX = mx - (mx - panX) * k; panY = my - (my - panY) * k;
+  zoom *= k;
+  draw();
+}, { passive: false });
+
+const delVerts = () => {
+  if (selPath < 0 || !selVerts.size) return;
+  const p = PATHS[selPath];
+  if (p.pts.length - selVerts.size < 3) return;
+  snap();
+  p.pts = p.pts.filter((_, j) => !selVerts.has(j));
+  selVerts.clear();
+  draw();
+};
+addEventListener('keydown', (e) => {
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delVerts(); }
+  if (e.key === 'Escape') { selVerts.clear(); draw(); }
+});
+document.getElementById('del').onclick = delVerts;
+document.getElementById('undo').onclick = () => {
+  const s = undoStack.pop();
+  if (!s) return;
+  s.forEach((r, i) => { PATHS[i].pts = r.pts; PATHS[i].hex = r.hex; PATHS[i].live = r.live; });
+  selVerts.clear();
+  draw();
+};
+document.getElementById('resetpath').onclick = () => {
+  if (selPath < 0) return;
+  snap();
+  const p = PATHS[selPath];
+  p.pts = p.pts0.map((q) => q.slice()); p.hex = p.hex0; p.live = true;
+  selVerts.clear();
+  draw();
+};
+document.getElementById('dropit').onclick = () => {
+  if (selPath < 0) return;
+  snap();
+  PATHS[selPath].live = false;
+  selVerts.clear();
+  draw();
+};
+document.getElementById('apply').onclick = () => {
+  if (selPath < 0) return;
+  snap();
+  PATHS[selPath].hex = document.getElementById('pick').value;
+  draw();
+};
+for (const z of [6, 10, 16, 24]) {
+  document.getElementById('z' + z).onclick = () => { zoom = z; draw(); };
+}
+document.getElementById('iso').onclick = (e) => {
+  iso = !iso; e.target.classList.toggle('on', iso); draw();
+};
+document.getElementById('ghost').onclick = (e) => {
+  ghost = !ghost; e.target.classList.toggle('on', ghost); draw();
+};
+
+// Rebuild the four packed strings from whatever is on screen now.
+document.getElementById('mkexport').onclick = () => {
+  const live = PATHS.filter((p) => p.live);
+  let uv = '', ul = '', uc = '', uk = '';
+  for (const p of live) {
+    for (const q of p.pts) uv += chr(q[0]) + chr(q[1]);
+    ul += chr(p.pts.length);
+    const r = parseInt(p.hex.slice(1, 3), 16), gg = parseInt(p.hex.slice(3, 5), 16),
+          b = parseInt(p.hex.slice(5, 7), 16);
+    uc += chr(r / 2.742) + chr(gg / 2.742) + chr(b / 2.742);
+    uk += p.kind;
+  }
+  const esc = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const changed = PATHS.filter((p) => !p.live || p.hex !== p.hex0 ||
+    p.pts.length !== p.pts0.length ||
+    p.pts.some((q, j) => q[0] !== p.pts0[j]?.[0] || q[1] !== p.pts0[j]?.[1]));
+  document.getElementById('dump').value =
+    '// ' + live.length + ' paths, ' + (uv.length / 2) + ' vertices' +
+    '   (was ' + PATHS.length + ' paths, ' + (UV.length / 2) + ')\n' +
+    '// edited: ' + (changed.map((p) => p.id + (p.live ? '' : ' DELETED')).join(', ') || 'nothing') + '\n' +
+    'const UV="' + esc(uv) + '";\n' +
+    'const UL="' + esc(ul) + '";\n' +
+    'const UC="' + esc(uc) + '";\n' +
+    'const UK="' + uk + '";\n';
+  document.getElementById('dump').select();
+};
+
+const resize = () => {
+  const st = document.getElementById('stage');
+  cv.width = idc.width = st.clientWidth;
+  cv.height = idc.height = st.clientHeight;
+  draw();
+};
+addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>

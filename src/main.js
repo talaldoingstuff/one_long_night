@@ -2887,6 +2887,11 @@ export const drawPuppet = () => puppet();
 // What the sprite IS, for the checks: where its horn tip lands on screen, and
 // what each path is for. Both are read off the same data the frame draws from,
 // so a check cannot pass against a model the game is not using.
+// The packed art itself, for tools/sprite-picker.html - it hit-tests and edits the
+// very paths the game draws, so it has to read them from here rather than keep a
+// copy that can fall out of step. An unused export like this one does not reach
+// the app build.
+export const spriteData = () => ({ UV, UL, UC, UK });
 export const sprite = () => {
   const [x, y, scale, ca, sa] = upos();
   const kick = rec * rec * C._URC * H;
