@@ -3,7 +3,7 @@ const anyObj = new Proxy({ width: 10 }, { get: (t,k) => (k in t ? t[k] : () => a
 let fills = 0, strokes = 0, texts = 0;
 const ctx = new Proxy({ canvas: { style: {} } }, {
   get(t,k){ if (k in t) return t[k];
-    if (k==='createLinearGradient') return () => ({ addColorStop(){}, toString:()=>'g' });
+    if (k==='createLinearGradient'||k==='createRadialGradient') return () => ({ addColorStop(){}, toString:()=>'g' });
     if (k==='fill') return () => fills++;
     if (k==='stroke') return () => strokes++;
     if (k==='fillText') return () => texts++;

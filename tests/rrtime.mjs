@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 const anyObj = new Proxy({ width: 10 }, { get: (t,k) => (k in t ? t[k] : () => anyObj) });
 const ctx = new Proxy({ canvas: { style: {} } }, {
-  get: (t,k) => (k in t ? t[k] : (k==='createLinearGradient'
+  get: (t,k) => (k in t ? t[k] : (k==='createLinearGradient'||k==='createRadialGradient'
     ? () => ({ addColorStop(){}, toString:()=>'g' }) : ()=>anyObj)),
   set: (t,k,v) => { t[k]=v; return true; } });
 globalThis.document={getElementById:()=>({getContext:()=>ctx,style:{}}),write:()=>{}};

@@ -156,6 +156,9 @@ Canvas2D with painter's-algorithm fake-3D. **No WebGL.**
 - Project vertices manually: `s = f/(f+z); px = x*s + w/2; py = y*s + h/2`
 - Sort per-part back-to-front, fill as 2D polygons
 - Flat shading: face normal dotted with a fixed light direction, **quantised to 3 discrete steps**. No gradients, no smooth shading
+- Anything that **emits** rather than reflects skips the lamp and draws at full brightness on every face. The horn in flight is the one that does: lit, its turned-away sides took the bottom step and read as dark olive, which is most of what you see of a 0.3m cone crossing the screen at 26 m/s
+- A horn in flight also carries an **additive radial glow**: one gradient at its screen point, radius in METRES so it shrinks with depth like everything else. Drawn under `lighter` after the world and before the viewmodel, so it adds light rather than painting a disc over the ground, and the puppet still occludes a horn just leaving the muzzle
+- The dots a dying ghost throws off carry the same glow, one gradient each. Theirs runs from an **inner circle** rather than from the centre, so each dot keeps its own radius as a solid core and only the halo is added outside it - a gradient run from the centre leaves the dot soft, and a burst of soft dots is a smudge rather than a spray. Brightness is the **hold**, not the reach: full alpha carries to 0.35 of the way out before it starts to fall, which burns nearly 3x the area of the core without the dot getting any bigger. At the 260 cap the whole pass measured about 0.8ms a frame against 0.14 for flat discs - the worst case the cap allows, and still under 6% of a 16.7ms budget
 - **Hard polygon edges only.** No rounded primitives, no capsules, no anti-aliased blobs for solid geometry
 - Viewmodel (both arms) draws last, on top, with no depth sorting at all
 - Ghosts use additive blending, which is order-independent — they skip depth sorting entirely

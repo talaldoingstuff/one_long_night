@@ -4,7 +4,7 @@ const rec = { ops: [], f: '', s: '', cur: null };
 const ctx = new Proxy({ canvas: { style: {} } }, {
   get(t, k) {
     if (k in t) return t[k];
-    if (k === 'createLinearGradient') return () => ({ addColorStop: () => {}, toString: () => 'grad' });
+    if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => ({ addColorStop: () => {}, toString: () => 'grad' });
     if (k === 'beginPath') return () => { rec.cur = []; };
     if (k === 'moveTo' || k === 'lineTo') return (x, y) => rec.cur && rec.cur.push([x, y]);
     if (k === 'fill') return () => { rec.ops.push({ op: 'fill', c: '' + rec.f, n: rec.cur ? rec.cur.length : 0 }); rec.cur = null; };

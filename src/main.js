@@ -256,6 +256,13 @@ export const C = {
   _HHIT: 0.5,          // metres, collision radius against a ghost centre
   _HW: 0.035,          // the flying horn's own radius at its base
   _HL: 0.3,            // and its length, metres
+  _HGR: 0.34,          // the glow: its radius in METRES, so it shrinks with distance
+                      // like everything else rather than being a fixed screen blob.
+                      // A shade longer than the horn, so it haloes rather than
+                      // swallows it
+  _HGA: 0.55,          // and its alpha at the centre. Additive over the cone's own
+                      // full gold, so the core saturates to a near-white point and
+                      // the falloff stays gold
   _HN: 7,              // sides on it. It is a cone - a horn is round - and a box
                       // swept to a point is a pyramid, which is what it was.
   // The convergence range is EASED rather than switched. The crosshair sits where
@@ -478,7 +485,14 @@ export const C = {
   // One list serves three effects, because a death, a glimmer inside the charging
   // ring and motes lifting where the wall passes are the same thing with different
   // numbers: a dot with a velocity, gravity and a life. Rows, like the sounds.
-  _PART: [260, 0.025, 0.85],      // cap, radius in metres, peak alpha
+  _PART: [260, 0.025, 1, 3, 0.35], // cap, radius in metres, peak alpha, the glow's
+                      // reach as a MULTIPLE of that radius, and how far through the
+                      // halo it stays at FULL brightness before it starts to fall.
+                      // Brightness is that last number, not the reach: holding full
+                      // alpha to 0.35 of the way out burns nearly three times the
+                      // area without the dot getting any bigger. The horn is bright
+                      // the same way - it is a solid shape at full brightness with
+                      // the falloff added outside it, not a soft blob
   _PDIE: [24, 2.0, 0.5, 1.2],     // a death: dots, spread, life, how hard they lift
   _PGLI: [0.05, 0.7, 0.55],       // charging: seconds between one, life, lift
   // Four a frame across the wall's 0.45s life is about 110 fragments, and they
@@ -812,7 +826,11 @@ export const flush = (world = 1) => {
     // the view vector to the face.
     const n = world ? cam([f[1], f[2], f[3]]) : [f[1], f[2], f[3]];
     if (n[0] * vs[0][0] + n[1] * vs[0][1] + n[2] * vs[0][2] >= 0) continue;
-    draw.push([z / vs.length, vs, shade(f[4], f[1], f[2], f[3])]);
+    // A colour can arrive as a ready CSS string instead of an [r,g,b], and then
+    // it is used as it stands - unlit. That is for things that emit rather than
+    // reflect: the horn in flight is one, and the three-step lamp was turning
+    // most of it the dark olive at the bottom of the ramp.
+    draw.push([z / vs.length, vs, f[4].map ? shade(f[4], f[1], f[2], f[3]) : f[4]]);
   }
   // DESIGN.md 5 says the viewmodel is not depth sorted - meaning not sorted
   // against the world, which it never is: it is drawn afterwards, on top. Its own
@@ -2644,10 +2662,20 @@ const drawParts = () => {
     const c = cam([p[0], p[1], p[2]]);
     if (c[2] < C._NEAR) continue;
     const s = C._F / (C._F + c[2]);
+    const x = c[0] * s * PX + W / 2, y = c[1] * s * PX + H / 2;
+    const r = q[1] * s * PX, R = r * q[3];
+    // The same glow the horn carries. The INNER circle is what keeps the spark: a
+    // gradient run from the centre would have left the dot itself soft, and a
+    // burst of soft dots is a smudge rather than a spray. So the core stays the
+    // size it always was and the falloff is added outside it.
+    const grd = g.createRadialGradient(x, y, r, x, y, R);
+    grd.addColorStop(0, css(p[8], 1));
+    grd.addColorStop(q[4], css(p[8], 1));
+    grd.addColorStop(1, css(p[8], 0));
     g.globalAlpha = p[6] * q[2];
-    g.fillStyle = css(p[8], 1);
+    g.fillStyle = grd;
     g.beginPath();
-    g.arc(c[0] * s * PX + W / 2, c[1] * s * PX + H / 2, q[1] * s * PX, 0, 7);
+    g.arc(x, y, R, 0, 7);
     g.fill();
   }
   g.globalAlpha = 1;
@@ -2734,9 +2762,31 @@ const render = () => {
     cone(frame([h[0] - px * k, h[1] - py * k, h[2] - pz * k],
                [ux * r, uy * r, uz * r],
                [px * k, py * k, pz * k],
-               [vx * r, vy * r, vz * r]), C._HN, C._GOLD);
+               [vx * r, vy * r, vz * r]), C._HN, css(C._GOLD, 1));
   }
   flush();
+
+  // The glow. A radial gradient at the horn's own screen point, drawn after the
+  // world so nothing occludes it, and ADDITIVE so it adds light instead of
+  // covering what is behind it - a glow that painted over the ground would read
+  // as a decal stuck to the screen. Its radius comes off the depth the same way
+  // a ghost's does, so it belongs to the horn rather than floating near it.
+  // Before puppet(), so the viewmodel still occludes a horn just leaving it.
+  g.globalCompositeOperation = 'lighter';
+  for (const h of horns) {
+    const c = cam([h[0], h[1], h[2]]);
+    if (c[2] < C._NEAR) continue;
+    const s = C._F / (C._F + c[2]);
+    const x = c[0] * s * PX + W / 2, y = c[1] * s * PX + H / 2, r = C._HGR * s * PX;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, css(C._GOLD, C._HGA));
+    grd.addColorStop(1, css(C._GOLD, 0));
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(x, y, r, 0, 7);
+    g.fill();
+  }
+  g.globalCompositeOperation = 'source-over';
 
   puppet();                                       // viewmodel last, on top
   g.restore();

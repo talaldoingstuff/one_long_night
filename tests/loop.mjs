@@ -19,6 +19,15 @@ const ctx = new Proxy({ canvas }, {
                toString: () => 'grad(' + x0 + ',' + y0 + ',' + x1 + ',' + y1 + ';' +
                  stops.join(' ') + ')' };
     };
+    // Radial takes two circles, and the OUTER RADIUS is the whole point of a glow:
+    // it is what says the thing belongs to something at a depth rather than being
+    // a fixed blob stuck to the screen. So it is recorded, not thrown away.
+    if (k === 'createRadialGradient') return (x0, y0, r0, x1, y1, r1) => {
+      const stops = [];
+      return { addColorStop: (o, c) => stops.push(o + ':' + c),
+               toString: () => 'rgrad(' + x1 + ',' + y1 + ',' + r1 + ',' + r0 + ';' +
+                 stops.join(' ') + ')' };
+    };
     if (k === 'strokeRect') return (x, y, w, h) => rec.ops.push({ op: 'srect', x, y, w, h, c: rec.sstyle, lw: rec.lw, alpha: rec.alpha });
     if (k === 'fillRect') return (x, y, w, h) => rec.ops.push({ op: 'rect', x, y, w, h, c: rec.style, alpha: rec.alpha, comp: rec.comp });
     // alpha too: text that breathes cannot be checked without it
@@ -613,9 +622,12 @@ console.log('--- a horn in flight is a cone -----------------------------------'
   rec.ops = [];
   shoot();
   tick();
-  const isGold = (c) => { const m = (c.match(/[0-9]+/g) || []).map(Number);
-    return m.length === 3 && m[0] > 90 && m[1] > 60 && m[2] < m[0] * 0.35; };
-  const gold = rec.ops.filter((o) => o.op === 'fill' && o.n >= 3 && isGold(o.c));
+  // The horn emits rather than reflects, so it goes through the pipeline as a
+  // ready CSS string and comes out the same full-brightness gold on every face.
+  // That makes it an exact match rather than a range - and fillRect and fillText
+  // record as their own ops, so nothing on the HUD can be mistaken for a face.
+  const HORN = 'rgba(' + C._GOLD.join(',') + ',1)';
+  const gold = rec.ops.filter((o) => o.op === 'fill' && o.n >= 3 && o.c === HORN);
   const tri = gold.filter((o) => o.n === 3).length;
   const base = gold.filter((o) => o.n === C._HN).length;
   // The proof is the ROUND base. How many side triangles survive culling depends
@@ -625,6 +637,52 @@ console.log('--- a horn in flight is a cone -----------------------------------'
      'a ' + C._HN + '-sided base and ' + tri + ' visible side triangles - a box tapered to a point is a pyramid');
   ok('and its base is round enough to read as one', C._HN >= 6,
      C._HN + ' sides');
+  // Lit, the faces turned away from the lamp took the bottom step and came out a
+  // dark olive. A horn is 0.3m crossing the screen at HSPD - that dull side is
+  // most of what anyone actually sees of one, so it never read as gold at all.
+  const dark = 'rgb(' + C._GOLD.map((v) => v * C._STEP[0] | 0).join(',') + ')';
+  ok('and it is unlit, so it reads as bright gold from every side',
+     gold.length >= 2 && !rec.ops.some((o) => o.op === 'fill' && o.c === dark),
+     gold.length + ' faces, every one of them ' + HORN + ', and not one at ' + dark);
+}
+
+console.log('');
+console.log('--- and a horn in flight glows -----------------------------------');
+{
+  M.restart(); M.place([]); M.look(0, 0);
+  rec.ops = [];
+  shoot();
+  tick();
+  const glows = (r) => r.filter((o) => o.op === 'fill' && o.c.startsWith('rgrad('));
+  // rgrad(x,y,r;stops) - the radius is the third field before the semicolon.
+  const rad = (o) => +o.c.split(';')[0].split(',')[2];
+  const near = glows(rec.ops);
+  ok('a horn in flight carries a glow',
+     near.length === 1 && M.dbg().horns.length === 1,
+     near.length + ' radial gradient for ' + M.dbg().horns.length + ' horn in the air');
+  ok('and it is additive, so it adds light instead of covering the world',
+     near[0].comp === 'lighter',
+     'drawn under ' + near[0].comp + ' - source-over would paint a disc of sky over the ' +
+     'ground and read as a decal stuck to the screen');
+  ok('and the composite goes back, so the HUD is not additive too',
+     rec.ops[rec.ops.length - 1].comp === 'source-over',
+     'the frame ends on ' + rec.ops[rec.ops.length - 1].comp);
+  ok('and it is the horn\x27s own gold, falling off to nothing',
+     near[0].c.includes('0:rgba(' + C._GOLD.join(',') + ',' + C._HGA + ')') &&
+     near[0].c.includes('1:rgba(' + C._GOLD.join(',') + ',0)'),
+     'gold at ' + C._HGA + ' in the middle out to gold at 0 - a stop that ended on any ' +
+     'alpha above zero would draw a hard rim round the glow');
+  ok('and it haloes the horn rather than hiding inside it',
+     C._HGR > C._HL / 2 && C._HGR < C._HL * 2,
+     'glow radius ' + C._HGR + 'm against a horn ' + C._HL + 'm long and ' +
+     C._HW * 2 + 'm across');
+  tick(10);
+  const far = glows(rec.ops);
+  ok('and it shrinks as the horn goes away, because its radius is in metres',
+     far.length === 1 && rad(far[0]) < rad(near[0]) * 0.8,
+     rad(near[0]).toFixed(1) + 'px at the muzzle down to ' + rad(far[0]).toFixed(1) +
+     'px ten frames later - a radius in PIXELS would have sat there the same size ' +
+     'the whole flight and read as a screen decal');
 }
 
 console.log('');
@@ -3465,6 +3523,79 @@ console.log('--- particles -----------------------------------------------------
      (-top).toFixed(2) + 'm above eye level. At the old 0.8s and 1.4m/s the fastest ' +
      'managed 1.12m and the horizon is at ' + C._EYE + 'm, so none of them ever got there');
 
+}
+
+console.log('');
+console.log('--- and the burst glows too ----------------------------------------');
+{
+  // rgrad(x, y, outer, inner; stops). The horn's glow runs from its own centre,
+  // so its inner radius is 0; a particle keeps a solid core, so its inner radius
+  // is the dot itself. That is what tells the two apart in one frame.
+  const rad = (o) => +o.c.split(';')[0].split(',')[2];
+  const core = (o) => +o.c.split(';')[0].split(',')[3];
+  const isPart = (o) => o.op === 'fill' && o.c.startsWith('rgrad(') && core(o) > 0;
+
+  M.restart(); M.place([]); M.look(0, 0);
+  M.setFire(1);
+  const wc = M.aimWorld(7);
+  M.place([[wc[0], C._GY, wc[2], 1, 1, 0, 0, 0, 0]]);
+  const k0 = M.dbg().kills;
+  let n = 0;
+  while (M.dbg().kills === k0 && n++ < 60 * 10) tick();
+  const dots = M.anim().parts;
+  const glows = rec.ops.filter(isPart);
+
+  ok('every dot a dying ghost throws off carries a glow',
+     dots.length > 0 && glows.length === dots.length,
+     glows.length + ' glows for ' + dots.length + ' dots - the burst is the ' +
+     'reward for a kill, so it is the one thing that should not be flat');
+  ok('and it is additive, the same as the horn',
+     glows.every((o) => o.comp === 'lighter'),
+     'all ' + glows.length + ' drawn under lighter, so two dots crossing add up ' +
+     'and the burst blooms where it is densest');
+  ok('and each keeps a solid core, so a spark stays a spark',
+     glows.every((o) => Math.abs(rad(o) / core(o) - C._PART[3]) < 1e-9),
+     'the dot keeps its own radius and the halo reaches ' + C._PART[3] + 'x it. ' +
+     'Running the gradient from the centre would have left the dot itself soft, ' +
+     'and a burst of soft dots is a smudge rather than a spray');
+  // drawParts walks parts in order and nothing here is behind the eye, so the
+  // nth glow belongs to the nth dot - which makes this the colour check rather
+  // than a weaker is-it-in-the-rainbow one.
+  ok('and each is the colour of the dot it belongs to, falling off to nothing',
+     glows.every((o, i) => {
+       const st = o.c.split(';')[1].slice(0, -1).split(' ');
+       const rgb = dots[i][8].join(',');
+       return st.length === 3 && st[0] === '0:rgba(' + rgb + ',1)' &&
+         st[1] === C._PART[4] + ':rgba(' + rgb + ',1)' &&
+         st[2] === '1:rgba(' + rgb + ',0)';
+     }),
+     'full at the core out to the same colour at 0 - one gradient a dot, so a ' +
+     'burst stays the spray of seven colours it always was');
+  // Brightness is the HOLD, not the reach. The middle stop is what burns: without
+  // it the dot fell away the moment it left its core, and the burst read dim next
+  // to the horn even though both were additive and both were at full colour.
+  ok('and it burns at full brightness well past its core, which is what makes it bright',
+     C._PART[4] > 0 && C._PART[4] < 1 && C._PART[2] === 1,
+     'full alpha held to ' + C._PART[4] + ' of the way out - that is ' +
+     ((1 + C._PART[4] * (C._PART[3] - 1)) ** 2).toFixed(1) + 'x the area of the core ' +
+     'lit flat out, at a peak alpha of ' + C._PART[2] + ' and with no change to the ' +
+     'radius: brighter without being bigger');
+  ok('and the glow fades with the dot rather than outliving it',
+     glows.every((o) => o.alpha > 0 && o.alpha <= C._PART[2] + 1e-9),
+     'every glow inside the ' + C._PART[2] + ' peak alpha, carried on the same ' +
+     'globalAlpha the dot already faded on');
+
+  // Wait for the state, not a frame count: the dots outlive any number small
+  // enough to guess at, and the horn the puppet keeps firing draws its own
+  // rgrad every frame - which is exactly what isPart is there to exclude.
+  const first = glows.length;
+  let n2 = 0;
+  while (M.anim().parts.length && n2++ < 600) { M.place([]); tick(); }
+  const later = rec.ops.filter(isPart);
+  ok('and the whole burst goes, glow and all',
+     first > 0 && !M.anim().parts.length && !later.length,
+     first + ' glows, and once the dots have expired ' + later.length + ' - they ' +
+     'belong to the particles rather than running on a timer of their own');
 }
 
 console.log('');

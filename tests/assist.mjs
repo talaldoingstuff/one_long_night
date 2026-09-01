@@ -13,7 +13,7 @@ const ctx = new Proxy({ canvas }, {
     if (k === 'fill') return (rule) => { rec.ops.push({ op: 'fill', rule, c: rec.style, alpha: rec.alpha, comp: rec.comp, n: rec.cur ? rec.cur.length : 0, p: rec.cur, a: rec.arc }); rec.cur = null; };
     if (k === 'stroke') return () => { rec.ops.push({ op: 'stroke', c: rec.sstyle, w: rec.lw, cap: rec.cap, alpha: rec.alpha, comp: rec.comp, n: rec.cur ? rec.cur.length : 0, p: rec.cur, a: rec.arc }); };
     if (k === 'translate') return (x, y) => rec.ops.push({ op: 'translate', x, y });
-    if (k === 'createLinearGradient') return (x0, y0, x1, y1) => {
+    if (k === 'createLinearGradient' || k === 'createRadialGradient') return (x0, y0, x1, y1) => {
       const stops = [];
       return { addColorStop: (o, c) => stops.push(o + ':' + c),
                toString: () => 'grad(' + x0 + ',' + y0 + ',' + x1 + ',' + y1 + ';' +

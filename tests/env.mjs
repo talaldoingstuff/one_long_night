@@ -7,7 +7,7 @@ const grad = { addColorStop: (o, c) => rec.stops.push({ o, c }) };
 const ctx = new Proxy({ canvas: { style: {} } }, {
   get(t, k) {
     if (k in t) return t[k];
-    if (k === 'createLinearGradient') return () => grad;
+    if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => grad;
     if (k === 'fillRect') return (x, y, w, h) => rec.rects.push({ x, y, w, h, c: rec.style });
     if (k === 'beginPath') return () => { rec.cur = []; };
     if (k === 'moveTo' || k === 'lineTo') return (x, y) => rec.cur && rec.cur.push([x, y]);
