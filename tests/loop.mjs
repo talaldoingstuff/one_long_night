@@ -2771,6 +2771,83 @@ console.log('--- the upgrade cards ---------------------------------------------
   ok('and regen heals more between waves', M.anim().regen === C._REGEN + 2,
      '+' + C._REGEN + ' a wave became +' + M.anim().regen);
 
+  // --- the safety net ---------------------------------------------------------------
+  // Extra heart is weight 10 and the one card ADAPT never multiplies, so while a
+  // lagging half is being fed at 6x its share of a slot falls from 11% to 3.5% -
+  // and heal sits behind it, so a cold streak strands TWO cards for a whole run.
+  // Measured over 120 driven runs before this rule: the first heart could arrive
+  // as late as wave 15. After it, the latest across the same 120 is wave 9.
+  const ROLLS = 40;
+  const heartIn = (w, levels) => {
+    let n = 0;
+    for (let i = 0; i < ROLLS; i++) if (dealAt(w, levels).includes(5)) n++;
+    return n;
+  };
+  const at8 = heartIn(C._HEARTW - 1);
+  const at9 = heartIn(C._HEARTW);
+  ok('before HEARTW an extra heart is only ever a chance', at8 < ROLLS,
+     at8 + ' of ' + ROLLS + ' screens at wave ' + (C._HEARTW - 1) + ' carried one - ' +
+     'the net is one wave, not a standing guarantee');
+  ok('and on the screen that ends HEARTW it is a certainty', at9 === ROLLS,
+     'all ' + ROLLS + ' at wave ' + C._HEARTW + '. deal() runs before take() advances ' +
+     'the number, so that is the screen between ' + C._HEARTW + ' and ' + (C._HEARTW + 1));
+  ok('and it is one of the three, not a fourth card squeezed in',
+     dealAt(C._HEARTW).length === C._CARDN,
+     C._CARDN + ' cards, so a forced screen reads like every other one');
+  ok('and a heart the draw has already shown you spends the guarantee',
+     (() => {
+       M.restart(); M.look(0, 0); M.place([]);
+       M.setWave(C._HEARTW); M.dealNow();            // forced, and arms the flag
+       let n = 0;
+       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(5)) n++; }
+       return n < ROLLS;
+     })(),
+     'the flag is set by the OFFER, not by the taking - the rule is about what the ' +
+     'draw put in front of you, and declining one is still having been offered it');
+  ok('and it cannot force one that is capped out',
+     !dealAt(C._HEARTW, { 5: C._CARDS[5][0] }).includes(5) &&
+       dealAt(C._HEARTW, { 5: C._CARDS[5][0] }).length === C._CARDN,
+     'at level ' + C._CARDS[5][0] + ' extra heart is out of the pool - pushing an ' +
+     'index that is not in it would have dealt undefined as a card');
+  ok('and a new run is owed its own',
+     (() => {
+       M.restart(); M.look(0, 0); M.place([]); M.setWave(C._HEARTW); M.dealNow();
+       return dealAt(C._HEARTW).includes(5);
+     })(),
+     'restart clears the memory, so one run cannot spend the next run guarantee');
+
+  // The net is for the FIRST one only. A run that has already been given a heart
+  // is back on the weighted draw for its second, which unlocks on HEART2 - the
+  // same wave, so this is exactly where the two rules could have collided.
+  ok('and a second heart is drawn on the normal terms, never forced',
+     (() => {
+       M.restart(); M.look(0, 0); M.place([]);
+       M.setWave(C._HEARTW); M.dealNow();            // the first, forced
+       pickCard(M.anim().offer.indexOf(5));          // taken: level 1, guarantee spent
+       let n = 0;
+       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(5)) n++; }
+       return M.anim().lv[5] === 1 && n > 0 && n < ROLLS;
+     })(),
+     'level 2 is open on the same wave and still had to be drawn for it. Present ' +
+     'on some screens and absent from others, which is what weighted means');
+
+  // Heal is gated on HAVING a heart, not on having been shown one. The net hands
+  // out an offer, never a level, so it must not move heal one wave earlier.
+  let healShut = 0;
+  for (let i = 0; i < ROLLS; i++) if (dealAt(C._HEARTW).includes(6)) healShut++;
+  ok('heal stays shut while no heart has been TAKEN, forced screen included',
+     !healShut,
+     '0 of ' + ROLLS + ' screens at wave ' + C._HEARTW + ' carried heal, and every ' +
+     'one of them carried the forced heart - the net gives you the card, and the ' +
+     'card is still what opens heal');
+  ok('and it opens the moment one is taken, exactly as before',
+     seen(C._HEARTW, { 5: 1 }).has(6),
+     'with one heart in hand heal is back in the pool. open() asks for ' +
+     'lv[5] >= ' + C._CARDS[6][3] + ' + its own level, and nothing in the net touches a level');
+  ok('and it still leaves the pool at its cap',
+     !seen(C._HEARTW, { 5: 2, 6: C._CARDS[6][0] }).has(6),
+     'at level ' + C._CARDS[6][0] + ' heal is done, and a capped card is not offered');
+
   // --- the screen itself ------------------------------------------------------------
   M.restart(); M.look(0, 0); M.place([]);
   M.setWave(6);

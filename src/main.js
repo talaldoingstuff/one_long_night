@@ -418,6 +418,13 @@ export const C = {
   ],
   // Extra heart's second level waits longer than its first.
   _HEART2: 9,          // the wave extra heart level 2 opens on
+  _HEARTW: 9,          // and the wave whose card screen FORCES the first one, if the
+                      // draw has never once offered it. Extra heart is weight 10 and
+                      // is the only card ADAPT never multiplies, so while a lagging
+                      // half is being fed at 6x its share of a slot falls from 11% to
+                      // 3.5% - and heal sits behind it, so one cold streak quietly
+                      // strands TWO cards for a whole run. Measured: a run could go
+                      // 23 waves without ever seeing one
   _CARDN: 3,           // cards offered between waves
   _CARDSC: '#fff',     // the square round the one the keyboard is on
   _CARDSW: 6,          // px
@@ -877,14 +884,15 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95],
 // integer that only ever increments costs a handful of bytes.
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
-    lv, offer, picking, sel, maxhp, healT, healA, healN, parts, glT, moT, conv;
+    lv, offer, picking, sel, maxhp, healT, healA, healN, parts, glT, moT, conv,
+    heartS;
 
 const reset = () => {
   ghosts = []; horns = [];
   lv = C._CARDS.map(() => 0);
   maxhp = C._HEARTS;
   hearts = maxhp; kills = 0; over = 0;
-  offer = []; picking = 0; sel = 0;
+  offer = []; picking = 0; sel = 0; heartS = 0;
   healT = 0; healA = 0; healN = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
@@ -1353,6 +1361,13 @@ const deal = () => {
   const pool = [];
   for (let i = 0; i < C._CARDS.length; i++) if (open(i)) pool.push(i);
   if (wave === 1 && pool.includes(0)) offer.push(pool.splice(pool.indexOf(0), 1)[0]);
+  // The safety net. Offered as one of the CARDN rather than on top of them, so a
+  // forced screen is still three cards and reads like every other one. It fires
+  // on the draw that ends wave HEARTW - deal() runs before take() advances the
+  // number, so this is the screen between 9 and 10.
+  if (wave === C._HEARTW && !heartS && pool.includes(5)) {
+    offer.push(pool.splice(pool.indexOf(5), 1)[0]);
+  }
   while (offer.length < C._CARDN && pool.length) {
     let total = 0;
     for (const i of pool) total += weightOf(i);
@@ -1360,6 +1375,7 @@ const deal = () => {
     for (; k < pool.length - 1 && (r -= weightOf(pool[k])) > 0; k++);
     offer.push(pool.splice(k, 1)[0]);
   }
+  if (offer.includes(5)) heartS = 1;              // seen once is seen for the run
   if (!offer.length) offer.push(-1);              // Recovery
 };
 
