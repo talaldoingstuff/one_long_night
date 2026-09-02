@@ -4401,12 +4401,14 @@ console.log('--- the title, the how-to, and the best ---------------------------
        'the lowest point any of them reached was y ' + lowest.toFixed(0) +
        ', and the horizon at rest is 250 - so the whole band sits in the sky');
 
-    // ...and smaller than an arrival, because they are past the ring.
+    // Big enough to READ as a ghost. They sat at 24-55m at first, where the widest
+    // of them was 17px and they registered as smudges rather than as anything - and
+    // being small was never the point, being unmistakably-not-a-target was.
     const real = 2 * C._TYPES[0][5] * C._GW * (C._F / (C._F + C._ARENA)) * 500;
-    ok('and smaller than a ghost on the spawn ring, because they are past it',
-       widest < real * 0.8,
+    ok('and big enough on screen to read as a ghost at all',
+       widest > real * 0.9,
        'widest ' + widest.toFixed(0) + 'px against ' + real.toFixed(0) + 'px for a ' +
-       'Drifter at the ' + C._ARENA + 'm ring');
+       'Drifter on the ' + C._ARENA + 'm ring - out at 24m they were 17px');
 
     ok('and they fade rather than appear, so none is ever fully there',
        loudest < 0.9,
@@ -4419,7 +4421,20 @@ console.log('--- the title, the how-to, and the best ---------------------------
        M.dbg().ghosts.length === 0,
        'the title screen has a sky full of them and not one ghost in the game - ' +
        'they are decoration in their own list, so nothing can shoot or be hurt by one');
+
+    // THE ONE THIS EXISTS FOR. They were drawn above the menu return at first,
+    // which put them over the field for the whole run - and a run is about the
+    // ghosts that can reach you, with nothing drifting behind them to read past.
+    // The sky is empty here for a reason, not by luck: the count is still full.
+    M.restart(); M.place([]);
+    let strays = 0;
+    for (let i = 0; i < 120; i++) { draw(); strays += far().length; }
+    ok('and not one of them is drawn once a run has started',
+       !strays,
+       'two seconds of an empty arena with the menu sky still switched on, and ' +
+       (BGN ? BGN : 0) + ' of them alive - and not one reached the field');
     C._BG[0] = 0;
+    M.setScr(0);
     draw();
   }
 

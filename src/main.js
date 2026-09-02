@@ -100,13 +100,19 @@ export const C = {
   // The last number is how much of that alpha survives at wave 1: an early
   // evening sky washes most of them out, and full dark brings them all up.
   _STAR: [70, 60, 0.03, 0.75, 0.5, 0.25],
-  // Far ghosts drifting past the skyline: how many at once, the nearest and
+  // The ghosts drifting across the MENU sky: how many at once, the nearest and
   // furthest they are allowed, how high they ride as a FRACTION of their own
   // distance, how long one lasts, and how bright it gets at the top of its arch.
   // Height has to be a fraction rather than a number of metres, or the near ones
   // sit at a completely different angle from the far ones and the band falls
   // apart. 0.16 is about nine degrees over the skyline at the top of the range.
-  _BG: [20, 24, 55, 0.16, 7, 0.85],
+  //
+  // 11m to 30m, which is INSIDE the 16m spawn ring at the near end. That would be
+  // wrong if these ever shared a screen with a ghost you could shoot - it is what
+  // the distance was for - but they are drawn on the menus alone, where there is
+  // nothing to mistake them for and nothing to shoot. Out at 24m they were too
+  // small to read as ghosts at all, which is the only thing they are here to do.
+  _BG: [18, 11, 30, 0.16, 7, 0.85],
   _STARS: 2.8,        // and how big, in pixels
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
@@ -2686,12 +2692,11 @@ const envC = (i) => mix(C._ENV0[i], C._ENV1[i], night());
 // spread is even in ANGLE - taking the height straight piles most of them up
 // near the horizon, where the projection is squashed.
 const STARS = [];
-// Ghosts drifting far out past the skyline, fading in and out. Atmosphere, not a
-// threat: they live two to four times beyond the 16m spawn ring, which is under
-// half the size of a real arrival and a third of that at the far end, and they
-// hang ABOVE the horizon, where a ghost that can reach you never is. So there is
-// nothing out here to waste a shot on, and the ring you actually defend is still
-// the only thing at eye level.
+// Ghosts drifting across the sky behind the menus, fading in and out. They are
+// never drawn during a run - see the call site - so they cannot be mistaken for
+// something to shoot at, and that is what lets them come close enough to actually
+// read as ghosts. They still hang ABOVE the horizon, which is what makes the
+// title screen look like a sky with things in it rather than a field.
 //
 // They cost almost nothing to draw because they are not a new kind of thing: the
 // record is the same nine fields a real ghost has, so drawGhost draws them
@@ -2932,13 +2937,13 @@ const render = () => {
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
   g.fillStyle = css(envC(4), 1);
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
-  // After the ground and the horizon line, so the skyline is already behind them,
-  // and before the menus return - the title screen gets them too, which is the
-  // whole reason they exist.
-  bgGhosts();
   // The menus sit over the world's own sky rather than over black - the same dusk
   // the first wave starts in, and it costs nothing because it is drawn already.
-  if (scr < 2) { g.restore(); return menuScreen(); }
+  // The sky's ghosts belong to the menus and ONLY to the menus: they were drawn
+  // above this line at first, which put them over the field during a run as well.
+  // That is exactly the wrong place for them - a run is supposed to be about the
+  // ghosts that can reach you, and decoration drifting behind those is noise.
+  if (scr < 2) { bgGhosts(); g.restore(); return menuScreen(); }
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
