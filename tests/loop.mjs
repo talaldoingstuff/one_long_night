@@ -178,6 +178,29 @@ const shoot = () => { tick(); return M.dbg().horns[M.dbg().horns.length - 1]; };
 tick();
 const madeBeforeAnyPress = snd.made;
 
+// --- and the sign for a finger takes nothing away from a mouse ---------------
+// The other side of tests/gate.mjs. That file proves a coarse pointer gets the
+// sign and NOTHING runs behind it; this proves a fine one loses none of it. The
+// two together are the whole of the gate: the condition can only be wrong by
+// being inverted, and an inversion fails on one side or the other.
+console.log('--- a mouse still gets the whole game ------------------------------');
+{
+  ok('the loop is running',
+     typeof rafCb === 'function',
+     'requestAnimationFrame was called at boot, so step() and render() run - the ' +
+     'gate skips both, and on a fine pointer it must not');
+  ok('and every input the game reads is bound',
+     ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'keydown', 'keyup',
+      'resize'].every((t2) => (L[t2] || []).length),
+     Object.keys(L).sort().join(', ') + ' - all seven, the six the gate withholds ' +
+     'from a phone plus the resize it keeps');
+  ok('and not one word of the sign is on screen',
+     (() => { rec.ops = []; tick();
+       return !rec.ops.some((o) => o.op === 'text' && C._GATE.split('|').includes(o.s)); })(),
+     'DESKTOP ONLY is nowhere in a frame drawn for a mouse');
+}
+
+console.log('');
 console.log('--- spawning -----------------------------------------------------');
 {
   M.restart();
