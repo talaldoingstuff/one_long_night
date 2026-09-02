@@ -231,16 +231,19 @@ All five types are the **same generator with different parameters**: size, hue, 
 | Type | HP | Speed | Damage | Cost | Unlocks | Hue |
 |---|---|---|---|---|---|---|
 | Drifter | 3 | 1.0× | 1 | 1 | wave 1 | pale white |
-| Darter | 2 | 1.8× | 1 | 2 | wave 3 | sharp cyan |
-| Hulk | 10 | 0.5× | 3 | 5 | wave 5 | angry red |
+| Darter | 2 | 1.8× | 1 | 2 | wave 5 | sharp cyan |
+| Hulk | 10 | 0.5× | 3 | 5 | wave 10 | angry red |
 | Splitter | 6 | 0.8× | 1 | 4 | wave 15 | sickly green |
-| Warden | 8 | 0.7× | 2 | 6 | wave 20 | pale gold |
+| Warden | 8 | 0.7× | 2 | 6 | wave 20 | near black |
 
 The HP, speed, damage and cost columns above are the ORIGINAL design and were
 superseded by the balance pass — they made the cheapest ghost the best value on
 both hp and damage, so the budget measured roughly the opposite of threat. The
-shipped numbers live in `_TYPES` and the checks retype them. The **Unlocks**
-column is current: one new type every five waves, all five met by wave 20.
+shipped numbers live in `_TYPES` and the checks retype them.
+
+The **Unlocks** column IS current, and a check holds it there: one new type
+every five waves, all five met by wave 20. The Warden's hue is corrected above
+too — it is near black, which is why its minimap blip needs a white ring.
 
 **Splitter** — on death, breaks into two Drifters. Reuses the Drifter entirely. Makes a large bind valuable, since you can hold the children before they scatter.
 
