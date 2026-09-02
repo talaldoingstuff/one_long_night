@@ -2799,6 +2799,40 @@ console.log('--- the upgrade cards ---------------------------------------------
      !seen(C._HEART2 - 1, { 4: 1 }).has(4) && seen(C._HEART2, { 4: 1 }).has(4),
      'one heart from wave ' + C._CARDS[4][1] + ', the next not until ' + C._HEART2);
 
+  // --- what a merged card says -----------------------------------------------------
+  {
+    const lines = (i, at) => {
+      M.restart(); M.look(0, 0); M.setLv(i, at);
+      rec.ops = [];
+      M.drawCard(i, 0, 0, 900 * C._CARDW, 500 * C._CARDH);
+      return rec.ops.filter((o) => o.op === 'text').map((o) => o.s);
+    };
+    const force = lines(3, 6);                    // LV 7: damage flat, hold moving
+    ok('a merged card shows both of the numbers it moves',
+       force.includes('Damage A Wave') && force.includes('Seconds Held'),
+       '"' + force.join('" / "') + '" - showing one and improving the other quietly ' +
+       'is the thing a card must not do');
+
+    // FORCE buys damage every fourth level, so six levels in nine do not move it.
+    ok('and a step that does not step shows its value rather than "2 > 2"',
+       force.some((t) => t === '2') && !force.some((t) => /^(\d+) > $/.test(t)),
+       'at LV 7 the damage line reads 2, not 2 > 2 - an arrow to the same number ' +
+       'reads as a broken card rather than as a level that buys the other stat');
+
+    const rising = lines(3, 3);                   // LV 4 -> 5 is where damage steps
+    ok('and it shows the arrow on the level that does move it',
+       rising.includes('1 > 2'),
+       'LV 4 to 5 is 1 > 2 - the card is only quiet when the number is');
+
+    const single = lines(0, 2);
+    ok('and a single card still shows one pair',
+       single.filter((t) => /\d/.test(t)).length ===
+         force.filter((t) => /\d/.test(t)).length - 1,
+       'one value and one unit against the two of each a merged card shows, ' +
+       'same span so the two kinds of card carry the same weight');
+    M.restart(); M.place([]);
+  }
+
   // --- the rainbow kills now ------------------------------------------------------
   // It held ghosts and never killed one, so its cards bought an effect that could
   // not win a wave: a rainbow build died on wave 5 against 33 for a horn build.
@@ -3069,8 +3103,11 @@ console.log('--- the upgrade cards ---------------------------------------------
   ok('and what the number actually becomes',
      texts.some((o) => / > /.test(o.s)),
      'the step it buys, not a percentage you have to trust');
+  // A bare digit in the VALUE colour is a stat that does not move at this level -
+  // FORCE's damage reads "2" rather than "2 > 2". The keyboard labels this check is
+  // about were never that colour, so the two cannot be confused.
   ok('the cards are not labelled 1 2 3 any more',
-     !texts.some((o) => /^[123]$/.test(o.s)),
+     !texts.some((o) => /^[123]$/.test(o.s) && o.c !== '#cfd6f5'),
      'the keys still work, they are just not written on the cards');
   ok('and the screen says what to do with them',
      texts.some((o) => o.s === 'Pick a Power Up' && o.c === '#fff') &&

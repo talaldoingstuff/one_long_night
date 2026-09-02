@@ -2538,8 +2538,10 @@ const cardFace = (i, x, y, w, h) => {
     type(C._CARDL);
     if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.28);
 
-    // Higher than it was, because a merged card puts four lines under it and the
-    // glyph was sitting on top of the first one.
+    // Wedged between the LV line above it and the first value below. The glyph is
+    // 0.26 of the card tall and there is 0.29 to put it in, so it only fits at all
+    // once the values moved down to 0.65 - at 0.62 it touched the value, and lifted
+    // clear of that it touched the LV instead.
     cardIcon(i, mx, y + h * 0.42, w * C._CARDI);
 
     if (i < 0) {                                  // Recovery says what it does instead
@@ -2557,17 +2559,26 @@ const cardFace = (i, x, y, w, h) => {
       const pair = (v0, v1, unit, d, at) => {
         g.fillStyle = '#cfd6f5';
         type(C._CARDV);
-        g.fillText(v0.toFixed(d) + ' > ' + v1.toFixed(d), mx, y + h * at);
+        // A step that does not step says so by not pretending to. FORCE buys damage
+        // every fourth level, so six levels in nine read "1 > 1" - which looks like
+        // a broken card rather than like a level that buys the other stat. It shows
+        // the value it holds instead, and the pair beside it is the one working.
+        g.fillText(v0 === v1 ? v0.toFixed(d) : v0.toFixed(d) + ' > ' + v1.toFixed(d),
+                   mx, y + h * at);
         g.fillStyle = '#8b93b8';
         type(C._CARDU);
-        g.fillText(unit, mx, y + h * (at + 0.075));
+        g.fillText(unit, mx, y + h * (at + 0.065));
       };
-      // A merged card spans 0.66 to 0.90; a single one sits centred in that span,
-      // so the two kinds carry the same weight instead of one looking half empty.
-      // The bottom line used to land at 0.98 and was clipped by the card edge.
-      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.66 : 0.745);
+      // A unit belongs to the number above it, and on a merged card that has to be
+      // SEEN. Four evenly spaced lines read as four unrelated lines - you take in a
+      // number and only then find out what it was. 0.065 inside a pair against
+      // 0.115 between them is what makes them two groups of two rather than four.
+      //
+      // A single card's pair sits centred in the span a merged one covers, so the
+      // two kinds of card carry the same weight instead of one looking half empty.
+      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.65 : 0.74);
       if (two)
-        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], 2, 0.825);
+        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], 2, 0.83);
     }
   }
   g.textAlign = 'left';
