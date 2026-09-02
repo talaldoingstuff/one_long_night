@@ -3064,10 +3064,6 @@ export const setScr = (v) => { scr = v; };
 export const hudBtn2 = hudBtn;
 // Test and editor seams. Dropped from the app build, so they cost nothing.
 export const drawPuppet = () => puppet();
-// One ghost, drawn wherever the caller's transform puts it - tools/poster.html
-// composes the five of them by hand. It draws through the game's own drawGhost so
-// a poster cannot show a ghost the game does not have.
-export const paintGhost = (o) => drawGhost(o, 0);
 // What the sprite IS, for the checks: where its horn tip lands on screen, and
 // what each path is for. Both are read off the same data the frame draws from,
 // so a check cannot pass against a model the game is not using.
