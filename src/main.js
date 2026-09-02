@@ -500,10 +500,10 @@ export const C = {
   _LOREF: 1.1,         // and how long one takes to arrive
   _VER: 'v 0.1',
   // The mute and quit squares: size and margin, in HUD units. They are the only
-  // two things in the game meant to be TOUCHED rather than aimed at, and a
-  // finger is not a cursor - but twice the old size read as furniture, so a
-  // quarter off that: half again as big as they began, which is a target
-  // without being the thing you look at.
+  // two things in the game meant to be CLICKED rather than aimed at, so they are
+  // sized as targets - but twice the old size read as furniture, so a quarter off
+  // that: half again as big as they began, which is a target without being the
+  // thing you look at.
   // ...then the black rim on the square in px, and the one on the GLYPH as a
   // fraction of its own size. They are white on a ground that goes from near
   // black to a lit sand, and white on sand is not a button.
@@ -2579,11 +2579,18 @@ const hudBtn = (i) => {
 // system would cost more than the screens themselves.
 // Alternating: what you do, then every way to do it. Drawn bright then dim off
 // the index, which is a heading structure for no extra bytes.
+//
+// DESKTOP ONLY, and the words say so by not offering touch. They used to read
+// TOUCH+SWIPE and (SPACE CLICK TOUCH) + HOLD, which was a promise the game does
+// not keep: arming the charge needs the press to stay inside ARMPX of where it
+// landed, and a fingertip drifts further than that at rest - so the rainbow, which
+// is half the kit and the whole theme, cannot be cast by a finger at all. Naming a
+// control that does not work is worse than not naming it.
 const HOWTO = [
   'DRAG TO AIM',
-  'WASD   ← ↑ → ↓   CLICK+DRAG   TOUCH+SWIPE',
+  'WASD   ← ↑ → ↓   CLICK+DRAG',
   'HOLD TO CHARGE & RELEASE THE RAINBOW WAVE',
-  '(SPACE   CLICK   TOUCH) + HOLD',
+  '(SPACE   CLICK) + HOLD',
   'M MUTE      ESC QUIT',
 ];
 

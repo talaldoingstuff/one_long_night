@@ -4660,13 +4660,23 @@ console.log('--- the title, the how-to, and the best ---------------------------
      label.y < verOp.y && doing[1].y < label.y,
      'how-to, then the best, then PLAY, then the version at the foot');
 
-  ok('and it names every way in, for every device',
+  ok('and it names every way in',
      /DRAG TO AIM/.test(T) && /WASD/.test(T) && /←/.test(T) &&
-     /CLICK\+DRAG/.test(T) && /TOUCH\+SWIPE/.test(T) &&
-     /HOLD TO CHARGE/.test(T) && /SPACE/.test(T) && /TOUCH\) \+ HOLD/.test(T) &&
+     /CLICK\+DRAG/.test(T) &&
+     /HOLD TO CHARGE/.test(T) && /SPACE/.test(T) && /CLICK\) \+ HOLD/.test(T) &&
      /M MUTE/.test(T) && /ESC QUIT/.test(T),
-     'aiming by drag, keys and arrows and touch; the rainbow by space, click and ' +
-     'hold; and mute and quit');
+     'aiming by drag, keys and arrows; the rainbow by space or click and hold; ' +
+     'and mute and quit');
+
+  // ...and it does NOT name touch. This is a desktop entry: the charge cannot be
+  // armed by a finger, because arming needs the press to stay inside ARMPX of
+  // where it landed and a fingertip drifts further than that at rest. Offering a
+  // control that does not work is worse than not offering it.
+  ok('and it does not offer touch, which this game cannot honour',
+     !/TOUCH|SWIPE|TAP/i.test(T),
+     'no touch anywhere on the how-to. ARMPX is ' + C._ARMPX + ' CSS pixels, which ' +
+     'a resting fingertip exceeds, so a finger can never start a charge - and the ' +
+     'rainbow is half the kit');
   ok('and the run is still held', !M.dbg().ghosts.length,
      'the spawner does not run behind a menu');
 
