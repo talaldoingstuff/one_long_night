@@ -383,13 +383,32 @@ export const C = {
   // 1.0-3.0 with the CHEAPEST ghost the best value on both hp and damage, which
   // meant the budget was measuring roughly the opposite of threat.
   //
-  // Unlocks are the difficulty spikes: 5, 10, 20, 30.
+  // Unlocks are the difficulty spikes, one every five waves: 5, 10, 15, 20.
+  //
+  // They used to be 5, 10, 20, 30, and that was measured wrong twice over. A run
+  // ends around wave 22-25, so the Warden at 30 was never seen by ANYBODY - and
+  // the Warden is the one type with a rule rather than a stat line, the bind
+  // failing on it, which DESIGN.md 7 says has to be learned by WATCHING. A rule
+  // nobody can watch is not a rule.
+  //
+  // And unlocking earlier does not make the game harder, which is the part that
+  // is not obvious: buy() picks uniformly from what is unlocked and affordable,
+  // and every type costs more than a Drifter while none of them carries a
+  // Drifter's damage per point. So a new type DILUTES a wave. Simulated over a
+  // full run, 15/20 costs about a tenth of a heart a wave more across 15-19,
+  // where the game was nearly idle, and takes 0.28 down to 0.07 at wave 24 and
+  // 3.69 down to 1.16 at 28. It fills a dead stretch and flattens a cliff; the
+  // median run goes from wave 27 to 29.
+  //
+  // Five waves apart is also the best of its family: 4/8/12/16 was tried and is
+  // WORSE - the mean falls from 23.7 to 21.7, because arriving faster than the
+  // budget grows spends the dilution before it is worth anything.
   _TYPES: [
     [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
     [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0, 0, 0],   // Darter, sharp cyan
     [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5, 0, 0], // Hulk, angry red
-    [10, 1.20, 1, 5, 20, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
-    [16, 1.08, 2, 7, 30, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 0.9, 0.55, 1],  // Warden, near black
+    [10, 1.20, 1, 5, 15, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
+    [16, 1.08, 2, 7, 20, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 0.9, 0.55, 1],  // Warden, near black
   ],
   _SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost
   _SOLIDE: 0.34,       // and a faint white edge on it, so a near-black body still

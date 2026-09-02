@@ -1604,14 +1604,29 @@ console.log('--- ghost types --------------------------------------------------'
 {
   M.setFire(0);
   const NAMES = ['Drifter', 'Darter', 'Hulk', 'Splitter', 'Warden'];
-  // The tuned roster, retyped rather than read out of the code. This SUPERSEDES
-  // DESIGN.md 7's table: hp, speed, cost and unlock waves all moved in the balance
-  // pass, because 7's numbers made the cheapest ghost the best value on both hp
-  // and damage, and put every unlock inside the first 20 waves.
+  // The tuned roster, retyped rather than read out of the code. The hp, speed and
+  // cost columns SUPERSEDE DESIGN.md 7's table, which made the cheapest ghost the
+  // best value on both hp and damage. The unlock waves are 7's again.
   const SPEC = [[3, 1.15, 1], [4, 2.40, 1], [18, 0.70, 3], [10, 1.20, 1], [16, 1.08, 2]];
-  const UNLOCK = [1, 5, 10, 20, 30];
+  const UNLOCK = [1, 5, 10, 15, 20];
   ok('and the unlocks are the difficulty spikes', C._TYPES.every((t, i) => t[4] === UNLOCK[i]),
      'waves ' + UNLOCK.join(', ') + ' - one new type on each');
+  // Evenly spaced, and the spacing is load-bearing rather than tidy: closing it up
+  // to every four waves was simulated and is WORSE, because the types arrive faster
+  // than the budget grows and the dilution is spent before it buys anything.
+  const gaps = UNLOCK.slice(2).map((w, i) => w - UNLOCK[i + 1]);
+  ok('and they are one every five waves, not merely increasing',
+     gaps.every((g) => g === 5),
+     'gaps of ' + gaps.join(', ') + ' after the Drifter opens at wave 1');
+
+  // THE POINT OF THE SCHEDULE. A run ends around wave 22-25, so anything gated
+  // later than 20 is content nobody ever meets - and the Warden is the one type
+  // that carries a RULE rather than a stat line.
+  ok('and every type is met by wave 20, inside a run that can actually happen',
+     Math.max(...C._TYPES.map((t) => t[4])) <= 20,
+     'the last one arrives on wave ' + Math.max(...C._TYPES.map((t) => t[4])) +
+     ' - it was 30, which no run reaches, so the bind failing on a Warden was a ' +
+     'rule the game taught by showing and then never showed');
   const hpc = C._TYPES.map((t, k) => (t[0] + (k === C._SPLIT ? 2 * C._TYPES[0][0] : 0)) / t[3]);
   ok('and cost tracks the work each one makes you do',
      Math.max(...hpc) / Math.min(...hpc) < 2,
@@ -2054,14 +2069,18 @@ console.log('--- waves and the threat budget ----------------------------------'
     for (let i = 0; i < runs; i++) for (const k of spendAt(w).seen) all.add(k);
     return all;
   };
-  for (const [w, want] of [[1, [0]], [5, [0, 1]], [10, [0, 1, 2]], [20, [0, 1, 2, 3]], [30, [0, 1, 2, 3, 4]]]) {
+  for (const [w, want] of [[1, [0]], [5, [0, 1]], [10, [0, 1, 2]], [15, [0, 1, 2, 3]], [20, [0, 1, 2, 3, 4]]]) {
     const seen = rosterAt(w, 4);
     ok('wave ' + w + ' buys ' + want.map((k) => NAMES[k]).join(', ') + ' and nothing later',
        [...seen].every((k) => want.includes(k)) && seen.size === want.length,
        'over four waves it bought ' + [...seen].sort().map((k) => NAMES[k]).join(', '));
   }
-  ok('and the Warden really is held back until wave 30', !rosterAt(29, 4).has(4),
-     'four wave 29s spend ' + Math.round(C._BUD0 * C._BUDR ** 28) + ' of threat each and never buy one');
+  // The wave BEFORE each of the two that moved. A gate that only lets a type in is
+  // half a gate; these are the checks that would fail if either slid earlier.
+  ok('and the Splitter really is held back until wave 15', !rosterAt(14, 4).has(3),
+     'four wave 14s spend ' + Math.round(C._BUD0 * C._BUDR ** 13) + ' of threat each and never buy one');
+  ok('and the Warden really is held back until wave 20', !rosterAt(19, 4).has(4),
+     'four wave 19s spend ' + Math.round(C._BUD0 * C._BUDR ** 18) + ' of threat each and never buy one');
 
   const w20 = spendAt(30);
   ok('and the spender never goes over budget',
