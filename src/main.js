@@ -438,10 +438,34 @@ export const C = {
   // Both move, or waves just get longer.
   _SPAWNTRY: 8,        // bearings tried per spawn, until one is clear
   _SPAWNGAP: 0.14,     // radians - 8 degrees, past the 5.7 two of the widest take up
-  _BUD0: 6,            // wave 1: six Drifters at a cost of 1 each
-  _BUDR: 1.12,         // and 12% more threat every wave after
+  // Wave 1 buys five Drifters at a cost of 1 each, and every wave after gets 13%
+  // more threat than the last. Both moved together, and the pair is the point.
+  //
+  // A ROGUELIKE IS JUDGED ON THE REBUILD, not on the first run. Dying at wave 15
+  // and starting again at wave 1 is the loop, and it was 276 seconds of near
+  // identical waves to get back - measured by driving the real thing. Six Drifters
+  // at one shot a second is eighteen seconds of shooting before wave 1 can even
+  // end, and wave 10 took as long as wave 1 did.
+  //
+  // BUD0 alone would have been the wrong half of it. The budget is BUD0 x BUDR to
+  // the wave, so cutting the first number scales the WHOLE curve down forever -
+  // measured, it took the mean run from wave 21.8 to 32.4, a bigger difficulty cut
+  // than anything else in this file. 1.13 puts the growth back: smaller at the
+  // start, level again by wave 15, and the mean run lands at 25.4 - inside the
+  // noise of what it was. 1.135 and 1.14 were tried and overshoot into harder
+  // than before.
+  //
+  //          wave 1   wave 10   wave 20   wave 30
+  //   was         6        17        52       160
+  //   now         5        15        51       173
+  //
+  _BUD0: 5,
+  _BUDR: 1.13,
   _SPAWNR: 0.96,       // the gap between spawns shrinks 4% a wave
-  _WAVEGAP: 2,         // seconds of quiet between a cleared wave and the next
+  // Seconds of quiet between a cleared wave and the next. It was 2, which is 2
+  // seconds of nothing happening times every wave of every run - the cheapest
+  // thing in the game to give back, and it costs no difficulty at all.
+  _WAVEGAP: 0.5,
 
   // --- Upgrade cards (DESIGN.md 9) --------------------------------------------
   // Row: cap, gate wave, prerequisite card (-1 for none), the level of that

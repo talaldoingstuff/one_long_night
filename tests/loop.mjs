@@ -216,7 +216,10 @@ console.log('--- spawning -----------------------------------------------------'
   // One frame of travel at the FASTEST type's speed, not the Drifter's: a Darter
   // covers 1.8x as much ground before the first measurement.
   const slack = C._GSPEED * Math.max(...C._TYPES.map((t) => t[1])) / 60 + 1e-6;
-  ok('ghosts spawn on the arena ring', seen.length >= 6 && Math.max(...off) < slack,
+  // All of wave 1, off BUD0 rather than the six it used to be - the opening was
+  // tuned and this check is about the RING, not about how many arrive on it.
+  ok('ghosts spawn on the arena ring',
+     seen.length >= C._BUD0 / C._TYPES[0][3] && Math.max(...off) < slack,
      seen.length + ' spawned, worst off-ring ' + (1000 * Math.max(...off)).toFixed(1) +
      'mm from the ' + C._ARENA + 'm ring - one frame at the fastest is ' + (1000 * slack).toFixed(1) + 'mm');
   // The resultant length, not max minus min. atan2 wraps at +-PI, so two bearings
@@ -2070,7 +2073,10 @@ console.log('--- waves and the threat budget ----------------------------------'
   let n = 0;
   while (M.anim().budget > 0 && n++ < 60 * 60) tick();
   const born = M.dbg().ghosts;
-  ok('and spends it on exactly six Drifters', born.length === 6 && born.every((o) => o[7] === 0),
+  // Off BUD0 rather than the number it happens to be, so tuning the opening does
+  // not fail a check about the SPENDER.
+  ok('and spends it on exactly BUD0 Drifters',
+     born.length === C._BUD0 / C._TYPES[0][3] && born.every((o) => o[7] === 0),
      born.length + ' ghosts, all ' + NAMES[0] + ' - ' + C._BUD0 + ' budget at ' +
      C._TYPES[0][3] + ' each');
   ok('and nothing else is unlocked yet to buy',
