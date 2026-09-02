@@ -500,7 +500,7 @@ export const C = {
   _LOREF: 1.1,         // and how long one takes to arrive
   // Shown instead of the game to anything whose primary pointer is a finger.
   // Paragraphs split on | like the lore, and read by the same splitter.
-  _GATE: 'DESKTOP ONLY|One Long Night can only be played on a computer.',
+  _GATE: 'DESKTOP ONLY|One Long Night|can only be played on a computer.',
   _VER: 'v 0.1',
   // The mute and quit squares: size and margin, in HUD units. They are the only
   // two things in the game meant to be CLICKED rather than aimed at, so they are
@@ -768,6 +768,10 @@ const resize = () => {
   g.setTransform(d, 0, 0, d, 0, 0);
   PX = C._ZOOM * H;
   turn = C._SWEEP * PI / W;
+  // The sign is drawn once and never again, so turning the phone has to redraw it.
+  // Here rather than in a listener of its own: this already runs on every resize
+  // and on boot, which is exactly when the sign needs painting.
+  coarse && gate();
 };
 
 // ---------------------------------------------------------------------------
@@ -2979,20 +2983,20 @@ const gate = () => {
   const P = C._GATE.split('|');
   P.forEach((t, i) => {
     // The heading in the game's gold at twice the size, the line white under it.
-    // Both capped against the WIDTH, because a phone held upright is the one shape
-    // this is guaranteed to be read in - and the line is a long one. Measured in
-    // Palatino, it runs 22.7x its own font size, so 0.039W lands it at 89% of a
-    // 420px screen. The heading is 7.7x and never comes close.
+    // Capped against the WIDTH, because a phone held upright is the one shape this
+    // is guaranteed to be read in. Measured in Palatino, the longest line runs
+    // 15.2x its own font size, so 0.057W lands it at 87% of a 420px screen. It was
+    // one line of 22.7x and overflowed on a real phone - splitting the title onto
+    // its own line is what bought the room back.
     g.fillStyle = i ? '#fff' : css(C._GOLD, 1);
-    g.font = (min(u * (i ? 1.15 : 2.3), W * (i ? 0.039 : 0.1)) | 0) +
+    g.font = (min(u * (i ? 1.15 : 2.3), W * (i ? 0.057 : 0.1)) | 0) +
              'px Palatino Linotype,serif';
-    g.fillText(t, W / 2, H * (i ? 0.55 : 0.4));
+    g.fillText(t, W / 2, H * (0.4 + i * 0.09));
   });
   g.textAlign = 'left';
 };
 
 const render = () => {
-  if (coarse) return gate();
   // On the over screen there is nothing to draw but the screen itself - no sky,
   // no ghosts, no puppet. Everything below assumes a run in progress.
   //
@@ -3216,15 +3220,24 @@ export const stepMusic = musicStep;
 export const setMusic = () => { mS = mI = mW = mP = 0; };
 export const setMuted = (v) => { muted = v; };
 
+// A coarse pointer gets the sign and NOTHING ELSE. Gating render() was not enough
+// and was the wrong place: step() still ran, so waves spawned and the music played,
+// and the input handlers were still bound, so a tap still built an AudioContext and
+// fired the horn - a game being played in the dark behind a sign saying it could
+// not be. Drawing was never the thing to stop.
+//
+// So on a phone nothing below is bound and the loop never starts. resize() has
+// already painted the sign by the time we get here.
 addEventListener('resize', resize);
-addEventListener('pointerdown', onDown);
-addEventListener('pointermove', onMove);
-addEventListener('pointerup', onUp);
-addEventListener('pointercancel', onUp);
-addEventListener('keydown', onKey);
-addEventListener('keyup', onKey);
-
 resize();
-reset();
-last = 0;
-requestAnimationFrame(loop);
+if (!coarse) {
+  addEventListener('pointerdown', onDown);
+  addEventListener('pointermove', onMove);
+  addEventListener('pointerup', onUp);
+  addEventListener('pointercancel', onUp);
+  addEventListener('keydown', onKey);
+  addEventListener('keyup', onKey);
+  reset();
+  last = 0;
+  requestAnimationFrame(loop);
+}

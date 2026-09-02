@@ -33,8 +33,12 @@ const ctx = new Proxy({ canvas }, {
 globalThis.document = { getElementById: () => ({ getContext: () => ctx, style: {} }) };
 globalThis.devicePixelRatio = 1;
 globalThis.innerWidth = 420; globalThis.innerHeight = 900;      // a phone, upright
+// Both recorded rather than swallowed. The bug this file missed was that the game
+// kept RUNNING behind the sign - the loop was still scheduled and the handlers were
+// still bound - and a stub that quietly accepts either cannot see that.
 let rafCb = null;
-globalThis.addEventListener = () => {};
+const bound = [];
+globalThis.addEventListener = (t, f) => bound.push([t, f]);
 globalThis.requestAnimationFrame = (cb) => { rafCb = cb; };
 const noop = () => {};
 const param = { value: 0, setValueAtTime: noop, linearRampToValueAtTime: noop,
@@ -62,10 +66,11 @@ process.on('exit', () => failed && process.exitCode === undefined && (process.ex
 console.log('');
 console.log('--- the desktop-only gate ------------------------------------------');
 
-let t = 0;
-const tick = (n = 1) => { for (let i = 0; i < n; i++) { rec.ops = []; t += 1000 / 60; rafCb(t); } };
-tick();
-const txt = () => rec.ops.filter((o) => o.op === 'text').map((o) => o.s);
+// No tick: there is no loop to tick. resize() painted the sign as the module ran,
+// so the first frame is already in rec.ops - kept, because the rotate check below
+// clears them and everything about sizing is asked of THIS frame.
+const first = rec.ops.slice();
+const txt = () => first.filter((o) => o.op === 'text').map((o) => o.s);
 
 const P = C._GATE.split('|');
 ok('a coarse pointer gets the gate instead of the game',
@@ -80,14 +85,42 @@ ok('and none of the game is drawn behind it',
    'it runs, so a phone cannot half-play this');
 
 ok('and it is drawn over black rather than over the world',
-   rec.ops.some((o) => o.op === 'rect' && o.c === '#000' && o.w >= 420),
+   first.some((o) => o.op === 'rect' && o.c === '#000' && o.w >= 420),
    'the sky is not drawn at all: the gate is the whole frame');
+
+// --- THE ONE THE FIRST VERSION OF THIS FILE MISSED ---------------------------
+// It only checked that nothing was DRAWN, and passed while the game ran happily
+// underneath: waves spawning, music playing, and a tap building an AudioContext
+// and firing the horn. On a real phone you could hear it.
+ok('and the game loop never starts at all',
+   rafCb === null,
+   'requestAnimationFrame was never called, so step() never runs - no waves, no ' +
+   'music, no clock. Gating the DRAWING left all of that running in the dark');
+
+ok('and no input is bound except resize',
+   bound.length === 1 && bound[0][0] === 'resize',
+   'bound: ' + bound.map((b) => b[0]).join(', ') + '. A tap used to reach onDown, ' +
+   'which starts the ' +
+   'audio context and advances the screen - the sound came from a game nobody ' +
+   'could see');
+
+// Actually fire it, rather than assert that it exists. The sign is painted once
+// and never again, so if the one bound listener did not repaint it, turning the
+// phone would leave a black screen and nothing else.
+rec.ops = [];
+globalThis.innerWidth = 900; globalThis.innerHeight = 420;      // turned sideways
+bound[0][1]();
+const after = rec.ops.filter((o) => o.op === 'text').map((o) => o.s);
+ok('and turning the phone repaints the sign rather than losing it',
+   P.every((line) => after.includes(line)),
+   'landscape 900x420 repaints "' + after.join('" / "') + '" - painted from ' +
+   'resize(), the one listener still bound');
 
 // The heading has to survive a phone held upright, which is the one shape it is
 // guaranteed to be read in. This is the mistake the title screen already made
 // once - u comes off the NARROW side, and on a portrait window that is the width.
-const head = rec.ops.find((o) => o.op === 'text' && o.s === P[0]);
-const body = rec.ops.filter((o) => o.op === 'text' && o.s !== P[0]);
+const head = first.find((o) => o.op === 'text' && o.s === P[0]);
+const body = first.filter((o) => o.op === 'text' && o.s !== P[0]);
 ok('and the heading is the largest thing on it',
    body.every((o) => o.f < head.f),
    'heading ' + head.f + 'px over body at ' + body.map((o) => o.f).join(', ') + 'px');
@@ -96,11 +129,12 @@ ok('and the heading is the largest thing on it',
 // size. Retyped here rather than guessed: the line is nearly three times the width
 // of the heading for the same size, and an over-estimate that flatters it would let
 // a real overflow through.
-const RATIO = { 'DESKTOP ONLY': 7.693, 'One Long Night can only be played on a computer.': 22.688 };
+const RATIO = { 'DESKTOP ONLY': 7.693, 'One Long Night': 7.229,
+                'can only be played on a computer.': 15.209 };
 ok('and it fits across a 420px phone held upright',
-   rec.ops.filter((o) => o.op === 'text').every((o) => o.f * RATIO[o.s] < 420 * 0.92),
-   rec.ops.filter((o) => o.op === 'text')
-     .map((o) => (100 * o.f * RATIO[o.s] / 420).toFixed(0) + '%').join(' and ') +
+   first.filter((o) => o.op === 'text').every((o) => o.f * RATIO[o.s] < 420 * 0.92),
+   first.filter((o) => o.op === 'text')
+     .map((o) => (100 * o.f * RATIO[o.s] / 420).toFixed(0) + '%').join(', ') +
    ' of the width - capped against W, because on a portrait window the narrow side ' +
    'IS the width');
 
