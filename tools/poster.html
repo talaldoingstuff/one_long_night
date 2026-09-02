@@ -44,7 +44,7 @@
 <canvas id="c"></canvas>
 <div id="grip"><span></span></div>
 <div id="panel"></div>
-<div id="hint">drag a ghost to move it · shift-drag to scale · alt-drag to turn · H hides the panel</div>
+<div id="hint">everything is set from the sliders · tab steps through the ghosts · H hides the panel</div>
 
 <script type="module">
 // Drives the GAME, not a copy of it. main.js takes over #c and runs its own loop
@@ -128,13 +128,13 @@ const row = (lab, min, max, step, get, set) => {
   const [r, v] = [d.querySelector('input'), d.querySelector('.v')];
   Object.assign(r, { min, max, step });
   const show = () => { r.value = get(); v.textContent = (+get()).toFixed(step < 0.01 ? 3 : 2); };
-  r.oninput = () => { set(+r.value); show(); store(); };
+  r.oninput = () => { set(+r.value); show(); dump(); store(); };
   show();
   d.show = show;
   return d;
 };
 
-const rows = [], slots = [];
+const slots = [];
 // Which slot is outlined, WITHOUT rebuilding anything. Selecting used to call
 // build(), and build() replaces the panel's whole contents - so a mousedown on a
 // slider destroyed that slider before it could be dragged, and destroyed a button
@@ -144,10 +144,9 @@ const markSel = () => slots.forEach((b, i) => b.classList.toggle('sel', i === se
 
 const build = () => {
   panel.innerHTML = '';
-  // Both of these hold ELEMENTS, and build() throws every element away. Without
-  // this they grow by a panel every rebuild and show() runs down a list of nodes
-  // that are no longer on the page.
-  rows.length = slots.length = 0;
+  // This holds ELEMENTS and build() throws every element away, so without the
+  // reset it grows by a whole panel on every rebuild.
+  slots.length = 0;
   const h = (t) => { const e = document.createElement('h2'); e.textContent = t; panel.append(e); };
   const fb = document.createElement('div');
   fb.className = 'btns';
@@ -160,7 +159,8 @@ const build = () => {
   const note = document.createElement('div');
   note.id = 'note';
   note.textContent = 'The background is the game drawing its own title screen. ' +
-    'Everything below is painted over it with the game’s own ghost and viewmodel code.';
+    'Everything below is painted over it with the game’s own ghost and viewmodel ' +
+    'code, and positioned from these sliders alone.';
   panel.append(note);
 
   h('the hand and the gun');
@@ -174,8 +174,7 @@ const build = () => {
   panel.append(gb);
   for (const [lab, key, mn, mx, st] of [['x', 'x', -0.5, 1.5, 0.001], ['y', 'y', -0.5, 1.5, 0.001],
                                         ['scale', 's', 0.1, 4, 0.01], ['turn', 'r', -3.15, 3.15, 0.01]]) {
-    const r = row(lab, mn, mx, st, () => gun[key], (v) => (gun[key] = v));
-    rows.push(r); panel.append(r);
+    panel.append(row(lab, mn, mx, st, () => gun[key], (v) => (gun[key] = v)));
   }
 
   h('the five ghosts');
@@ -205,8 +204,7 @@ const build = () => {
     box.append(hd);
     for (const [lab, key, mn, mx, st] of [['x', 'x', -0.2, 1.2, 0.001], ['y', 'y', -0.2, 1.2, 0.001],
                                           ['scale', 's', 0.1, 4, 0.01], ['turn', 'r', -3.15, 3.15, 0.01]]) {
-      const r = row(lab, mn, mx, st, () => s[key], (v) => (s[key] = v));
-      rows.push(r); box.append(r);
+      box.append(row(lab, mn, mx, st, () => s[key], (v) => (s[key] = v)));
     }
     panel.append(box);
   });
@@ -340,36 +338,11 @@ const paint = () => {
   requestAnimationFrame(paint);
 };
 
-// --- dragging on the picture ---------------------------------------------------
-// Nearest slot to the pointer wins, so there is nothing to aim at. Shift scales and
-// alt turns, which is the same drag doing three jobs rather than three modes.
-let drag = null;
+// --- the picture takes no input -------------------------------------------------
+// Everything is set from the sliders. The canvas is still sealed, because the game
+// underneath it listens on WINDOW and a stray click would otherwise walk the title
+// screen into a run - but nothing here reads a pointer.
 seal(cv);
-cv.addEventListener('pointerdown', (e) => {
-  const [fx, fy, fw, fh] = frame();
-  const px = (e.clientX * cv.width / cv.clientWidth - fx) / fw;
-  const py = (e.clientY * cv.height / cv.clientHeight - fy) / fh;
-  let best = 1e9, hit = null;
-  const near = (o) => { const d = (o.x - px) ** 2 + (o.y - py) ** 2; if (d < best) { best = d; hit = o; } };
-  gh.forEach((s, i) => { if (s.on) { const b = best; near(s); if (best < b) sel = i; } });
-  if (gun.on) near(gun);
-  if (!hit) return;
-  drag = { o: hit, px, py, s: hit.s, r: hit.r, mode: e.shiftKey ? 1 : e.altKey ? 2 : 0 };
-  cv.setPointerCapture(e.pointerId);
-  markSel();
-});
-cv.addEventListener('pointermove', (e) => {
-  if (!drag) return;
-  const [fx, fy, fw, fh] = frame();
-  const px = (e.clientX * cv.width / cv.clientWidth - fx) / fw;
-  const py = (e.clientY * cv.height / cv.clientHeight - fy) / fh;
-  if (drag.mode === 1) drag.o.s = Math.max(0.1, drag.s * (1 + (px - drag.px) * 3));
-  else if (drag.mode === 2) drag.o.r = drag.r + (px - drag.px) * 6;
-  else { drag.o.x = px; drag.o.y = py; }
-  rows.forEach((r) => r.show());
-  dump();
-});
-addEventListener('pointerup', () => { if (drag) { drag = null; store(); } });
 
 // --- saving --------------------------------------------------------------------
 // Draws one clean frame with the guides off and crops to the card, so what is
