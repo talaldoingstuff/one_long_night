@@ -3,12 +3,15 @@
 import { readFileSync, statSync, existsSync } from 'node:fs';
 
 export const ZIP_LIMIT = 13312;   // competition hard limit, 13 * 1024
-export const GAME_LIMIT = 11750;  // hard ceiling for the game itself
+export const GAME_LIMIT = 12450;  // hard ceiling for the game itself
 
-// DESIGN.md 2 reserves 800 bytes for the Wavedash SDK. That is an estimate until
-// build-order step 4 measures it against the real bundle.
-export const SDK_RESERVE = 800;
-const measured = null;
+// DESIGN.md 2 reserves 100 bytes for the Wavedash SDK, down from an 800-byte
+// guess. Build-order step 4 measured it: the platform INJECTS the SDK before the
+// game's code runs, so nothing is bundled and the only thing in the zip is one
+// guarded call. A throwaway build with and without it differed by 28 bytes. 100 is
+// that with room for a second call site.
+export const SDK_RESERVE = 100;
+const measured = 28;
 
 const bar = (n, limit, width = 34) => {
   const f = Math.max(0, Math.min(1, n / limit));
@@ -68,7 +71,7 @@ export function report(zipPath = 'dist/index.zip', htmlPath = 'dist/index.html')
   console.log(`  headroom to ${ZIP_LIMIT} (total) ${String(ZIP_LIMIT - zip).padStart(6)} bytes`);
   console.log(
     `  of which ${SDK_RESERVE} is the Wavedash reserve ` +
-    `(${measured === null ? 'DESIGN.md estimate' : 'measured, npm run sdk-cost'}), ` +
+    `(${measured === null ? 'DESIGN.md estimate' : 'measured at ' + measured}), ` +
     `${ZIP_LIMIT - GAME_LIMIT - SDK_RESERVE} contingency`
   );
   console.log('');

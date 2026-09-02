@@ -2977,21 +2977,24 @@ const coarse = typeof matchMedia < 'u' && matchMedia('(pointer:coarse)').matches
 
 const gate = () => {
   const u = min(W, H) * C._HUDU;
+  // The body size, wanted twice: once to set the font and once to space the lines
+  // by it. Capped against the WIDTH, because a phone held upright is the one shape
+  // this is guaranteed to be read in - measured in Palatino, the longest line runs
+  // 15.2x its own font size, so 0.057W lands it at 62% of a 420px screen. It was
+  // one line of 22.7x and overflowed on a real phone.
+  const f = min(u * 1.15, W * 0.057) | 0;
   g.fillStyle = '#000';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
-  const P = C._GATE.split('|');
-  P.forEach((t, i) => {
-    // The heading in the game's gold at twice the size, the line white under it.
-    // Capped against the WIDTH, because a phone held upright is the one shape this
-    // is guaranteed to be read in. Measured in Palatino, the longest line runs
-    // 15.2x its own font size, so 0.057W lands it at 87% of a 420px screen. It was
-    // one line of 22.7x and overflowed on a real phone - splitting the title onto
-    // its own line is what bought the room back.
+  C._GATE.split('|').forEach((t, i) => {
     g.fillStyle = i ? '#fff' : css(C._GOLD, 1);
-    g.font = (min(u * (i ? 1.15 : 2.3), W * (i ? 0.057 : 0.1)) | 0) +
-             'px Palatino Linotype,serif';
-    g.fillText(t, W / 2, H * (0.4 + i * 0.09));
+    g.font = (i ? f : min(u * 2.3, W * 0.1) | 0) + 'px Palatino Linotype,serif';
+    // The two lines under the heading are ONE sentence and sit a line-height apart.
+    // Stepped by the FONT rather than by a fraction of H, which is what the first
+    // version did and only looked right in portrait: the size is capped by W and
+    // the spacing was measured off H, so turning the phone sideways closed the gap
+    // until the lines touched.
+    g.fillText(t, W / 2, H * 0.42 + (i && f * (1.25 + i * 1.35)));
   });
   g.textAlign = 'left';
 };
