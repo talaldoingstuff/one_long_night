@@ -92,16 +92,26 @@ ok('and the heading is the largest thing on it',
    body.every((o) => o.f < head.f),
    'heading ' + head.f + 'px over body at ' + body.map((o) => o.f).join(', ') + 'px');
 
-// 9.1x its own size is ONE LONG NIGHT measured in Palatino in headless Chrome;
-// the gate's heading is shorter than that, so this is a safe over-estimate.
+// Both strings measured in Palatino in headless Chrome, as width per 1px of font
+// size. Retyped here rather than guessed: the line is nearly three times the width
+// of the heading for the same size, and an over-estimate that flatters it would let
+// a real overflow through.
+const RATIO = { 'DESKTOP ONLY': 7.693, 'One Long Night can only be played on a computer.': 22.688 };
 ok('and it fits across a 420px phone held upright',
-   head.f * 9.1 < 420 * 0.92 && body.every((o) => o.f * 16.2 < 420 * 0.92),
-   'heading ' + (100 * head.f * 9.1 / 420).toFixed(0) + '% of the width, longest ' +
-   'body line under ' + (100 * Math.max(...body.map((o) => o.f)) * 16.2 / 420).toFixed(0) +
-   '% - both capped against W, because on a portrait window the narrow side IS the width');
+   rec.ops.filter((o) => o.op === 'text').every((o) => o.f * RATIO[o.s] < 420 * 0.92),
+   rec.ops.filter((o) => o.op === 'text')
+     .map((o) => (100 * o.f * RATIO[o.s] / 420).toFixed(0) + '%').join(' and ') +
+   ' of the width - capped against W, because on a portrait window the narrow side ' +
+   'IS the width');
+
+// The ratios above only mean anything for the strings they were measured on.
+ok('and the words are the ones those widths were measured for',
+   Object.keys(RATIO).join('|') === C._GATE,
+   'if this fails, re-measure the new wording in Palatino and bring the caps in ' +
+   'src/main.js with it - the check cannot know a string it has never been shown');
 
 ok('and the words say which machine to use, not merely that this one is wrong',
-   /computer|desktop/i.test(C._GATE) && /mouse/i.test(C._GATE),
+   /computer|desktop/i.test(C._GATE),
    '"' + C._GATE.replace(/\|/g, ' / ') + '" - a dead end that does not say where ' +
    'to go is worse than no message');
 

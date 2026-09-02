@@ -500,7 +500,7 @@ export const C = {
   _LOREF: 1.1,         // and how long one takes to arrive
   // Shown instead of the game to anything whose primary pointer is a finger.
   // Paragraphs split on | like the lore, and read by the same splitter.
-  _GATE: 'DESKTOP ONLY|It is aimed with a mouse.|Open it on a computer.',
+  _GATE: 'DESKTOP ONLY|One Long Night can only be played on a computer.',
   _VER: 'v 0.1',
   // The mute and quit squares: size and margin, in HUD units. They are the only
   // two things in the game meant to be CLICKED rather than aimed at, so they are
@@ -2978,13 +2978,15 @@ const gate = () => {
   g.textAlign = 'center';
   const P = C._GATE.split('|');
   P.forEach((t, i) => {
-    // The heading in the game's gold at twice the size, the rest white under it.
+    // The heading in the game's gold at twice the size, the line white under it.
     // Both capped against the WIDTH, because a phone held upright is the one shape
-    // this is guaranteed to be read in.
+    // this is guaranteed to be read in - and the line is a long one. Measured in
+    // Palatino, it runs 22.7x its own font size, so 0.039W lands it at 89% of a
+    // 420px screen. The heading is 7.7x and never comes close.
     g.fillStyle = i ? '#fff' : css(C._GOLD, 1);
-    g.font = (min(u * (i ? 1.15 : 2.3), W * (i ? 0.042 : 0.1)) | 0) +
+    g.font = (min(u * (i ? 1.15 : 2.3), W * (i ? 0.039 : 0.1)) | 0) +
              'px Palatino Linotype,serif';
-    g.fillText(t, W / 2, H * (i ? 0.46 + i * 0.07 : 0.32));
+    g.fillText(t, W / 2, H * (i ? 0.55 : 0.4));
   });
   g.textAlign = 'left';
 };
