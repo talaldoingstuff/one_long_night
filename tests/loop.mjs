@@ -4812,11 +4812,17 @@ console.log('--- two at once ---------------------------------------------------
      'heart after it - whoever gets there first takes the hit, and a frame is the ' +
      'resolution of first');
 
-  ok('and the grace is a whole second, not a glance of one',
-     C._IFRAME === 1,
-     'IFRAME ' + C._IFRAME + 's. It was 0.6, which is long enough to stop a clump ' +
-     'chaining and too short to be SEEN doing it - and a rule the player cannot ' +
-     'perceive is one they play against by accident');
+  ok('and the grace is two whole seconds, not a glance of one',
+     C._IFRAME === 2,
+     'IFRAME ' + C._IFRAME + 's. It was 0.6, long enough to stop a clump chaining ' +
+     'and too short to be SEEN doing it - and a rule the player cannot perceive is ' +
+     'one they play against by accident. Simulated, 0.6 to 2 is worth about five ' +
+     'waves on the mean run, so this is a balance number and not only a legibility one'),
+  ok('and the flicker keeps its speed as the window grows',
+     C._INVP[1] / C._IFRAME === 5,
+     C._INVP[1] + ' half-cycles across ' + C._IFRAME + 's is one every ' +
+     (C._IFRAME / C._INVP[1]).toFixed(2) + 's - the count is PER WINDOW, so it has ' +
+     'to move with IFRAME or a longer grace flickers slower and reads as sluggish');
 
   // --- and you can see that you have it ----------------------------------------
   // Through drawPuppet rather than a whole frame, so what is measured is the

@@ -734,15 +734,18 @@ export const C = {
   _SHAKEA: 7,          // px the whole view kicks by at full shake
   _HURTD: 0.28,        // seconds of red over the screen when something reaches you
   // Grace made visible: how far the viewmodel dims at the bottom of a flicker, and
-  // how many half-cycles it does in one IFRAME. DIMMING rather than fading, because
+  // how many half-cycles it does in one IFRAME. The count is PER WINDOW, so it has
+  // to move with IFRAME or the flicker slows down every time the grace gets longer -
+  // 5 over one second and 10 over two are the same speed, which is the part that
+  // reads. DIMMING rather than fading, because
   // the sprite's paths OVERLAP - path 0 runs on behind the gun - so any alpha under
   // 1 would show the hidden geometry through the front of it. Brightness is also
   // the only channel that reads on every part at once: the gun is near-white and a
   // lift toward white would do nothing to it, while the glove is brown.
-  _INVP: [0.45, 5],
+  _INVP: [0.45, 10],
   _HURTA: 0.42,        // and how red it gets at the moment of the hit
   _HURTC: [255, 40, 60],
-  _IFRAME: 1,          // seconds of grace after a hit, so a clump cannot chain
+  _IFRAME: 2,          // seconds of grace after a hit, so a clump cannot chain
   _SPAWN: 1.5,         // seconds between spawns. Step 8 replaces this with waves.
 };
 
