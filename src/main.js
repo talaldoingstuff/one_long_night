@@ -2238,14 +2238,21 @@ const hud = () => {
   // The budget is what buys the ghosts, so it is the honest measure of a wave, and
   // it is the same number for every player who reaches this one.
   //
-  // Nudged upward early, and only for the reading. round(6 x 1.12^2) is 7.53 and
-  // round(6 x 1.12^3) is 8.43, so waves 3 and 4 both buy 8 - and a threat level
-  // that does not move for a wave reads as a bug. wave + 5 outruns the curve for
-  // the first five waves and never touches it after: 6 7 8 9 10 11 12 13 15 17.
-  // The BUDGET is untouched; this is the label, not the difficulty.
+  // Nudged upward early, and only for the reading: round(5 x 1.13^2) and
+  // round(5 x 1.13^1) are both 6, and a threat level that does not move for a wave
+  // reads as a bug. The BUDGET is untouched; this is the label, not the difficulty.
+  //
+  // wave + 4, not + 5. The floor has to sit just above the curve's flat spot and
+  // nowhere else, and when the opening moved to 5 x 1.13 the old + 5 stopped doing
+  // that - it outran the budget until wave 10, so nine waves showed a number that
+  // was really the wave count plus five, climbing by exactly one whether or not
+  // anything was happening. + 4 covers waves 3 to 7 and hands the reading back:
+  //
+  //   5 6 7 8 9 10 11 12 13 15 17 19 22 24 28 31 35 40 45 51
+  //       ^-------^ the only five that are not the real budget
   g.fillStyle = '#8b93b8';
   g.font = (u * C._KILLF | 0) + 'px Palatino Linotype,serif';
-  g.fillText('THREAT LEVEL ' + max(budgetFor(wave), wave + 5), W / 2,
+  g.fillText('THREAT LEVEL ' + max(budgetFor(wave), wave + 4), W / 2,
              18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
 

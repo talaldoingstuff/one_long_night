@@ -1289,7 +1289,7 @@ console.log('--- the HUD ------------------------------------------------------'
   ok('and the threat level sits under it, on the same centre line',
      !!kills && kills.x === wave.x && kills.y > wave.y && kills.align === 'center',
      '"' + kills.s + '" ' + (kills.y - wave.y).toFixed(0) + 'px below it');
-  const shown = (w) => Math.max(Math.round(C._BUD0 * C._BUDR ** (w - 1)), w + 5);
+  const shown = (w) => Math.max(Math.round(C._BUD0 * C._BUDR ** (w - 1)), w + 4);
   ok('and it reads the budget, which is what buys the ghosts',
      kills.s === 'THREAT LEVEL ' + shown(M.anim().wave),
      'the same number for every player who reaches this wave, where a kill count ' +
@@ -1299,13 +1299,21 @@ console.log('--- the HUD ------------------------------------------------------'
   for (let w = 1; w <= 20; w++) ladder.push(shown(w));
   ok('and it never stands still from one wave to the next',
      ladder.every((v, i) => !i || v > ladder[i - 1]),
-     ladder.slice(0, 10).join(', ') + ' ... - the BUDGET repeats at waves 3 and 4, ' +
-     'because round(6 x 1.12^2) is 7.53 and round(6 x 1.12^3) is 8.43. The reading ' +
-     'is nudged past it and the difficulty is untouched');
-  ok('and the nudge only touches the early waves',
-     [10, 15, 20].every((w) => shown(w) === Math.round(C._BUD0 * C._BUDR ** (w - 1))),
-     'from wave 6 on it is the budget exactly - wave + 5 outruns the curve for five ' +
-     'waves and never catches it again');
+     ladder.slice(0, 12).join(', ') + ' ... - the BUDGET repeats at waves 2 and 3, ' +
+     'because round(5 x 1.13) and round(5 x 1.13^2) are both 6. The reading is ' +
+     'nudged past it and the difficulty is untouched');
+  // The floor has to sit JUST above the flat spot. Too low and the number stalls;
+  // too high and it becomes a wave counter with a number added, which is what
+  // wave + 5 turned into when the opening moved to 5 x 1.13 - it outran the budget
+  // until wave 10, so nine waves read as the wave plus five and climbed by one
+  // whatever the game did.
+  const cosmetic = [];
+  for (let w = 1; w <= 20; w++)
+    if (shown(w) !== Math.round(C._BUD0 * C._BUDR ** (w - 1))) cosmetic.push(w);
+  ok('and the nudge covers the flat spot and nothing else',
+     cosmetic.length <= 5 && Math.max(...cosmetic) < 8,
+     'waves ' + cosmetic.join(', ') + ' read high; every other wave from 1 to 20 ' +
+     'shows the real budget. It was nine waves, up to wave 9');
 
   const U = Math.min(900, 500) * C._HUDU;
   // Both read from the config rather than a remembered number, so retuning the
