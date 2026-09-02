@@ -4282,9 +4282,94 @@ console.log('--- the title, the how-to, and the best ---------------------------
 
   M.setScr(0);
   draw();
-  ok('the game opens on a title screen, not in a run',
+  // The lore comes BEFORE the title now, so what "opens on" means has moved by one
+  // screen. It is checked here rather than left to the title's own check, which
+  // would otherwise pass or fail for two different reasons at once.
+  ok('the game opens on the lore, a paragraph at a time',
+     txt().some((t) => /centuries the horn/.test(t)) &&
+     !txt().includes('ONE LONG NIGHT') &&
+     txt().some((t) => /SKIP/.test(t)),
+     txt().map((t) => '"' + t + '"').join(', '));
+
+  // The bug this was: the lore was set at 1.15u and the prompt under it at 1.2u, so
+  // the writing was literally the smaller of the two things on the screen.
+  {
+    const lo = rec.ops.find((o) => o.op === 'text' && /centuries/.test(o.s));
+    const pr = rec.ops.find((o) => o.op === 'text' && /SKIP/.test(o.s));
+    ok('the lore is set larger than the prompt that dismisses it',
+       lo.f > pr.f * 1.3,
+       'lore ' + lo.f + 'px against a ' + pr.f + 'px prompt - the writing is what the ' +
+       'screen is FOR, and it used to be the smaller of the two');
+  }
+
+  // Both sizes are capped against the WIDTH, because u comes off the narrow side and
+  // on a portrait window that side is the one the line has to cross. These two ratios
+  // are Palatino measured in headless Chrome at 100px - width per 1px of font size -
+  // so this checks the arithmetic against the real face rather than against the
+  // stub's fixed advance, which would answer for a font the game is not drawn in.
+  {
+    const TITLE = 9.095, LINE = 16.136;             // 'ONE LONG NIGHT', longest lore line
+    globalThis.innerWidth = 400; globalThis.innerHeight = 800;
+    (L.resize || []).forEach((f) => f());
+    // Far enough in that every paragraph is up - the longest line is in the second
+    // one, and one frame after a resize only has the first.
+    tick(60 * 10);
+    draw();
+    const lo = rec.ops.find((o) => o.op === 'text' && /vaporizes/.test(o.s));
+    ok('and neither runs off the edge of a portrait window',
+       lo.f * LINE < 400 * 0.92,
+       'the longest line is ' + (100 * lo.f * LINE / 400).toFixed(0) + '% of a 400px ' +
+       'width at ' + lo.f + 'px - uncapped it would have been 99%');
+    // The cap is a number tied to THIS text: a longer line needs a smaller one. This
+    // holds the text to what 0.055W was measured for, so growing a line fails HERE
+    // rather than on somebody's phone.
+    const longest = Math.max(...C._LORE.split(/[|/]/).map((t) => t.length));
+    ok('and the writing stays inside what that cap was measured for',
+       longest <= 36,
+       'longest line ' + longest + ' characters, cap measured at 36 - if this fails, ' +
+       're-measure the line in Palatino and bring 0.055 down to match');
+    globalThis.innerWidth = 900; globalThis.innerHeight = 500;
+    (L.resize || []).forEach((f) => f());
+    M.setScr(0);
+  }
+
+  // ...and it STAYS there. A minute is far past the point the last paragraph has
+  // finished arriving, and the title has still not taken the screen: this is a
+  // screen you are asked to read, so it waits to be dismissed rather than
+  // dismissing itself out from under a slow reader.
+  tick(60 * 60);
+  draw();
+  ok('and it holds there until it is dismissed, however long that takes',
+     txt().some((t) => /Purge the dark/.test(t)) && !txt().includes('ONE LONG NIGHT'),
+     'a minute in, still the lore - and every paragraph of it is up, because the ' +
+     'last one arrives ' + (C._LORE.split('|').length * C._LOREG).toFixed(0) +
+     's in and nothing takes it away afterwards');
+
+  // A press during the lore takes you past IT, not into a run - the title is where
+  // the game starts and it has not been seen yet. Everything below draws the title,
+  // and the skip holds for all of it because nothing resets the flag.
+  press();
+  draw();
+  ok('and a press skips it to the title rather than into a run',
      txt().includes('ONE LONG NIGHT') && txt().some((t) => /START/.test(t)),
      txt().map((t) => '"' + t + '"').join(', '));
+
+  // The other half of the portrait measurement. It waits until here because getting
+  // to the title means pressing, and that press is what the two checks above are for.
+  {
+    globalThis.innerWidth = 400; globalThis.innerHeight = 800;
+    (L.resize || []).forEach((f) => f());
+    draw();
+    const ti = rec.ops.find((o) => o.op === 'text' && o.s === 'ONE LONG NIGHT');
+    ok('and the title fits across a portrait window as well',
+       ti.f * 9.095 < 400 * 0.92,
+       'ONE LONG NIGHT is ' + (100 * ti.f * 9.095 / 400).toFixed(0) + '% of the width ' +
+       'at ' + ti.f + 'px - it was 79% of it before it was made bigger, so the room ' +
+       'was never there to simply scale it up');
+    globalThis.innerWidth = 900; globalThis.innerHeight = 500;
+    (L.resize || []).forEach((f) => f());
+    draw();
+  }
   const verOp = rec.ops.find((o) => o.op === 'text' && o.s === C._VER);
   ok('and it carries a version, at the foot of the screen',
      !!verOp && verOp.y > 500 * 0.9,

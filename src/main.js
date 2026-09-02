@@ -452,6 +452,20 @@ export const C = {
   // throws in private browsing, and an uncaught throw is a console error, which is
   // a hard competition rule rather than a nicety.
   _LSK: 'oln.best',
+  // The lore, before the title. Paragraphs split on |, their lines on /, because
+  // canvas has no wrapping and a separator costs one character where a second
+  // string literal costs six. Every character here is about a byte once packed,
+  // so this is where the screen's whole cost lives - the machinery below is 100
+  // bytes and the writing is the rest.
+  _LORE: 'For centuries the horn was carried/to turn back evil spirits.|' +
+         'Someone shaped the last one/into a weapon that vaporizes ghosts.|' +
+         'Now, the Alicorn is yours./Purge the dark.',
+  // The gap is generous because nothing is lost by it now: the screen HOLDS at the
+  // end rather than timing out, so a reader who wants to move is one press away and
+  // a reader who does not is never hurried. 1.1s of that is the paragraph arriving,
+  // leaving most of three seconds of it sitting still and readable.
+  _LOREG: 4,           // seconds before the next paragraph begins
+  _LOREF: 1.1,         // and how long one takes to arrive
   _VER: 'v 0.1',
   // The mute and quit squares: size and margin, in HUD units. They are the only
   // two things in the game meant to be TOUCHED rather than aimed at, and a
@@ -944,7 +958,7 @@ const reset = () => {
 let down = 0, lx = 0, ly = 0, auto = 1, armT = -1, ax = 0, ay = 0;
 // 0 the title, 1 the how-to, 2 a run. Not part of reset(), which is a RUN being
 // reset - dying and starting again never goes back to the title.
-let scr = 0, best = 0;
+let scr = 0, best = 0, lore = 0;
 try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode */ }
 
 // Where the puppet is pointing: the straight line from the base of the horn to
@@ -1068,6 +1082,9 @@ const onDown = (e) => {
   // Every press on a menu is heard, including the very first: audio() built the
   // context a line ago, inside the gesture that a browser requires. The run is
   // the exception, where a press means the horn and has its own sound.
+  // A press during the lore takes you past IT, not past the title. The title is
+  // where the game starts and it has not been seen yet.
+  if (!scr && !lore) { sfx(4); lore = 1; return; }
   if (scr < 2) { sfx(4); if (++scr > 1) reset(); return; }
   if (!over && !picking) {
     for (let i = 0; i < 2; i++) {
@@ -2524,6 +2541,54 @@ const anywhere = (label, y, u) => {
   g.globalAlpha = 1;
 };
 
+// Timed off the game's own clock, which advances through the menus and starts at
+// zero - and the title screen is only ever seen at load, so the lore plays once
+// and a run that quits back comes out at the how-to instead. No timer of its own.
+const loreScreen = (u) => {
+  const P = C._LORE.split('|');
+  // Only the flag ends this screen. It used to end on the clock as well, which
+  // meant the title could arrive at a reader who had not finished - and a screen
+  // you are asked to read should not take itself away from you.
+  if (lore) return 0;
+  g.textAlign = 'center';
+  // The game's own gold, the colour of the horn and of every heading it has. The
+  // SKIP line under it stays the white every other prompt uses, so the writing and
+  // the way past it do not read as the same thing.
+  g.fillStyle = css(C._GOLD, 1);
+  // 1.15u was SMALLER than the prompt under it at 1.2u, which is why the writing
+  // read as the small print of its own skip button. 1.7u is half again as big as
+  // that prompt - but u comes off the NARROW side, and on a portrait window the
+  // narrow side is the width the line has to fit across. The longest line here is
+  // 16.1x its own font size in Palatino, so 1.7u would be 99% of a portrait window.
+  // Hence the cap: 0.055W is that line at 89% of the width, whichever is smaller.
+  // The 0.055 is tied to THIS text - a longer line needs a smaller number - and a
+  // check holds it to that rather than leaving it to be discovered on a phone.
+  const ls = min(u * 1.7, W * 0.055);
+  g.font = (ls | 0) + 'px Palatino Linotype,serif';
+  let n = 0;
+  for (let i = 0; i < P.length; i++) {
+    const a = min(1, max(0, (clock - i * C._LOREG) / C._LOREF));
+    g.globalAlpha = a;
+    // Every line is laid out whatever its alpha, so a paragraph arriving does not
+    // shift the ones already there.
+    for (const ln of P[i].split('/')) {
+      // The line step follows the SIZE rather than u, so the block keeps its
+      // proportions when the cap above is what decides that size. It starts higher
+      // than it used to because a bigger block is a taller one and the skip prompt
+      // is where it always was.
+      if (a) g.fillText(ln, W / 2, H * 0.22 + n * ls * 1.4);
+      n++;
+    }
+    n += 0.6;                                     // a gap between paragraphs
+  }
+  g.globalAlpha = 1;
+  // Lower than the 0.86 the other screens put their prompt at, because this block
+  // is much taller than they are and 0.86 left the last paragraph nearly touching
+  // it. Nothing is under it here - the lore returns before the version is drawn.
+  anywhere('CLICK ANYWHERE TO SKIP', H * 0.92, u);
+  return 1;
+};
+
 const menuScreen = () => {
   const u = min(W, H) * C._HUDU;
   g.fillStyle = '#000a';
@@ -2561,8 +2626,15 @@ const menuScreen = () => {
     g.fillText(tail, x0 + wn, H * 0.69);
     g.textAlign = 'center';
     anywhere('CLICK ANYWHERE TO PLAY', H * 0.79, u);
+  } else if (loreScreen(u)) {
+    return;
   } else {
-    g.font = (u * 2.4 | 0) + 'px Palatino Linotype,serif';
+    // Capped against the width for the same reason the lore is: ONE LONG NIGHT is
+    // 9.1x its font size, and 2.4u was ALREADY 79% of a portrait window - there was
+    // never much room above it there. 0.099W is the title at 90% of the width, so
+    // it grows to 3.4u on a landscape window and stops short of the edge on a
+    // narrow one instead of running off it.
+    g.font = (min(u * 3.4, W * 0.099) | 0) + 'px Palatino Linotype,serif';
     g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
     anywhere('CLICK ANYWHERE TO START', H * 0.58, u);
   }
