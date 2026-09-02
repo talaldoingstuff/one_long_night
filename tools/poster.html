@@ -134,9 +134,20 @@ const row = (lab, min, max, step, get, set) => {
   return d;
 };
 
-const rows = [];
+const rows = [], slots = [];
+// Which slot is outlined, WITHOUT rebuilding anything. Selecting used to call
+// build(), and build() replaces the panel's whole contents - so a mousedown on a
+// slider destroyed that slider before it could be dragged, and destroyed a button
+// between its own mousedown and mouseup so the click never landed. Nothing in the
+// panel worked except the sliders in the gun section, which sits outside a slot.
+const markSel = () => slots.forEach((b, i) => b.classList.toggle('sel', i === sel));
+
 const build = () => {
   panel.innerHTML = '';
+  // Both of these hold ELEMENTS, and build() throws every element away. Without
+  // this they grow by a panel every rebuild and show() runs down a list of nodes
+  // that are no longer on the page.
+  rows.length = slots.length = 0;
   const h = (t) => { const e = document.createElement('h2'); e.textContent = t; panel.append(e); };
   const fb = document.createElement('div');
   fb.className = 'btns';
@@ -171,7 +182,14 @@ const build = () => {
   gh.forEach((s, i) => {
     const box = document.createElement('div');
     box.className = 'slot' + (i === sel ? ' sel' : '');
-    box.onmousedown = () => { sel = i; build(); };
+    // A control inside the slot gets to keep its own event: a click on the type or
+    // on/off button, and every drag of a slider, starts with a mousedown in here.
+    box.onmousedown = (e) => {
+      if (e.target.closest('input,button')) return;
+      sel = i;
+      markSel();
+    };
+    slots.push(box);
     const hd = document.createElement('div');
     hd.className = 'hd';
     hd.innerHTML = '<span class=swatch style="background:rgb(' + C._TYPES[s.k][9] + ')"></span>' +
@@ -246,12 +264,26 @@ const dump = () => {
 // The window is whatever shape it is; a social card is not. This is the largest
 // rectangle of the chosen ratio that fits, centred - what the guides draw and what
 // save() crops to, so the picture that comes out is the picture that was composed.
+// The panel is a DOM overlay sitting on the left of the canvas, so anything
+// composed under it is invisible while it is being composed - the leftmost ghost
+// started there and could be neither seen nor picked up. The card is laid out in
+// what is actually VISIBLE, and folding the panel gives that width back.
+//
+// Nothing moves when it folds: x and y are fractions of the frame, so the picture
+// is the same picture in a wider rectangle. That is what they are fractions for.
+const stage = () => {
+  const dpr = cv.width / cv.clientWidth || 1;
+  const left = hid ? 0 : (panel.getBoundingClientRect().right + 26) * dpr;
+  return [left, 0, cv.width - left, cv.height];
+};
+
 const frame = () => {
+  const [sx, sy, sw, sh] = stage();
   const a = ASPECT[aspect][1];
-  if (!a) return [0, 0, cv.width, cv.height];
-  let w = cv.width, h = w / a;
-  if (h > cv.height) { h = cv.height; w = h * a; }
-  return [(cv.width - w) / 2, (cv.height - h) / 2, w, h];
+  if (!a) return [sx, sy, sw, sh];
+  let w = sw, h = w / a;
+  if (h > sh) { h = sh; w = h * a; }
+  return [sx + (sw - w) / 2, sy + (sh - h) / 2, w, h];
 };
 
 // --- painting -----------------------------------------------------------------
@@ -286,11 +318,12 @@ const paint = () => {
     if (ASPECT[aspect][1]) {
       // Everything outside the card, dimmed rather than hidden, so what is being
       // cut off is still visible while it is being composed.
+      const [sx, , sw] = stage();
       g.fillStyle = '#05060ecc';
-      g.fillRect(0, 0, cv.width, fy);
-      g.fillRect(0, fy + fh, cv.width, cv.height - fy - fh);
-      g.fillRect(0, fy, fx, fh);
-      g.fillRect(fx + fw, fy, cv.width - fx - fw, fh);
+      g.fillRect(sx, 0, sw, fy);
+      g.fillRect(sx, fy + fh, sw, cv.height - fy - fh);
+      g.fillRect(sx, fy, fx - sx, fh);
+      g.fillRect(fx + fw, fy, sx + sw - fx - fw, fh);
     }
     g.strokeStyle = '#ffd23f66';
     g.lineWidth = 1;
@@ -323,7 +356,7 @@ cv.addEventListener('pointerdown', (e) => {
   if (!hit) return;
   drag = { o: hit, px, py, s: hit.s, r: hit.r, mode: e.shiftKey ? 1 : e.altKey ? 2 : 0 };
   cv.setPointerCapture(e.pointerId);
-  build();
+  markSel();
 });
 cv.addEventListener('pointermove', (e) => {
   if (!drag) return;
@@ -375,7 +408,7 @@ grip.onclick = () => collapse();
 
 addEventListener('keydown', (e) => {
   if (e.key === 'h' || e.key === 'H') collapse();
-  if (e.key === 'Tab') { e.preventDefault(); sel = (sel + 1) % gh.length; build(); }
+  if (e.key === 'Tab') { e.preventDefault(); sel = (sel + 1) % gh.length; markSel(); }
   if (e.key === 's' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); }
 });
 
