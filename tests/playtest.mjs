@@ -49,16 +49,18 @@ let clock = 0;
 const tick = () => { clock += 1000 / 60; rafCb(clock); };
 const key = (type, code) => (L[type] || []).forEach((f) => f({ type, code, preventDefault() {} }));
 
-const NAMES = ['SHOT RATE', 'SHOT DAMAGE', 'RAINBOW RADIUS', 'RAINBOW COOLDOWN',
-               'RAINBOW HOLD', 'EXTRA HEART', 'HEAL'];
+// Off the table, not retyped. It was a literal list and went stale the moment the
+// three rainbow cards became two, so every build readout below printed card names
+// the game no longer has.
+const NAMES = C._CARDS.map((c) => c[5]);
 
 // --- how a player picks cards ------------------------------------------------------
 // An order of preference over the seven. Whichever of the three on offer comes
 // first in the list is taken.
 const PLANS = {
-  'all guns':   [0, 1, 2, 3, 4, 5, 6],
-  'balanced':   [5, 6, 0, 2, 1, 4, 3],
-  'rainbow':    [2, 4, 3, 5, 0, 1, 6],
+  'all guns':   [0, 1, 4, 5, 2, 3],
+  'balanced':   [4, 5, 0, 2, 1, 3],
+  'rainbow':    [2, 3, 4, 5, 0, 1],
   'careless':   null,                             // takes whatever is in slot 1
 };
 
