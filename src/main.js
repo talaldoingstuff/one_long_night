@@ -733,9 +733,16 @@ export const C = {
   _DMGCAP: 3,          // no single contact may take more than this
   _SHAKEA: 7,          // px the whole view kicks by at full shake
   _HURTD: 0.28,        // seconds of red over the screen when something reaches you
+  // Grace made visible: how far the viewmodel dims at the bottom of a flicker, and
+  // how many half-cycles it does in one IFRAME. DIMMING rather than fading, because
+  // the sprite's paths OVERLAP - path 0 runs on behind the gun - so any alpha under
+  // 1 would show the hidden geometry through the front of it. Brightness is also
+  // the only channel that reads on every part at once: the gun is near-white and a
+  // lift toward white would do nothing to it, while the glove is brown.
+  _INVP: [0.45, 5],
   _HURTA: 0.42,        // and how red it gets at the moment of the hit
   _HURTC: [255, 40, 60],
-  _IFRAME: 0.6,        // seconds of grace after a hit, so a clump cannot chain
+  _IFRAME: 1,          // seconds of grace after a hit, so a clump cannot chain
   _SPAWN: 1.5,         // seconds between spawns. Step 8 replaces this with waves.
 };
 
@@ -1333,6 +1340,10 @@ const upos = () => [W / 2 + C._UX * H, H - C._UY * H, C._US * H,
 const puppet = () => {
   const w = C._SAT0 + (1 - C._SAT0) * (1 - bindT / sCd());
   const bk = blink > 0 ? 1 - (1 - C._BLINKS) * sin(PI * blink / C._BLINKD) : 1;
+  // Driven off inv rather than off the clock, so the flicker starts and ends on
+  // full brightness every time and its phase says how much grace is LEFT rather
+  // than what time it is.
+  const ip = inv ? 1 - C._INVP[0] * abs(sin(PI * C._INVP[1] * inv / C._IFRAME)) : 1;
   const [X0, Y0, S, ca, sa] = upos();
   // Recoil kicks the whole animal back along the horn's own axis, the same idea
   // the 3D transform used, in the plane it is now drawn in.
@@ -1343,6 +1354,9 @@ const puppet = () => {
     const n = uch(UL, i), k = UK.charCodeAt(i) - 48;
     let c = [uch(UC, i * 3) * 2.742, uch(UC, i * 3 + 1) * 2.742, uch(UC, i * 3 + 2) * 2.742];
     if (k === 1) c = wash(c, w); else if (k) c = charged(c);
+    // Last, so the flicker carries the mane's wash and the horn's charge down with
+    // it rather than being overwritten by either.
+    if (inv) c = [c[0] * ip, c[1] * ip, c[2] * ip];
     g.fillStyle = css(c, 1);
     g.beginPath();
     for (let j = 0; j < n; j++, v += 2) {
@@ -3111,7 +3125,7 @@ export const aimWorld = (r) => {
 };
 export const setFire = (v) => { auto = v; };   // editor: stop it firing to look at it
 export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, wallR, armT, parts, conv, mS,
-                             wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp, scr, muted,
+                             wave, budget, waveT, hurtT, shake, lv, offer, picking, sel, maxhp, scr, muted, inv,
                              pts: points(),
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),

@@ -4786,6 +4786,69 @@ console.log('--- two at once ---------------------------------------------------
      'a second Drifter costs nothing up to ' + C._IFRAME + 's after the first and a ' +
      'heart after it - whoever gets there first takes the hit, and a frame is the ' +
      'resolution of first');
+
+  ok('and the grace is a whole second, not a glance of one',
+     C._IFRAME === 1,
+     'IFRAME ' + C._IFRAME + 's. It was 0.6, which is long enough to stop a clump ' +
+     'chaining and too short to be SEEN doing it - and a rule the player cannot ' +
+     'perceive is one they play against by accident');
+
+  // --- and you can see that you have it ----------------------------------------
+  // Through drawPuppet rather than a whole frame, so what is measured is the
+  // viewmodel and not the floor rings or anything standing on them.
+  const litness = () => {
+    rec.ops = [];
+    M.drawPuppet();
+    const f = rec.ops.filter((o) => o.op === 'fill' && /^rgba\(/.test(o.c));
+    let sum = 0;
+    for (const o of f) {
+      const m = /rgba\((\d+),(\d+),(\d+)/.exec(o.c);
+      sum += +m[1] + +m[2] + +m[3];
+    }
+    return sum / f.length;
+  };
+
+  M.restart(); M.look(0, 0); M.setFire(0); M.place([]);
+  tick();
+  const rest = litness();
+
+  // Take a hit, then walk the whole grace window sampling the viewmodel.
+  M.setLv(5, 2);
+  M.place([[at, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
+  tick();
+  M.place([]);
+  let dimmest = 1e9, brightest = 0, crossings = 0, prev = null, rising = null;
+  for (let i = 0; i < Math.round(C._IFRAME * 60); i++) {
+    const v = litness();
+    dimmest = Math.min(dimmest, v); brightest = Math.max(brightest, v);
+    if (prev !== null) {
+      const up = v > prev;
+      if (rising !== null && up !== rising) crossings++;
+      rising = up;
+    }
+    prev = v;
+    tick();
+  }
+  ok('and the viewmodel dims while it lasts, so the grace is visible',
+     dimmest < rest * 0.75,
+     'the sprite falls to ' + (100 * dimmest / rest).toFixed(0) + '% of its resting ' +
+     'brightness - dimming rather than fading, because the paths overlap and any ' +
+     'alpha under 1 would show the hidden geometry through the front of it');
+
+  ok('and it PULSES rather than simply going dark',
+     crossings >= 3,
+     crossings + ' turns between dimming and brightening across the second, which is ' +
+     'INVP[1] of ' + C._INVP[1] + ' half-cycles - a single dip would read as damage ' +
+     'rather than as a window that is running out');
+
+  // ...and it is over when the grace is.
+  let guard = 0;
+  while (M.anim().inv > 0 && guard++ < 300) tick();
+  ok('and the sprite is back to full brightness the moment it ends',
+     Math.abs(litness() - rest) < 0.5,
+     'inv is ' + M.anim().inv + ' and the viewmodel is at ' +
+     (100 * litness() / rest).toFixed(0) + '% - the flicker is driven off inv, so it ' +
+     'cannot outlive what it is reporting');
   M.restart(); M.place([]);
 }
 
