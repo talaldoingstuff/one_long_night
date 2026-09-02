@@ -42,12 +42,18 @@ Competition rules. Violating any of these disqualifies the entry or drops it fro
 ```
 13,312  total
   -800  Wavedash SDK reserve
--11,500  game
+-11,750  game
 ─────────
- 1,012  contingency
+   762  contingency
 ```
 
-**Hard ceiling: 11,500 bytes for the game.** `npm run size` must pack and print actual zip bytes against both 13,312 and 11,500 after every build.
+**Hard ceiling: 11,750 bytes for the game.** `npm run size` must pack and print actual zip bytes against both 13,312 and 11,750 after every build.
+
+The game ceiling was 11,500 until the sky was given its drifting ghosts. That
+was a deliberate call rather than a drift: the reserve exists to be spent on
+the entry, the 800 bytes for the SDK are still untouched, and 762 bytes of
+contingency is a wider margin than most of this file was written under. The
+number to defend is 13,312.
 
 ### Indicative allocation (post-pack)
 

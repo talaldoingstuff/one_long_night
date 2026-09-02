@@ -126,6 +126,12 @@ const M = await import('../src/main.js');
 // six to seven and four checks were still counting to six.
 const BOWN = 7;
 const C = M.C;
+// The sky's drifting ghosts are switched OFF for the run of the checks. They draw
+// the same shape a real ghost draws, into the same frame, so a check reading "the
+// ghost" out of the ops was finding one of THEM. The block that is actually about
+// them turns them back on and empties the sky again afterwards.
+const BGN = C._BG[0];
+C._BG[0] = 0;
 // Printing FAIL and exiting 0 means nothing downstream can tell. It counts.
 let failed = 0;
 const ok = (l, c, x) => { if (!c) failed++;
@@ -4353,6 +4359,69 @@ console.log('--- the title, the how-to, and the best ---------------------------
   ok('and a press skips it to the title rather than into a run',
      txt().includes('ONE LONG NIGHT') && txt().some((t) => /START/.test(t)),
      txt().map((t) => '"' + t + '"').join(', '));
+
+  // --- the sky's own ghosts ---------------------------------------------------
+  // Switched on only here. Everything else runs with an empty sky, because these
+  // draw the same shape a real ghost draws into the same frame.
+  {
+    C._BG[0] = BGN;
+    M.look(0, 0);
+    const pale = 'rgb(' + C._TYPES[0][9] + ')';
+    // ON SCREEN only. Scale comes off the camera-space DEPTH rather than the radial
+    // distance, so one 24m out but nearly side-on has a depth of a metre or two and
+    // projects enormous - thousands of pixels off the edge, where nobody sees it.
+    // Measuring those made the widest of them 116px when the widest in view is 17.
+    const far = () => rec.ops.filter((o) => {
+      if (o.op !== 'fill' || o.c !== pale || o.n < 10) return 0;
+      const xs = o.p.map((q) => q[0]), cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+      return cx > 0 && cx < 900;
+    });
+    // Several seconds, so this is not one lucky frame: at least one has to be up
+    // and visible at any moment or the sky is empty half the time.
+    let seen = 0, lowest = 0, widest = 0, loudest = 0;
+    for (let i = 0; i < 300; i++) {
+      draw();
+      for (const o of far()) {
+        seen++;
+        lowest = Math.max(lowest, ...o.p.map((q) => q[1]));
+        widest = Math.max(widest, Math.max(...o.p.map((q) => q[0])) - Math.min(...o.p.map((q) => q[0])));
+        loudest = Math.max(loudest, o.alpha);
+      }
+    }
+    ok('the sky has ghosts drifting across it',
+       seen > 200,
+       seen + ' of them drawn over 300 frames, roughly ' + (seen / 300).toFixed(1) +
+       ' in view at a time out of ' + BGN + ' around the full circle');
+
+    // THE ONE THAT MATTERS. A ghost you can shoot is at eye level on the ground;
+    // these are above the skyline, where one that can reach you never is. That is
+    // what stops a player emptying the horn at the scenery.
+    ok('and every one of them is above the horizon, where nothing can reach you',
+       lowest < 500 / 2,
+       'the lowest point any of them reached was y ' + lowest.toFixed(0) +
+       ', and the horizon at rest is 250 - so the whole band sits in the sky');
+
+    // ...and smaller than an arrival, because they are past the ring.
+    const real = 2 * C._TYPES[0][5] * C._GW * (C._F / (C._F + C._ARENA)) * 500;
+    ok('and smaller than a ghost on the spawn ring, because they are past it',
+       widest < real * 0.8,
+       'widest ' + widest.toFixed(0) + 'px against ' + real.toFixed(0) + 'px for a ' +
+       'Drifter at the ' + C._ARENA + 'm ring');
+
+    ok('and they fade rather than appear, so none is ever fully there',
+       loudest < 0.9,
+       'the strongest any of them got was ' + loudest.toFixed(2) + ' alpha, at the ' +
+       'top of an arch that starts and ends at nothing');
+
+    // And none of it is the run. They live in their own list, so the wave cannot
+    // see them and neither can a bullet.
+    ok('and none of them is in the run at all',
+       M.dbg().ghosts.length === 0,
+       'the title screen has a sky full of them and not one ghost in the game - ' +
+       'they are decoration in their own list, so nothing can shoot or be hurt by one');
+    C._BG[0] = 0;
+    draw();
+  }
 
   // The other half of the portrait measurement. It waits until here because getting
   // to the title means pressing, and that press is what the two checks above are for.

@@ -3,7 +3,7 @@
 import { readFileSync, statSync, existsSync } from 'node:fs';
 
 export const ZIP_LIMIT = 13312;   // competition hard limit, 13 * 1024
-export const GAME_LIMIT = 11500;  // hard ceiling for the game itself
+export const GAME_LIMIT = 11750;  // hard ceiling for the game itself
 
 // DESIGN.md 2 reserves 800 bytes for the Wavedash SDK. That is an estimate until
 // build-order step 4 measures it against the real bundle.

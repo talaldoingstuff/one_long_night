@@ -100,6 +100,13 @@ export const C = {
   // The last number is how much of that alpha survives at wave 1: an early
   // evening sky washes most of them out, and full dark brings them all up.
   _STAR: [70, 60, 0.03, 0.75, 0.5, 0.25],
+  // Far ghosts drifting past the skyline: how many at once, the nearest and
+  // furthest they are allowed, how high they ride as a FRACTION of their own
+  // distance, how long one lasts, and how bright it gets at the top of its arch.
+  // Height has to be a fraction rather than a number of metres, or the near ones
+  // sit at a completely different angle from the far ones and the band falls
+  // apart. 0.16 is about nine degrees over the skyline at the top of the range.
+  _BG: [20, 24, 55, 0.16, 7, 0.85],
   _STARS: 2.8,        // and how big, in pixels
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
@@ -958,7 +965,7 @@ const reset = () => {
 let down = 0, lx = 0, ly = 0, auto = 1, armT = -1, ax = 0, ay = 0;
 // 0 the title, 1 the how-to, 2 a run. Not part of reset(), which is a RUN being
 // reset - dying and starting again never goes back to the title.
-let scr = 0, best = 0, lore = 0;
+let scr = 0, best = 0, lore = 0, ga = 1;
 try { best = +localStorage.getItem(C._LSK) || 0; } catch (e) { /* private mode */ }
 
 // Where the puppet is pointing: the straight line from the base of the horn to
@@ -1549,7 +1556,10 @@ const drawGhost = (o, target) => {
   // A hit reads at full strength whatever the fade says. Opacity is the health
   // bar (7), so a nearly-dead ghost is faint - and the flash confirming you hit it
   // was fading with it, exactly when it matters most.
-  g.globalAlpha = hit ? 1 : min(1, k * 0.85);
+  // Scaled by ga, which is 1 for everything in the run and the fade for a ghost
+  // in the background. Multiplying here rather than setting globalAlpha outside is
+  // the only thing that works: this line would overwrite anything set before it.
+  g.globalAlpha = (hit ? 1 : min(1, k * 0.85)) * ga;
   g.fillStyle = hit ? '#fff' : 'rgb(' + t[9] + ')';
   // A dome with teeth, built as an outline rather than as a modulated circle.
   // Deforming a circle can only ever make a lumpy circle: the dome and the teeth
@@ -2676,6 +2686,52 @@ const envC = (i) => mix(C._ENV0[i], C._ENV1[i], night());
 // spread is even in ANGLE - taking the height straight piles most of them up
 // near the horizon, where the projection is squashed.
 const STARS = [];
+// Ghosts drifting far out past the skyline, fading in and out. Atmosphere, not a
+// threat: they live two to four times beyond the 16m spawn ring, which is under
+// half the size of a real arrival and a third of that at the far end, and they
+// hang ABOVE the horizon, where a ghost that can reach you never is. So there is
+// nothing out here to waste a shot on, and the ring you actually defend is still
+// the only thing at eye level.
+//
+// They cost almost nothing to draw because they are not a new kind of thing: the
+// record is the same nine fields a real ghost has, so drawGhost draws them
+// without knowing the difference.
+const BGH = [];
+const bgRoll = (b) => {
+  const q = C._BG;
+  b[0] = random() * 2 * PI;                       // a bearing, anywhere around you
+  b[1] = q[1] + random() * (q[2] - q[1]);         // and a distance well past the ring
+  // NEGATIVE is up: GY says ghosts float 0.15m BELOW eye level, so this axis
+  // counts downward and adding to it buried them under the horizon instead.
+  b[2] = -b[1] * q[3] * (0.3 + random() * 0.7);   // up, so it clears the skyline
+  b[3] = random() * 9;                            // its own wobble phase
+  b[4] = clock;                                   // when this life began
+  b[5] = q[4] * (0.6 + random() * 0.8);           // and how long it runs for
+  return b;
+};
+const bgGhosts = () => {
+  const q = C._BG;
+  // Seeded partway through their own lives, or all seven would breathe in unison
+  // for the first cycle and only drift apart afterwards.
+  while (BGH.length < q[0]) { const b = bgRoll([]); b[4] -= random() * b[5]; BGH.push(b); }
+  // Indexed rather than for-of, so the count governs what is drawn rather than
+  // only what is created. The two are the same in the game and are not in the
+  // checks, which empty the sky to look at the ghosts that can actually hurt you.
+  for (let i = 0; i < q[0]; i++) {
+    const b = BGH[i];
+    const u = (clock - b[4]) / b[5];
+    if (u > 1) { bgRoll(b); continue; }            // spent: roll it somewhere else
+    // One arch in and out, so nothing ever pops on or off.
+    ga = q[5] * sin(PI * u);
+    // Always the Drifter, the pale white one. Rolling a type at random put angry
+    // reds and sickly greens in the sky, and those read as a WAVE arriving rather
+    // than as weather - the saturated ones are the game's threat language. The
+    // pale one is the only one that looks like distance.
+    drawGhost([cos(b[0]) * b[1], b[2], sin(b[0]) * b[1], 1, 1, 0, b[3], 0, 0], 0);
+  }
+  ga = 1;
+};
+
 const sky = () => {
   const q = C._STAR;
   if (!STARS.length)
@@ -2876,6 +2932,10 @@ const render = () => {
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
   g.fillStyle = css(envC(4), 1);
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
+  // After the ground and the horizon line, so the skyline is already behind them,
+  // and before the menus return - the title screen gets them too, which is the
+  // whole reason they exist.
+  bgGhosts();
   // The menus sit over the world's own sky rather than over black - the same dusk
   // the first wave starts in, and it costs nothing because it is drawn already.
   if (scr < 2) { g.restore(); return menuScreen(); }
