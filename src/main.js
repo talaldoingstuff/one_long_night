@@ -458,7 +458,18 @@ export const C = {
   // finger is not a cursor - but twice the old size read as furniture, so a
   // quarter off that: half again as big as they began, which is a target
   // without being the thing you look at.
-  _HBTN: [2.25, 0.4],
+  // ...then the black rim on the square in px, and the one on the GLYPH as a
+  // fraction of its own size. They are white on a ground that goes from near
+  // black to a lit sand, and white on sand is not a button.
+  //
+  // The glyph needs its own, much smaller number. A stroke runs along BOTH sides
+  // of an outline, so 5px on a 23px M pushes 2.5px into every counter and closes
+  // them - and the white fill cannot open them again, because a counter is a hole
+  // and fill only paints ink. The arrow has no counters, which is why it looked
+  // fine at any width. 0.085 of the size is under a pixel a side. The last number
+  // is how much the ARROW is fattened by, as a fraction of its size: it is one
+  // thin stroke in a serif and reads lighter than the M beside it.
+  _HBTN: [2.25, 0.4, 5, 0.085, 0.1],
   // Measured over a thousand draws with one side four levels up: at 2 the lagging
   // half took 59% of the cards offered, at 6 it takes 78%, and 9 buys nothing. It
   // is symmetric - with the bind ahead, horn cards take 63% - and 63 is close to
@@ -2039,7 +2050,7 @@ const hud = () => {
   // Both labels are the kill count's size: they are captions, not readouts.
   const lbl = u * C._KILLF;
   g.textAlign = 'right';
-  g.font = (lbl | 0) + 'px monospace';
+  g.font = (lbl | 0) + 'px Palatino Linotype,serif';
   g.fillStyle = css(C._HPC, 1);
   g.fillText('HEALTH', W - 16, 18 + hu + lbl);
 
@@ -2098,7 +2109,7 @@ const hud = () => {
     g.fillStyle = css(C._RIMC, 1);
     g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
     g.fillStyle = '#fff';
-    g.font = (lbl * C._HINTF | 0) + 'px monospace';
+    g.font = (lbl * C._HINTF | 0) + 'px Palatino Linotype,serif';
     g.fillText('CLICK/SPACE & HOLD', W - 16, by + bh + lbl * 2.5);
   }
 
@@ -2107,7 +2118,7 @@ const hud = () => {
   // run is counted in.
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
-  g.font = (u * C._WAVEF | 0) + 'px monospace';
+  g.font = (u * C._WAVEF | 0) + 'px Palatino Linotype,serif';
   g.fillText('WAVE ' + wave, W / 2, 18 + u * C._WAVEF);
   // What the wave is worth in the game's own currency, rather than a kill count.
   // The budget is what buys the ghosts, so it is the honest measure of a wave, and
@@ -2119,7 +2130,7 @@ const hud = () => {
   // the first five waves and never touches it after: 6 7 8 9 10 11 12 13 15 17.
   // The BUDGET is untouched; this is the label, not the difficulty.
   g.fillStyle = '#8b93b8';
-  g.font = (u * C._KILLF | 0) + 'px monospace';
+  g.font = (u * C._KILLF | 0) + 'px Palatino Linotype,serif';
   g.fillText('THREAT LEVEL ' + max(budgetFor(wave), wave + 5), W / 2,
              18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
@@ -2128,14 +2139,13 @@ const hud = () => {
   // a mouse player loses nothing by being able to click them.
   for (let i = 0; i < 2; i++) {
     const [bx, by, bs] = hudBtn(i);
+    const gl = i ? '→' : 'M';
     g.globalAlpha = i || !muted ? 0.85 : 1;
-    g.strokeStyle = '#fff';
-    g.lineWidth = 2;
-    g.strokeRect(bx, by, bs, bs);
-    g.fillStyle = i || !muted ? '#fff' : css(C._GOLD, 1);
     // Sized off the SQUARE rather than off the HUD unit, so the glyph keeps its
-    // proportion whatever HBTN is set to.
-    g.font = (bs * 0.53 | 0) + 'px monospace';
+    // proportion whatever HBTN is set to. Set before the black pass, because that
+    // pass strokes the glyph too and needs to know how big it is.
+    const fp = bs * 0.53;                         // the glyph's size, wanted thrice
+    g.font = (fp | 0) + 'px Palatino Linotype,serif';
     g.textAlign = 'center';
     // A right arrow rather than an X: leaving a run is going somewhere, not
     // closing something. The glyph is already in the file, on the how-to line.
@@ -2145,7 +2155,27 @@ const hud = () => {
     // the maths axis, half a glyph higher, so the same number put it low. This
     // one centres anything.
     g.textBaseline = 'middle';
-    g.fillText(i ? '→' : 'M', bx + bs / 2, by + bs / 2);
+    // The black pass first, the square and its glyph together, then the white
+    // over it. Both are stroked from the same centre line, so the black shows as
+    // an even rim on each side rather than shifting anything.
+    g.strokeStyle = '#000';
+    g.lineWidth = C._HBTN[2];
+    g.strokeRect(bx, by, bs, bs);
+    // The arrow is thickened by stroking it in its own colour after the fill, so
+    // the black rim under it has to be wider by the same amount or the white
+    // would eat it. A serif arrow is one thin stroke and reads as lighter than a
+    // letter beside it, which is the wrong weight for the thing that leaves a run.
+    g.lineWidth = fp * (C._HBTN[3] + (i ? C._HBTN[4] : 0));
+    g.strokeText(gl, bx + bs / 2, by + bs / 2);
+    g.strokeStyle = '#fff';
+    g.lineWidth = 2;
+    g.strokeRect(bx, by, bs, bs);
+    g.fillStyle = i || !muted ? '#fff' : css(C._GOLD, 1);
+    g.fillText(gl, bx + bs / 2, by + bs / 2);
+    if (i) {
+      g.lineWidth = fp * C._HBTN[4];
+      g.strokeText(gl, bx + bs / 2, by + bs / 2);
+    }
     g.textBaseline = 'alphabetic';
     g.textAlign = 'left';
   }
@@ -2287,7 +2317,7 @@ const cardIcon = (i, x, y, r) => {
 // DESIGN.md 8: three cards between waves, pick one. The run is held while you do.
 const cardScreen = () => {
   const cw = W * C._CARDW, ch = H * C._CARDH;
-  const type = (f) => { g.font = (cw * f | 0) + 'px monospace'; };
+  const type = (f) => { g.font = (cw * f | 0) + 'px Palatino Linotype,serif'; };
   g.fillStyle = 'rgba(4,5,12,0.82)';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
@@ -2315,7 +2345,7 @@ const cardScreen = () => {
 // alike.
 const cardFace = (i, x, y, w, h) => {
   const mx = x + w / 2;
-  const type = (f) => { g.font = (w * f | 0) + 'px monospace'; };
+  const type = (f) => { g.font = (w * f | 0) + 'px Palatino Linotype,serif'; };
   {
     g.textAlign = 'center';
     g.fillStyle = C._CARDBG;
@@ -2327,13 +2357,17 @@ const cardFace = (i, x, y, w, h) => {
 
     // Everything below is placed as a fraction of the card, so the two move
     // together and the layout cannot come apart when either is retuned.
-    // A title sizes itself down if it will not fit. The face is monospace, so a
-    // character is 0.6 of the font size and the largest that fits in 90% of the
-    // card is 1.5 / its length - no measuring needed, and RAINBOW COOLDOWN would
-    // have run 31px past the edge at the full size.
+    // A title sizes itself down if it will not fit. It used to divide by its own
+    // length, which only works while every character is the same width - the face
+    // is a SERIF now, where an I and a W are nothing alike, and RAINBOW COOLDOWN
+    // and SHOT DAMAGE are the same length but not the same width. So it asks the
+    // canvas: set the size you want, measure, and scale down by whatever it
+    // overruns 90% of the card by. One measurement, and it is right for any face.
     const title = i < 0 ? 'RECOVERY' : C._CARDS[i][5];
     g.fillStyle = '#fff';
-    type(min(C._CARDT, 1.5 / title.length));
+    type(C._CARDT);
+    const tw = g.measureText(title).width;
+    if (tw > w * 0.9) type((C._CARDT * w | 0) * 0.9 / tw);
     g.fillText(title, mx, y + h * 0.16);
     g.fillStyle = '#8b93b8';
     type(C._CARDL);
@@ -2369,15 +2403,15 @@ const overScreen = (u) => {
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
   g.fillStyle = css(C._HPC, 1);                   // the hearts' own red
-  g.font = (u * 2.2 | 0) + 'px monospace';
+  g.font = (u * 2.2 | 0) + 'px Palatino Linotype,serif';
   g.fillText('GAME OVER', W / 2, H / 2 - u * 3.2);
   g.fillStyle = css(C._GOLD, 1);
-  g.font = (u * 2 | 0) + 'px monospace';
+  g.font = (u * 2 | 0) + 'px Palatino Linotype,serif';
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
   // is one wave cleared, and dying in wave 1 is none.
   g.fillText('WAVES SURVIVED ' + (wave - 1), W / 2, H / 2 - u * 1.1);
   g.fillStyle = '#fff';
-  g.font = (u * 1.3 | 0) + 'px monospace';
+  g.font = (u * 1.3 | 0) + 'px Palatino Linotype,serif';
   g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.5);
   // The same line the title and the how-to end on, drawn by the same hand: it is
   // the one thing on any of those three screens the player has to act on.
@@ -2485,7 +2519,7 @@ const anywhere = (label, y, u) => {
   const p = C._CARDSP;
   g.globalAlpha = p[0] + (1 - p[0]) * (0.5 + 0.5 * sin(clock * p[1]));
   g.fillStyle = '#fff';
-  g.font = (u * 1.2 | 0) + 'px monospace';
+  g.font = (u * 1.2 | 0) + 'px Palatino Linotype,serif';
   g.fillText(label, W / 2, y);
   g.globalAlpha = 1;
 };
@@ -2497,14 +2531,14 @@ const menuScreen = () => {
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
   if (scr) {
-    g.font = (u * 1.3 | 0) + 'px monospace';
+    g.font = (u * 1.3 | 0) + 'px Palatino Linotype,serif';
     g.fillText('HOW TO PLAY', W / 2, H * 0.12);
     for (let i = 0; i < HOWTO.length; i++) {
       // The two things you DO are gold; every way to do them is white. Parity alone
       // would have made the mute-and-quit line a heading, and it is a control.
       const head = !(i % 2) && i < 4;
       g.fillStyle = head ? css(C._GOLD, 1) : '#fff';
-      g.font = (u * (head ? 1 : 0.85) | 0) + 'px monospace';
+      g.font = (u * (head ? 1 : 0.85) | 0) + 'px Palatino Linotype,serif';
       // An extra gap before the second heading, so the two instructions read as
       // two things rather than as one block of five lines - and the same gap
       // again before the last line, which is neither of the two instructions but
@@ -2513,11 +2547,11 @@ const menuScreen = () => {
                  H * 0.24 + i * u * 1.3 + u * 0.7 * ((i > 1) + (i > 3)));
     }
     g.fillStyle = css(C._GOLD, 1);
-    g.font = (u * 0.95 | 0) + 'px monospace';
+    g.font = (u * 0.95 | 0) + 'px Palatino Linotype,serif';
     g.fillText('PERSONAL BEST', W / 2, H * 0.6);
     // Two fills, centred as one: canvas has no rich text, so the number and the
     // words are measured and laid side by side rather than coloured in one call.
-    g.font = (u * 1.8 | 0) + 'px monospace';
+    g.font = (u * 1.8 | 0) + 'px Palatino Linotype,serif';
     const nb = '' + best, tail = ' WAVES CLEARED';
     const wn = g.measureText(nb).width;
     g.textAlign = 'left';
@@ -2528,14 +2562,14 @@ const menuScreen = () => {
     g.textAlign = 'center';
     anywhere('CLICK ANYWHERE TO PLAY', H * 0.79, u);
   } else {
-    g.font = (u * 2.4 | 0) + 'px monospace';
+    g.font = (u * 2.4 | 0) + 'px Palatino Linotype,serif';
     g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
     anywhere('CLICK ANYWHERE TO START', H * 0.58, u);
   }
   // The version belongs at the foot of whichever screen you are on, not in the
   // middle of the title.
   g.fillStyle = '#8b93b8';
-  g.font = (u * 0.7 | 0) + 'px monospace';
+  g.font = (u * 0.7 | 0) + 'px Palatino Linotype,serif';
   g.fillText(C._VER, W / 2, H - u * 0.7);
   g.textAlign = 'left';
 };

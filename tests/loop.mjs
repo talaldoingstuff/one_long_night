@@ -32,8 +32,12 @@ const ctx = new Proxy({ canvas }, {
     if (k === 'fillRect') return (x, y, w, h) => rec.ops.push({ op: 'rect', x, y, w, h, c: rec.style, alpha: rec.alpha, comp: rec.comp });
     // alpha too: text that breathes cannot be checked without it
     if (k === 'fillText') return (s, x, y) => rec.ops.push({ op: 'text', s, x, y, c: rec.style, align: rec.align, f: parseFloat(rec.font), comp: rec.comp, alpha: rec.alpha });
-    // Monospace, and the game only ever measures monospace - so an advance of
-    // 0.6em a character is the right answer and 'anyObj.width = 10' was not.
+    // A fixed advance of 0.6em a character. The game is drawn in a SERIF now, so
+    // this is no longer what a browser would return - but it does not need to be.
+    // What is being checked is that the card screen MEASURES rather than assuming,
+    // and it and the checks measure through the same stub, so they agree about a
+    // face whatever that face turns out to be. 'anyObj.width = 10' was the wrong
+    // answer because it made every string the same width.
     if (k === 'measureText') return (str) => ({ width: str.length * parseFloat(rec.font) * 0.6 });
         if (k === 'arc') return (x, y, rad, a0, a1) => { (rec.cur = rec.cur || []).push([x, y]); rec.arc = [x, y, rad, a0, a1]; };
     return () => anyObj;
@@ -2861,7 +2865,15 @@ console.log('--- the upgrade cards ---------------------------------------------
      bx[0][2].toFixed(0) + 'x' + bx[0][3].toFixed(0) + 'px each, ' +
      (bx[bx.length - 1][0] + bx[0][2] - bx[0][0]).toFixed(0) + 'px across for all three');
   const titles = rec.ops.filter((o) => o.op === 'text' && C._CARDS.some((c) => c[5] === o.s));
-  const fit = (s) => 900 * C._CARDW * Math.min(C._CARDT, 1.5 / s.length) | 0;
+  // Ask for CARDT, measure, come down by however much it overran 90% of the card.
+  // Exactly what cardScreen() does - dividing by the title's LENGTH stopped being
+  // right the moment the face stopped being monospace.
+  const fit = (s) => {
+    const cw2 = 900 * C._CARDW, p0 = cw2 * C._CARDT | 0;
+    rec.font = p0 + 'px x';
+    const tw = ctx.measureText(s).width;
+    return tw > cw2 * 0.9 ? (cw2 * (p0 * 0.9 / tw) | 0) : p0;
+  };
   ok('and its type is sized off the card, so it reads',
      titles.every((o) => Math.abs(o.f - fit(o.s)) < 0.5) &&
      Math.min(...titles.map((o) => o.f)) > 11,
@@ -2870,9 +2882,15 @@ console.log('--- the upgrade cards ---------------------------------------------
   // The rename lengthened four of the seven titles, so this is now the binding
   // one rather than a formality: RAINBOW COOLDOWN is the longest there is.
   const worst = C._CARDS.map((c) => c[5]).sort((a2, b2) => b2.length - a2.length)[0];
-  ok('and even the longest one fits inside its card', fit(worst) * 0.62 * worst.length < 900 * C._CARDW,
-     '"' + worst + '" at ' + fit(worst) + 'px is about ' +
-     (fit(worst) * 0.62 * worst.length).toFixed(0) + 'px wide, in a ' +
+  // Asked of the CANVAS rather than worked out from the length. The face is a
+  // serif now, so a character is not a fixed fraction of the size and any sum
+  // that assumes one is measuring a face the game no longer draws in.
+  const widthOf = (s2, px) => { rec.font = px + 'px x'; return ctx.measureText(s2).width; };
+  ok('and even the longest one fits inside its card',
+     widthOf(worst, fit(worst)) <= 900 * C._CARDW * 0.9 + 0.5,
+     '"' + worst + '" at ' + fit(worst) + 'px measures ' +
+     widthOf(worst, fit(worst)).toFixed(0) + 'px, inside the ' +
+     (900 * C._CARDW * 0.9).toFixed(0) + 'px it is allowed of a ' +
      (900 * C._CARDW).toFixed(0) + 'px card');
 
   ok('the card screen names every card it is offering',
@@ -3001,8 +3019,15 @@ console.log('--- the card icons ------------------------------------------------
      C._CARDS.map((c) => c[5]).join(', '));
   ok('and every title fits the card it is on',
      C._CARDS.concat([[0, 0, 0, 0, 0, 'RECOVERY']]).every((c) => {
-       const f = Math.min(C._CARDT, 1.5 / c[5].length);
-       return c[5].length * (900 * C._CARDW * f | 0) * 0.6 < 900 * C._CARDW;
+       // the same two steps the card screen takes: ask for CARDT, measure, and
+       // come down by however much it overran
+       const cw2 = 900 * C._CARDW;
+       rec.font = (cw2 * C._CARDT | 0) + 'px x';
+       const wide = ctx.measureText(c[5]).width;
+       const p0 = cw2 * C._CARDT | 0;
+       const px = wide > cw2 * 0.9 ? cw2 * (p0 * 0.9 / wide) | 0 : p0;
+       rec.font = (px | 0) + 'px x';
+       return ctx.measureText(c[5]).width <= cw2 * 0.9 + 0.5;
      }),
      'the longest is "' + C._CARDS.map((c) => c[5]).sort((a2, b2) => b2.length - a2.length)[0] +
      '", which shrinks itself rather than running off the edge');
