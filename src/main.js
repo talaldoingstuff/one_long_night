@@ -479,15 +479,32 @@ export const C = {
   // Three of these must be open at the very first draw or there is nothing to put
   // beside the guaranteed fire rate - the gates were staggered so hard that wave
   // 1 had a pool of one.
+  // Row: cap, gate wave, prerequisite card (-1 for none), the level of that card
+  // needed per level of this one, draw weight, name, unit, and the level the card
+  // counts from.
+  //
+  // TWO A SIDE, ALL TO LV 9. It was two horn cards against THREE rainbow ones,
+  // each capped at 4, and the shape was the problem as much as the numbers: the
+  // rainbow held ghosts and never killed one, so its three cards competed with
+  // each other for a slot to buy an effect that could not win a wave. Measured, a
+  // rainbow build died on wave 5 against 33 for a horn build, and 65% of every
+  // card slot offered was a rainbow card.
+  //
+  // So they are merged and given damage. MASTERY is reach and frequency, FORCE is
+  // hold and the damage a cast lands. Two a side, sixteen levels a side, and every
+  // rainbow card now buys two things at once - which is what makes one worth
+  // taking against a horn card.
   _CARDS: [
-    [8, 1,  -1, 0, 20,   'SHOT RATE',     'Shots A Second', 1],
-    [8, 1,  -1, 0, 20,   'SHOT DAMAGE',   'Damage A Horn',  1],
-    [4, 1,  -1, 0, 13.3, 'RAINBOW RADIUS','Metres',         1],
-    [4, 2,  -1, 0, 13.3, 'RAINBOW COOLDOWN', 'Seconds',     1],
-    [4, 2,  -1, 0, 13.3, 'RAINBOW HOLD',  'Seconds',        1],
-    [2, 3,  -1, 0, 10,   'EXTRA HEART',   'Hearts',         0],
-    [2, 1,   5, 1, 10,   'HEAL',          'A Wave',         1],
+    [8, 1,  -1, 0, 20, 'SHOT RATE',       'Shots A Second', 1],
+    [8, 1,  -1, 0, 20, 'SHOT DAMAGE',     'Damage A Horn',  1],
+    [8, 1,  -1, 0, 20, 'RAINBOW MASTERY', 'Metres',         1],
+    [8, 2,  -1, 0, 20, 'RAINBOW FORCE',   'Damage A Wave',  1],
+    [2, 3,  -1, 0, 10, 'EXTRA HEART',     'Hearts',         0],
+    [2, 1,   4, 1, 10, 'HEAL',            'A Wave',         1],
   ],
+  // The second stat each merged card moves, labelled. Indexed from card 2, and
+  // only the rainbow pair has one - everything else draws a single centred line.
+  _CARD2: ['Seconds Cooldown', 'Seconds Held'],
   // Extra heart's second level waits longer than its first.
   _HEART2: 9,          // the wave extra heart level 2 opens on
   _HEARTW: 9,          // and the wave whose card screen FORCES the first one, if the
@@ -562,9 +579,23 @@ export const C = {
   // even steps in metres are even value four times over. 15 leaves the ring
   // itself a sanctuary - about a second of a ghost's life - so a maxed bind
   // clears the floor without ever being a literal screen clear.
-  _RADG: 1.5,          // metres onto the bind radius per level
-  _CDG: 1,             // seconds off the cooldown per level
-  _DURG: 0.5,          // seconds onto the hold per level
+  // Per LEVEL, and all three are half what they were because there are twice as
+  // many levels: radius still ends at 15m and the hold still ends at 5s, so the
+  // ceiling is where it was and only the number of steps to it changed.
+  _RADG: 0.75,         // metres onto the bind radius per level
+  // The cooldown is the exception and ends at 6s rather than 5. A ring that both
+  // holds AND kills, coming back every 5 seconds, is a different game.
+  _CDG: 0.375,         // seconds off the cooldown per level
+  _DURG: 0.25,         // seconds onto the hold per level
+  // Levels of FORCE per point of damage a cast lands. 1 at the start, 3 at LV 9,
+  // which is the whole card - the wipe is a capstone, not a step on the way.
+  //
+  // 3 is chosen against the Drifter's 3 hp. At 1 and 2 NOTHING dies and the ring
+  // is still only a delay; 3 is the first number where the field clears. It stops
+  // there because a Darter has 4, a Splitter 10 and a Hulk 18: the ring sweeps the
+  // chaff and never touches what is actually dangerous, and the Warden shrugs it
+  // off entirely.
+  _RBDG: 4,
   _CARDW: 0.175,       // a card's width, as a fraction of the screen
   _CARDH: 0.36,        // and its height, as a fraction of the height
   // Type is sized off the CARD, not off the HUD unit. It was HUD-sized inside a
@@ -1106,7 +1137,9 @@ const cast = () => {
   bindT = sCd();
   wallT = C._WALLDUR; wallR = r;                  // the wall sweeps to what it caught
   arp(0);
-  for (const o of ghosts) {
+  // Backwards, because a cast can now KILL what it catches and killing splices.
+  for (let i = ghosts.length; i--;) {
+    const o = ghosts[i];
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
     if (hypot(o[0], o[2]) > r) continue;
@@ -1114,7 +1147,14 @@ const cast = () => {
     // the rule is learned by watching rather than by being told. A negative hold
     // is that: same slot, so nothing else has to know about it, and it cannot be
     // mistaken for being held because held is strictly positive.
-    if (o[7] === C._WARDEN) o[8] = -C._SHRUGD; else o[8] = sDur();
+    //
+    // Immune to the HOLD is immune to the damage with it. The ring failing on a
+    // Warden has to fail completely, or the rule the player is being shown is not
+    // the rule the game is playing.
+    if (o[7] === C._WARDEN) { o[8] = -C._SHRUGD; continue; }
+    o[8] = sDur();
+    o[5] = C._GFLASH;
+    if ((o[3] -= sRbD()) <= 0) die(o, i);
   }
 };
 
@@ -1453,16 +1493,40 @@ const spawn = (k) => {
   born(cos(a) * C._ARENA, sin(a) * C._ARENA, k);
 };
 
+// A ghost dying, wherever the damage came from. Extracted when the rainbow
+// learned to kill: the horn had all of this inline, and a second copy in cast()
+// would have been a second place for the Splitter's children to be forgotten.
+const die = (o, j) => {
+  ghosts.splice(j, 1); kills++;
+  sfx(2);
+  // It used to vanish between one frame and the next. Rainbow rather than the
+  // ghost's own colour: what killed it was a rainbow either way.
+  const D = C._PDIE;
+  burst(o[0], o[2], D[0], D[1], D[2], 0, D[3], o[1], TY(o)[5]);
+  // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a wide
+  // bind worth having - you can hold the children before they scatter. Placed
+  // across the line to the player, so both keep the range the parent had rather
+  // than one being handed a head start.
+  if (o[7] === C._SPLIT) {
+    const d = hypot(o[0], o[2]) || 1;
+    for (const sx of [-1, 1])
+      born(o[0] - o[2] / d * sx * C._SPLITD, o[2] + o[0] / d * sx * C._SPLITD, 0);
+  }
+};
+
 const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
 
 // Every number a card moves, read from the levels rather than from C. Nothing
 // downstream knows a card exists.
 const sFire = () => C._FIRE / C._FIREG ** lv[0];
 const sDmg = () => C._DMGG ** lv[1];
+// MASTERY moves both of these, FORCE moves both of those. One card, two numbers,
+// and the card face draws both rather than improving one of them quietly.
 const sRad = () => C._BINDR + C._RADG * lv[2];
-const sCd = () => C._BINDCD - C._CDG * lv[3];
-const sDur = () => C._BINDDUR + C._DURG * lv[4];
-const sRegen = () => C._REGEN + lv[6];
+const sCd = () => C._BINDCD - C._CDG * lv[2];
+const sDur = () => C._BINDDUR + C._DURG * lv[3];
+const sRbD = () => 1 + (lv[3] / C._RBDG | 0);
+const sRegen = () => C._REGEN + lv[5];
 
 // Is this card's next level on the table? Cap, wave gate, and the prerequisite
 // chain - regen behind extra heart, and extra heart's own second level behind a
@@ -1470,7 +1534,7 @@ const sRegen = () => C._REGEN + lv[6];
 const open = (i) => {
   const c = C._CARDS[i];
   if (lv[i] >= c[0]) return 0;
-  if (wave < (i === 5 && lv[i] ? C._HEART2 : c[1])) return 0;
+  if (wave < (i === 4 && lv[i] ? C._HEART2 : c[1])) return 0;
   return c[2] < 0 || lv[c[2]] >= c[3] + lv[i];
 };
 
@@ -1479,8 +1543,8 @@ const open = (i) => {
 // levels - two cards of eight is not the same progress as two of four.
 const weightOf = (i) => {
   const horn = (lv[0] + lv[1]) / (C._CARDS[0][0] + C._CARDS[1][0]);
-  const bind = (lv[2] + lv[3] + lv[4]) / (C._CARDS[2][0] + C._CARDS[3][0] + C._CARDS[4][0]);
-  const side = i < 2 ? horn : i < 5 ? bind : -1;
+  const bind = (lv[2] + lv[3]) / (C._CARDS[2][0] + C._CARDS[3][0]);
+  const side = i < 2 ? horn : i < 4 ? bind : -1;
   const behind = horn === bind ? -1 : horn < bind ? 0 : 1;   // which half is trailing
   return C._CARDS[i][4] * (side >= 0 && (i < 2 ? 0 : 1) === behind ? C._ADAPT : 1);
 };
@@ -1498,8 +1562,8 @@ const deal = () => {
   // forced screen is still three cards and reads like every other one. It fires
   // on the draw that ends wave HEARTW - deal() runs before take() advances the
   // number, so this is the screen between 9 and 10.
-  if (wave === C._HEARTW && !heartS && pool.includes(5)) {
-    offer.push(pool.splice(pool.indexOf(5), 1)[0]);
+  if (wave === C._HEARTW && !heartS && pool.includes(4)) {
+    offer.push(pool.splice(pool.indexOf(4), 1)[0]);
   }
   while (offer.length < C._CARDN && pool.length) {
     let total = 0;
@@ -1508,7 +1572,7 @@ const deal = () => {
     for (; k < pool.length - 1 && (r -= weightOf(pool[k])) > 0; k++);
     offer.push(pool.splice(k, 1)[0]);
   }
-  if (offer.includes(5)) heartS = 1;              // seen once is seen for the run
+  if (offer.includes(4)) heartS = 1;              // seen once is seen for the run
   if (!offer.length) offer.push(-1);              // Recovery
 };
 
@@ -1516,12 +1580,16 @@ const deal = () => {
 // than a percentage the player has to trust.
 const statAt = (i, l) => [
   1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR + C._RADG * l,
-  C._BINDCD - C._CDG * l, C._BINDDUR + C._DURG * l, C._HEARTS + l, C._REGEN + l,
+  1 + (l / C._RBDG | 0), C._HEARTS + l, C._REGEN + l,
 ][i];
+// And the second number a merged card moves. 0 for every card that only moves one,
+// which is what the face tests to decide between two lines and one centred.
+const stat2At = (i, l) => i === 2 ? C._BINDCD - C._CDG * l
+                        : i === 3 ? C._BINDDUR + C._DURG * l : 0;
 
 const take = (i) => {
   if (i < 0) hearts = maxhp;                      // Recovery
-  else if (++lv[i] && i === 5) { maxhp++; hearts++; }
+  else if (++lv[i] && i === 4) { maxhp++; hearts++; }
   picking = 0;
   sfx(4);
   // Level the aim for the new wave. Pitch only: yaw is which way you are FACING,
@@ -1844,24 +1912,7 @@ const step = (dt) => {
       o[3] -= sDmg(); o[5] = C._GFLASH;
       horns.splice(i, 1);
       sfx(1);
-      if (o[3] <= 0) {
-        ghosts.splice(j, 1); kills++;
-        sfx(2);
-        // It used to vanish between one frame and the next. In its own colour, so
-        // what is left behind says which of them you killed.
-        // Rainbow rather than the ghost's own colour: what killed it was a rainbow.
-        const D = C._PDIE;
-        burst(o[0], o[2], D[0], D[1], D[2], 0, D[3], o[1], TY(o)[5]);
-        // DESIGN.md 7: a Splitter dies into two Drifters, which is what makes a
-        // wide bind worth having - you can hold the children before they scatter.
-        // Placed across the line to the player, so both keep the range the parent
-        // had rather than one being handed a head start.
-        if (o[7] === C._SPLIT) {
-          const d = hypot(o[0], o[2]) || 1;
-          for (const sx of [-1, 1])
-            born(o[0] - o[2] / d * sx * C._SPLITD, o[2] + o[0] / d * sx * C._SPLITD, 0);
-        }
-      }
+      if (o[3] <= 0) die(o, j);
       break;
     }
   }
@@ -2356,8 +2407,8 @@ const cardIcon = (i, x, y, r) => {
   g.lineWidth = max(2, r * 0.11);
   g.lineCap = 'round';
 
-  if (i < 0 || i > 4) {                           // the three about health
-    if (i === 5) {                                // EXTRA HEART: red, and one more
+  if (i < 0 || i > 3) {                           // the three about health
+    if (i === 4) {                                // EXTRA HEART: red, and one more
       g.fillStyle = css(C._HPC, 1);
       heartAt(x, y + r * 0.12, r);
       g.strokeStyle = '#fff';
@@ -2409,17 +2460,10 @@ const cardIcon = (i, x, y, r) => {
       g.stroke();
     }
   };
-  if (i === 2) {                                  // RADIUS: one ring just inside another
+  if (i === 2) {                                  // MASTERY: one ring inside another
     ring(r * 0.74, 0, 2 * PI);
     ring(r, 0, 2 * PI);
-  } else if (i === 3) {                           // COOLDOWN: a clock, part run
-    ring(r * 0.92, -PI / 2, PI);
-    g.strokeStyle = '#fff';
-    g.beginPath();
-    g.moveTo(x, y); g.lineTo(x, y - r * 0.58);
-    g.moveTo(x, y); g.lineTo(x + r * 0.44, y + r * 0.1);
-    g.stroke();
-  } else {                                        // HOLD: a ghost caught inside it
+  } else {                                        // FORCE: a ghost caught inside it
     ring(r, 0, 2 * PI);
     g.fillStyle = 'rgb(' + C._TYPES[0][9] + ')';
     const q = r * 0.52;
@@ -2471,8 +2515,8 @@ const cardFace = (i, x, y, w, h) => {
     g.textAlign = 'center';
     g.fillStyle = C._CARDBG;
     g.fillRect(x, y, w, h);
-    g.strokeStyle = i < 0 || i === 6 ? css(C._HEALC, 1)
-      : i < 2 ? css(C._GOLD, 1) : i < 5 ? css(C._RIMC, 1) : css(C._HPC, 1);
+    g.strokeStyle = i < 0 || i === 5 ? css(C._HEALC, 1)
+      : i < 2 ? css(C._GOLD, 1) : i < 4 ? css(C._RIMC, 1) : css(C._HPC, 1);
     g.lineWidth = 2;
     g.strokeRect(x, y, w, h);
 
@@ -2494,7 +2538,9 @@ const cardFace = (i, x, y, w, h) => {
     type(C._CARDL);
     if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.28);
 
-    cardIcon(i, mx, y + h * 0.52, w * C._CARDI);
+    // Higher than it was, because a merged card puts four lines under it and the
+    // glyph was sitting on top of the first one.
+    cardIcon(i, mx, y + h * 0.42, w * C._CARDI);
 
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';
@@ -2502,14 +2548,26 @@ const cardFace = (i, x, y, w, h) => {
       g.fillText('Fully Recover', mx, y + h * 0.83);
       g.fillText('Health', mx, y + h * 0.94);
     } else {
-      const dp = i > 4 ? 0 : 2;
-      g.fillStyle = '#cfd6f5';
-      type(C._CARDV);
-      g.fillText(statAt(i, lv[i]).toFixed(dp) + ' > ' + statAt(i, lv[i] + 1).toFixed(dp),
-                 mx, y + h * 0.83);
-      g.fillStyle = '#8b93b8';
-      type(C._CARDU);
-      g.fillText(C._CARDS[i][6], mx, y + h * 0.94);
+      // Damage a wave, hearts and heals are whole numbers; everything else is not.
+      const dp = i > 2 ? 0 : 2;
+      const two = stat2At(i, 0) > 0;              // a merged card, so two of these
+      // One pair of lines, drawn wherever it is told. A card that moves one stat
+      // gets a single pair CENTRED in the block the merged pair spans, so the two
+      // kinds of card sit at the same weight rather than one looking half empty.
+      const pair = (v0, v1, unit, d, at) => {
+        g.fillStyle = '#cfd6f5';
+        type(C._CARDV);
+        g.fillText(v0.toFixed(d) + ' > ' + v1.toFixed(d), mx, y + h * at);
+        g.fillStyle = '#8b93b8';
+        type(C._CARDU);
+        g.fillText(unit, mx, y + h * (at + 0.075));
+      };
+      // A merged card spans 0.66 to 0.90; a single one sits centred in that span,
+      // so the two kinds carry the same weight instead of one looking half empty.
+      // The bottom line used to land at 0.98 and was clipped by the card edge.
+      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.66 : 0.745);
+      if (two)
+        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], 2, 0.825);
     }
   }
   g.textAlign = 'left';
@@ -3234,7 +3292,7 @@ export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown rea
 // test seam: start a run at a given wave, to reach an unlock without playing to it
 export const setWave = (w) => { wave = w; budget = budgetFor(w); waveT = 0; spawnT = 0; };
 // test seams for the draw: force a level, and deal without playing a wave
-export const setLv = (i, v) => { lv[i] = v; if (i === 5) { maxhp = C._HEARTS + v; hearts = maxhp; } };
+export const setLv = (i, v) => { lv[i] = v; if (i === 4) { maxhp = C._HEARTS + v; hearts = maxhp; } };
 export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 export const drawCard = cardFace;               // editor: every card, side by side

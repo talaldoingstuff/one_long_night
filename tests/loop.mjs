@@ -2788,23 +2788,87 @@ console.log('--- the upgrade cards ---------------------------------------------
   ok('horn damage waits for wave ' + C._CARDS[1][1],
      !seen(C._CARDS[1][1] - 1, {}).has(1) && seen(C._CARDS[1][1], {}).has(1),
      'absent at wave ' + (C._CARDS[1][1] - 1) + ', present at ' + C._CARDS[1][1]);
-  for (const i of [2, 3, 4])
+  for (const i of [2, 3])
     ok(NAME[i].toLowerCase() + ' waits for wave ' + C._CARDS[i][1],
        !seen(C._CARDS[i][1] - 1, {}).has(i) && seen(C._CARDS[i][1], {}).has(i),
-       'the bind cards are staggered so they do not all land at once');
-  ok('extra heart waits for wave ' + C._CARDS[5][1],
-     !seen(C._CARDS[5][1] - 1, {}).has(5) && seen(C._CARDS[5][1], {}).has(5),
-     'absent at wave ' + (C._CARDS[5][1] - 1) + ', present at ' + C._CARDS[5][1]);
+       'the two bind cards are staggered so they do not both land at once');
+  ok('extra heart waits for wave ' + C._CARDS[4][1],
+     !seen(C._CARDS[4][1] - 1, {}).has(4) && seen(C._CARDS[4][1], {}).has(4),
+     'absent at wave ' + (C._CARDS[4][1] - 1) + ', present at ' + C._CARDS[4][1]);
   ok('and its SECOND level waits until wave ' + C._HEART2,
-     !seen(C._HEART2 - 1, { 5: 1 }).has(5) && seen(C._HEART2, { 5: 1 }).has(5),
-     'one heart from wave ' + C._CARDS[5][1] + ', the next not until ' + C._HEART2);
+     !seen(C._HEART2 - 1, { 4: 1 }).has(4) && seen(C._HEART2, { 4: 1 }).has(4),
+     'one heart from wave ' + C._CARDS[4][1] + ', the next not until ' + C._HEART2);
+
+  // --- the rainbow kills now ------------------------------------------------------
+  // It held ghosts and never killed one, so its cards bought an effect that could
+  // not win a wave: a rainbow build died on wave 5 against 33 for a horn build.
+  {
+    // FAR ENOUGH OUT TO SURVIVE THE CHARGE. A cast takes three seconds to build,
+    // and at 4m everything placed here walked into the player and was gone before
+    // the ring landed - the checks were measuring an empty field. At 12m the
+    // fastest covers 7.2m and still stops 4.8m short of contact, and MASTERY is
+    // maxed so the 15m ring reaches the slowest, which barely moves at all.
+    const castOn = (types, force, at = 12) => {
+      M.restart(); M.look(0, 0); M.setFire(0);
+      M.setLv(2, C._CARDS[2][0]);
+      M.setLv(3, force);
+      M.place(types.map((k, n) => [at * Math.cos(n * 2), C._GY, at * Math.sin(n * 2),
+                                   C._TYPES[k][0], C._TYPES[k][0], 0, 0, k, 0]));
+      const before = M.dbg().ghosts.map((o) => o[3]);
+      armed();
+      let g2 = 0;
+      while (M.anim().charging && g2++ < 60 * 20) tick();
+      return { before, after: M.dbg().ghosts.map((o) => [o[7], o[3]]) };
+    };
+
+    const r0 = castOn([0], 0);
+    ok('a cast takes health off what it catches',
+       r0.after[0][1] === C._TYPES[0][0] - 1,
+       'a Drifter at ' + C._TYPES[0][0] + ' hp is on ' + r0.after[0][1] + ' after one ' +
+       'cast at FORCE level 1 - the ring used to hold and never hurt');
+
+    const r8 = castOn([0, 0, 0], 8);
+    ok('and at full FORCE it clears the Drifters outright',
+       !r8.after.length,
+       'three Drifters, one cast, none left. 3 damage against 3 hp is the whole ' +
+       'point of the card: at 1 and 2 nothing dies and the ring is only a delay');
+
+    const rest = castOn([1, 2, 3], 8);
+    ok('and touches nothing else that matters',
+       rest.after.length === 3 &&
+       rest.after.every(([k, hp]) => hp === C._TYPES[k][0] - 3),
+       'Darter, Hulk and Splitter all survive on ' +
+       rest.after.map(([k, hp]) => hp).join(', ') + ' - the ring sweeps chaff and ' +
+       'leaves what is dangerous to the horn');
+
+    const w = castOn([4], 8);
+    ok('and a Warden takes none of it, because it takes none of the hold',
+       w.after.length === 1 && w.after[0][1] === C._TYPES[4][0],
+       'immune to the hold is immune to the damage with it, on ' + w.after[0][1] +
+       ' of ' + C._TYPES[4][0] + ' hp - or the rule being shown is not the rule ' +
+       'being played');
+
+    // The kill path is shared, so a Splitter killed by the ring must still split.
+    M.restart(); M.look(0, 0); M.setFire(0);
+    M.setLv(2, C._CARDS[2][0]); M.setLv(3, 8);
+    M.place([[12, C._GY, 0, 3, 10, 0, 0, C._SPLIT, 0]]);  // three hp left, dies to a cast
+    armed();
+    let g3 = 0;
+    while (M.anim().charging && g3++ < 60 * 20) tick();
+    const kids = M.dbg().ghosts;
+    ok('and a Splitter killed by the ring still dies into two Drifters',
+       kids.length === 2 && kids.every((o) => o[7] === 0),
+       kids.length + ' children, both Drifters. die() is one function called from ' +
+       'the horn and from the cast, so the children cannot be forgotten in one of them');
+    M.restart(); M.place([]);
+  }
 
   // --- the chain -----------------------------------------------------------------
   ok('regen is locked until you have taken a heart',
-     !seen(12, { 5: 0 }).has(6) && seen(12, { 5: 1 }).has(6),
+     !seen(12, { 4: 0 }).has(5) && seen(12, { 4: 1 }).has(5),
      'hearts are the entry fee for sustain - which is how 9 wanted regen made rare');
   ok('and its second level until you have taken the second heart',
-     !seen(12, { 5: 1, 6: 1 }).has(6) && seen(12, { 5: 2, 6: 1 }).has(6),
+     !seen(12, { 4: 1, 5: 1 }).has(5) && seen(12, { 4: 2, 5: 1 }).has(5),
      'regen++ needs heart++, exactly as regen+ needed heart+');
 
   // --- the adaptive draw ----------------------------------------------------------
@@ -2825,7 +2889,7 @@ console.log('--- the upgrade cards ---------------------------------------------
      bindHeavy < even - 0.05,
      (100 * bindHeavy).toFixed(0) + '% bind after nine bind cards - it works both ways');
   ok('and each side is measured against its OWN cap',
-     C._CARDS[0][0] + C._CARDS[1][0] !== C._CARDS[2][0] + C._CARDS[3][0] + C._CARDS[4][0],
+     C._CARDS[0][0] + C._CARDS[1][0] === C._CARDS[2][0] + C._CARDS[3][0],
      '16 horn levels against 12 bind - two cards of eight is not two of four');
 
   // --- a short pool, then Recovery -------------------------------------------------
@@ -2861,10 +2925,10 @@ console.log('--- the upgrade cards ---------------------------------------------
 
   // hearts and regen actually move
   M.restart(); M.look(0, 0); M.place([]);
-  M.setWave(6); M.setLv(5, 1);
+  M.setWave(6); M.setLv(4, 1);
   ok('an extra heart raises the maximum', M.anim().maxhp === C._HEARTS + 1,
      C._HEARTS + ' hearts became ' + M.anim().maxhp);
-  M.setLv(6, 2);
+  M.setLv(5, 2);
   ok('and regen heals more between waves', M.anim().regen === C._REGEN + 2,
      '+' + C._REGEN + ' a wave became +' + M.anim().regen);
 
@@ -2877,7 +2941,7 @@ console.log('--- the upgrade cards ---------------------------------------------
   const ROLLS = 40;
   const heartIn = (w, levels) => {
     let n = 0;
-    for (let i = 0; i < ROLLS; i++) if (dealAt(w, levels).includes(5)) n++;
+    for (let i = 0; i < ROLLS; i++) if (dealAt(w, levels).includes(4)) n++;
     return n;
   };
   const at8 = heartIn(C._HEARTW - 1);
@@ -2896,20 +2960,20 @@ console.log('--- the upgrade cards ---------------------------------------------
        M.restart(); M.look(0, 0); M.place([]);
        M.setWave(C._HEARTW); M.dealNow();            // forced, and arms the flag
        let n = 0;
-       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(5)) n++; }
+       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(4)) n++; }
        return n < ROLLS;
      })(),
      'the flag is set by the OFFER, not by the taking - the rule is about what the ' +
      'draw put in front of you, and declining one is still having been offered it');
   ok('and it cannot force one that is capped out',
-     !dealAt(C._HEARTW, { 5: C._CARDS[5][0] }).includes(5) &&
-       dealAt(C._HEARTW, { 5: C._CARDS[5][0] }).length === C._CARDN,
-     'at level ' + C._CARDS[5][0] + ' extra heart is out of the pool - pushing an ' +
+     !dealAt(C._HEARTW, { 4: C._CARDS[4][0] }).includes(4) &&
+       dealAt(C._HEARTW, { 4: C._CARDS[4][0] }).length === C._CARDN,
+     'at level ' + C._CARDS[4][0] + ' extra heart is out of the pool - pushing an ' +
      'index that is not in it would have dealt undefined as a card');
   ok('and a new run is owed its own',
      (() => {
        M.restart(); M.look(0, 0); M.place([]); M.setWave(C._HEARTW); M.dealNow();
-       return dealAt(C._HEARTW).includes(5);
+       return dealAt(C._HEARTW).includes(4);
      })(),
      'restart clears the memory, so one run cannot spend the next run guarantee');
 
@@ -2920,10 +2984,10 @@ console.log('--- the upgrade cards ---------------------------------------------
      (() => {
        M.restart(); M.look(0, 0); M.place([]);
        M.setWave(C._HEARTW); M.dealNow();            // the first, forced
-       pickCard(M.anim().offer.indexOf(5));          // taken: level 1, guarantee spent
+       pickCard(M.anim().offer.indexOf(4));          // taken: level 1, guarantee spent
        let n = 0;
-       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(5)) n++; }
-       return M.anim().lv[5] === 1 && n > 0 && n < ROLLS;
+       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(4)) n++; }
+       return M.anim().lv[4] === 1 && n > 0 && n < ROLLS;
      })(),
      'level 2 is open on the same wave and still had to be drawn for it. Present ' +
      'on some screens and absent from others, which is what weighted means');
@@ -2931,19 +2995,19 @@ console.log('--- the upgrade cards ---------------------------------------------
   // Heal is gated on HAVING a heart, not on having been shown one. The net hands
   // out an offer, never a level, so it must not move heal one wave earlier.
   let healShut = 0;
-  for (let i = 0; i < ROLLS; i++) if (dealAt(C._HEARTW).includes(6)) healShut++;
+  for (let i = 0; i < ROLLS; i++) if (dealAt(C._HEARTW).includes(5)) healShut++;
   ok('heal stays shut while no heart has been TAKEN, forced screen included',
      !healShut,
      '0 of ' + ROLLS + ' screens at wave ' + C._HEARTW + ' carried heal, and every ' +
      'one of them carried the forced heart - the net gives you the card, and the ' +
      'card is still what opens heal');
   ok('and it opens the moment one is taken, exactly as before',
-     seen(C._HEARTW, { 5: 1 }).has(6),
+     seen(C._HEARTW, { 4: 1 }).has(5),
      'with one heart in hand heal is back in the pool. open() asks for ' +
-     'lv[5] >= ' + C._CARDS[6][3] + ' + its own level, and nothing in the net touches a level');
+     'lv[4] >= ' + C._CARDS[5][3] + ' + its own level, and nothing in the net touches a level');
   ok('and it still leaves the pool at its cap',
-     !seen(C._HEARTW, { 5: 2, 6: C._CARDS[6][0] }).has(6),
-     'at level ' + C._CARDS[6][0] + ' heal is done, and a capped card is not offered');
+     !seen(C._HEARTW, { 4: 2, 5: C._CARDS[5][0] }).has(5),
+     'at level ' + C._CARDS[5][0] + ' heal is done, and a capped card is not offered');
 
   // --- the screen itself ------------------------------------------------------------
   M.restart(); M.look(0, 0); M.place([]);
@@ -2997,7 +3061,7 @@ console.log('--- the upgrade cards ---------------------------------------------
   M.restart(); M.setWave(6);
   const first = M.dealNow().map((i) => [C._CARDS[i][5], 'LV ' + (0 + C._CARDS[i][7] + 1)]);
   ok('a first card reads LV 2, because level 1 is what you start with',
-     C._CARDS.every((c, i) => c[7] + 1 === (i === 5 ? 1 : 2)),
+     C._CARDS.every((c, i) => c[7] + 1 === (i === 4 ? 1 : 2)),
      C._CARDS.map((c, i) => c[5] + ' -> LV ' + (c[7] + 1)).join(', '));
   ok('and its last reads the cap the table says',
      C._CARDS.every((c) => c[0] + c[7] === (c[0] === 8 ? 9 : c[0] === 4 ? 5 : c[7] ? 3 : 2)),
@@ -3038,7 +3102,7 @@ console.log('');
 console.log('--- the card icons ------------------------------------------------');
 {
   const NAME = [...C._CARDS.map((c) => c[5]), 'RECOVERY'];
-  const IDS = [0, 1, 2, 3, 4, 5, 6, -1];
+  const IDS = [0, 1, 2, 3, 4, 5, -1];
   // What a glyph amounts to on screen: the ops it makes, in order, with their
   // colour and how many points each had. Two icons with the same signature are
   // the same picture, whatever the code around them says.
@@ -3075,18 +3139,17 @@ console.log('--- the card icons ------------------------------------------------
       filled: rec.ops.some((o) => o.op === 'fill' && o.n > 4),
     };
   };
-  const rad = rings(2), cd = rings(3), hold = rings(4);
-  ok('bind radius is two rings, not one',
-     rad.radii === 2, rad.radii + ' different arc radii - it reads as something growing');
-  ok('bind cooldown is a ring with a piece MISSING, which is what a clock is',
-     Math.abs(cd.swept - 2 * Math.PI) > 1 && cd.radii === 1,
-     (cd.swept * 180 / Math.PI).toFixed(0) + ' degrees of ring against a full ' +
-     (hold.swept * 180 / Math.PI).toFixed(0));
-  ok('and bind hold is a whole ring with something caught in it',
-     Math.abs(hold.swept - 2 * Math.PI) < 0.01 && hold.filled,
+  // Two rainbow cards, so two rainbow glyphs. The clock that stood for cooldown
+  // went with the card it belonged to; cooldown lives inside MASTERY now and the
+  // rings are what that card is about.
+  const mast = rings(2), force = rings(3);
+  ok('rainbow mastery is two rings, not one',
+     mast.radii === 2, mast.radii + ' different arc radii - it reads as reach');
+  ok('and rainbow force is a whole ring with something caught in it',
+     Math.abs(force.swept - 2 * Math.PI) < 0.01 && force.filled,
      'a closed ring and a ghost filled inside it - the thing the card actually does');
   ok('and regen is no longer identical to Recovery',
-     sig(6) !== sig(-1),
+     sig(5) !== sig(-1),
      'one is a heart filling, the other a heart already full');
 
   const glyph = (i) => { rec.ops = []; M.cardGlyph(i, 100, 100, 27); return rec.ops; };
@@ -3105,10 +3168,10 @@ console.log('--- the card icons ------------------------------------------------
      descs.every((d) => d.split(' ').every((w) => w[0] === w[0].toUpperCase())),
      descs.join(' / '));
 
-  ok('the two horn cards are SHOT and the three bind ones are RAINBOW',
+  ok('two horn cards are SHOT and two bind ones are RAINBOW, a side each',
      [C._CARDS[0][5], C._CARDS[1][5]].every((n) => n.startsWith('SHOT')) &&
-     [2, 3, 4].every((k) => C._CARDS[k][5].startsWith('RAINBOW')) &&
-     C._CARDS[6][5] === 'HEAL',
+     [2, 3].every((k) => C._CARDS[k][5].startsWith('RAINBOW')) &&
+     C._CARDS[5][5] === 'HEAL',
      C._CARDS.map((c) => c[5]).join(', '));
   ok('and every title fits the card it is on',
      C._CARDS.concat([[0, 0, 0, 0, 0, 'RECOVERY']]).every((c) => {
@@ -3138,15 +3201,15 @@ console.log('--- the card icons ------------------------------------------------
      radii.length === 2 && radii[0] / radii[1] > 0.6,
      (radii[0] / radii[1]).toFixed(2) + ' of the outer, where it used to be 0.46');
 
-  const hearts5 = glyph(5).filter((o) => o.op === 'fill' && o.c === 'rgba(' + C._HPC.join(',') + ',1)');
+  const hearts5 = glyph(4).filter((o) => o.op === 'fill' && o.c === 'rgba(' + C._HPC.join(',') + ',1)');
   ok('extra heart is one heart with a plus, not two hearts',
-     hearts5.length === 1 && glyph(5).some((o) => o.op === 'stroke' && o.c === '#fff'),
+     hearts5.length === 1 && glyph(4).some((o) => o.op === 'stroke' && o.c === '#fff'),
      'one red heart, and the plus over it');
 
   const green = 'rgba(' + C._HEALC.join(',') + ',1)';
   ok('heal and Recovery are green, hearts and health apart',
-     glyph(6).some((o) => o.c === green) && glyph(-1).some((o) => o.c === green) &&
-     card(6).some((o) => o.op === 'srect' && o.c === green) &&
+     glyph(5).some((o) => o.c === green) && glyph(-1).some((o) => o.c === green) &&
+     card(5).some((o) => o.op === 'srect' && o.c === green) &&
      card(-1).some((o) => o.op === 'srect' && o.c === green),
      'icon and card border both ' + green + ', while extra heart stays rgb(' + C._HPC + ')');
 
@@ -3247,7 +3310,7 @@ console.log('--- the heal, seen -----------------------------------------------'
 
   // three at once, which is what Heal at its cap with both hearts actually does
   M.restart(); M.look(0, 0); M.place([]);
-  M.setWave(12); M.setLv(5, 2); M.setLv(6, 2);
+  M.setWave(12); M.setLv(4, 2); M.setLv(5, 2);
   const cap = M.anim().maxhp;
   let h3 = 0;
   while (M.dbg().hearts > cap - 3 && h3++ < 60 * 200) {
@@ -4465,20 +4528,31 @@ console.log('--- the title, the how-to, and the best ---------------------------
     });
     // Several seconds, so this is not one lucky frame: at least one has to be up
     // and visible at any moment or the sky is empty half the time.
-    let seen = 0, lowest = 0, widest = 0, loudest = 0;
-    for (let i = 0; i < 300; i++) {
+    // SWEPT THROUGH A FULL TURN rather than held still. A ghost lives about seven
+    // seconds, so 300 frames of one bearing is not 300 samples - it is a single
+    // draw of BGN bearings, held for five seconds. It passed or failed on which way
+    // the camera happened to be pointing, and shifting the random stream anywhere
+    // earlier in this file flipped it from 3.9 in view to 0.3.
+    let seen = 0, lowest = 0, widest = 0, loudest = 0, empty = 0;
+    const STEPS = 180;
+    for (let i = 0; i < STEPS; i++) {
+      M.look(i / STEPS * 2 * Math.PI, 0);
       draw();
-      for (const o of far()) {
+      const here = far();
+      if (!here.length) empty++;
+      for (const o of here) {
         seen++;
         lowest = Math.max(lowest, ...o.p.map((q) => q[1]));
         widest = Math.max(widest, Math.max(...o.p.map((q) => q[0])) - Math.min(...o.p.map((q) => q[0])));
         loudest = Math.max(loudest, o.alpha);
       }
     }
-    ok('the sky has ghosts drifting across it',
-       seen > 200,
-       seen + ' of them drawn over 300 frames, roughly ' + (seen / 300).toFixed(1) +
-       ' in view at a time out of ' + BGN + ' around the full circle');
+    M.look(0, 0);
+    ok('the sky has ghosts on every bearing you can turn to',
+       empty < STEPS / 4,
+       (STEPS - empty) + ' of ' + STEPS + ' bearings around a full turn had one in ' +
+       'view, ' + (seen / STEPS).toFixed(1) + ' at a time out of ' + BGN + ' - swept ' +
+       'rather than held still, because one heading for five seconds is one sample');
 
     // THE ONE THAT MATTERS. A ghost you can shoot is at eye level on the ground;
     // these are above the skyline, where one that can reach you never is. That is
@@ -4514,8 +4588,20 @@ console.log('--- the title, the how-to, and the best ---------------------------
     // ghosts that can reach you, with nothing drifting behind them to read past.
     // The sky is empty here for a reason, not by luck: the count is still full.
     M.restart(); M.place([]);
+    // Swept every frame, not once at the start. The spawner keeps running, and its
+    // Drifters are the SAME pale colour the sky's ghosts are - so two seconds of
+    // wave 1 filled the arena and every one of them counted as a stray. It passed
+    // only while the dice happened to put them off screen.
+    // ABOVE THE HORIZON, which is the one thing that tells the two apart. The
+    // spawner keeps running and its Drifters are the same pale colour, so counting
+    // every pale fill counted the wave as strays. The sky's ghosts are the only
+    // ones that never come below y 250.
     let strays = 0;
-    for (let i = 0; i < 120; i++) { draw(); strays += far().length; }
+    for (let i = 0; i < 120; i++) {
+      M.place([]);
+      draw();
+      strays += far().filter((o) => Math.max(...o.p.map((q) => q[1])) < 250).length;
+    }
     ok('and not one of them is drawn once a run has started',
        !strays,
        'two seconds of an empty arena with the menu sky still switched on, and ' +
@@ -4820,7 +4906,7 @@ console.log('--- two at once ---------------------------------------------------
   const at = C._GCONTACT - 0.01;
   const hitBy = (types) => {
     M.restart(); M.look(0, 0); M.setFire(0);
-    M.setLv(5, 2);                                // extra hearts, so it survives to be read
+    M.setLv(4, 2);                                // extra hearts, so it survives to be read
     const hp0 = M.dbg().hearts;
     M.place(types.map((k, i) =>
       [at * Math.cos(i * 2), C._GY, at * Math.sin(i * 2), 9, 9, 0, 0, k, 0]));
@@ -4850,7 +4936,7 @@ console.log('--- two at once ---------------------------------------------------
   // and the frame after is still stopped by the i-frame
   const later = (frames) => {
     M.restart(); M.look(0, 0); M.setFire(0);
-    M.setLv(5, 2);
+    M.setLv(4, 2);
     const hp0 = M.dbg().hearts;
     M.place([[at, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
     tick();
@@ -4897,7 +4983,7 @@ console.log('--- two at once ---------------------------------------------------
   const rest = litness();
 
   // Take a hit, then walk the whole grace window sampling the viewmodel.
-  M.setLv(5, 2);
+  M.setLv(4, 2);
   M.place([[at, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
   tick();
   M.place([]);

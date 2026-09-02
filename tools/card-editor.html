@@ -52,7 +52,10 @@ const C = M.C;
 const hostCtx = document.getElementById('c').getContext('2d');
 
 const NAMES = [...C._CARDS.map((c) => c[5]), 'RECOVERY'];
-const IDS = [0, 1, 2, 3, 4, 5, 6, -1];
+// Off the table rather than typed out, so merging or adding a card does not leave
+// this page reading a row that is not there. It was a literal list and broke the
+// moment the three rainbow cards became two.
+const IDS = [...C._CARDS.map((_, i) => i), -1];
 
 const sheet = document.getElementById('sheet');
 const zoom = document.getElementById('zoom');
