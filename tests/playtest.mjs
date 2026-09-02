@@ -76,6 +76,9 @@ const AIMS = {
 
 };
 const REACT = 0.25;   // seconds before it accepts that the nearest has changed
+// Runs per (plan, aim) for the roster soak below. 'node tests/playtest.mjs 40'
+// for a heavy one - the default is what a check run can afford.
+const SOAK = Math.max(1, +(process.argv[2] || 7));
 AIMS.keyboard = C._KTURN;
 
 const bearing = (o) => Math.atan2(o[0], o[2]);
@@ -87,6 +90,11 @@ const run = (plan, aim, s) => {
   M.setFire(1);
   M.look(0, 0);
   let yaw = 0, want = 0, react = 0, held = 0;
+  // What the run actually MET. Counted by object identity, because a ghost is an
+  // array that lives until it dies and dbg() hands back the same one every frame -
+  // counting rows would count each of them once per frame it was alive for.
+  const met = new Set(), seen = [0, 0, 0, 0, 0];
+  let shrugs = 0, reached15 = 0, reached20 = 0;
   // A run that hits this stopped because the clock ran out, not because it died,
   // and reporting the wave it reached as 'died at' would be a lie. The first pass
   // capped at twelve sim-minutes and every strong build reported exactly 33.
@@ -94,6 +102,15 @@ const run = (plan, aim, s) => {
   let f = 0;
   for (; f < CAP && !M.dbg().over; f++) {
     const d = M.dbg(), a = M.anim();
+
+    for (const o of d.ghosts) {
+      if (!met.has(o)) { met.add(o); seen[o[7]]++; }
+      // The Warden's whole rule, caught in the act: a negative hold is the ring
+      // failing on it, and it is the only thing in the game that can be one.
+      if (o[7] === C._WARDEN && o[8] < 0) shrugs++;
+    }
+    if (a.wave >= 15) reached15 = 1;
+    if (a.wave >= 20) reached20 = 1;
 
     if (a.picking) {
       const n = PLANS[plan]
@@ -122,7 +139,12 @@ const run = (plan, aim, s) => {
 
     // The rainbow, on the one rule that matters: cast it when it is worth casting.
     // Two loose inside the ring it WILL have at full charge, or one nearly on you.
-    const maxR = C._BINDR * C._RADG ** a.lv[2];
+    // The game's own formula. This was BINDR * RADG ** lv - a power where the game
+    // adds - which at five levels called the ring 68m instead of 16.5m, so the bot
+    // thought everything on the field was inside it and cast on a condition that
+    // was always true. It was not casting when it was worth casting, it was casting
+    // whenever the cooldown allowed.
+    const maxR = C._BINDR + C._RADG * a.lv[2];
     const inside = d.ghosts.filter((o) => o[8] <= 0 && Math.hypot(o[0], o[2]) <= maxR).length;
     if (!held && !a.bindT && (inside >= 2 || (near && nd < 4))) { key('keydown', 'Space'); held = 1; }
     if (held && a.bindT) { key('keyup', 'Space'); held = 0; }
@@ -131,7 +153,7 @@ const run = (plan, aim, s) => {
   }
   // wave lives on anim(), not dbg() - reading it off dbg() gave NaN for every run.
   return { waves: M.anim().wave - 1, kills: M.dbg().kills, lv: M.anim().lv.slice(),
-           alive: f >= CAP };
+           alive: f >= CAP, seen, shrugs, reached15, reached20 };
 };
 
 const med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
@@ -169,3 +191,44 @@ console.log('  fast they can turn to face it.');
 console.log('');
 console.log('  alive = runs still going when the forty-minute sim clock ran out, so');
 console.log('  their wave is a floor rather than where they died.');
+
+// --- does anybody ever meet the roster? --------------------------------------
+// The reason the unlocks moved to 5/10/15/20. Content gated past where runs end
+// is content nobody has, and the Warden is the one type carrying a RULE rather
+// than a stat line - the bind fails on it, and DESIGN.md 7 says that has to be
+// learned by watching. So the number that matters is not how many spawn, it is
+// how many runs got far enough to watch one.
+console.log('');
+console.log('=== DOES A RUN EVER MEET THE ROSTER? ===============================');
+console.log('');
+const ALL = [];
+for (const plan of Object.keys(PLANS))
+  for (const aim of Object.keys(AIMS))
+    for (let i = 0; i < SOAK; i++) ALL.push({ plan, aim, r: run(plan, aim, 50000 + ALL.length * 7919) });
+const pc = (n) => (100 * n / ALL.length).toFixed(0) + '%';
+console.log('  ' + ALL.length + ' runs, every card plan against every aim.');
+console.log('');
+console.log('    reached wave 15 (Splitter): ' + pc(ALL.filter((x) => x.r.reached15).length).padStart(5) +
+            '   of runs');
+console.log('    reached wave 20 (Warden):   ' + pc(ALL.filter((x) => x.r.reached20).length).padStart(5) +
+            '   of runs');
+console.log('    saw at least one Warden:    ' + pc(ALL.filter((x) => x.r.seen[4]).length).padStart(5) +
+            '   of runs');
+console.log('    SAW ONE SHRUG OFF THE RING: ' + pc(ALL.filter((x) => x.r.shrugs).length).padStart(5) +
+            '   of runs - the rule being taught');
+console.log('');
+console.log('  ' + P('cards taken', 14) + P('aim', 10) + R('to 15', 7) + R('to 20', 7) +
+            R('wardens', 9) + R('shrugs', 8));
+for (const plan of Object.keys(PLANS)) {
+  for (const aim of Object.keys(AIMS)) {
+    const g = ALL.filter((x) => x.plan === plan && x.aim === aim).map((x) => x.r);
+    console.log('  ' + P(plan, 14) + P(aim, 10) +
+      R(g.filter((r) => r.reached15).length + '/' + g.length, 7) +
+      R(g.filter((r) => r.reached20).length + '/' + g.length, 7) +
+      R(med(g.map((r) => r.seen[4])), 9) +
+      R(g.filter((r) => r.shrugs).length, 8));
+  }
+}
+console.log('');
+console.log('  wardens = the MEDIAN number one run met, so a 0 there means half the');
+console.log('  runs on that line never saw one at all.');

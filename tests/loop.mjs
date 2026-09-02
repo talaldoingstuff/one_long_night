@@ -1200,6 +1200,31 @@ console.log('--- the minimap --------------------------------------------------'
      RBM.some((v) => arcs(rec.ops, 'rgba(' + v.join(',') + ',1)').length === 1),
      'caught, and its blip runs the rainbow for as long as it is held');
 
+  // --- the one blip you could not see ------------------------------------------
+  // The Warden is rgb(22,20,32) on a dish that is nearly the same, so its blip was
+  // there and unreadable. A white edge, off the SOLID flag rather than off the type
+  // number, which is the answer the sprite already gives for the same reason.
+  const blipRing = (k) => {
+    M.restart(); M.look(0, 0); M.setFire(0);
+    M.place([[0, C._GY, 8, 9, 9, 0, 0, k, 0]]);
+    rec.ops = []; tick();
+    // The blip is an ARC, so a stroke that belongs to it is a stroke carrying one.
+    return rec.ops.filter((o) => o.op === 'stroke' && o.a && o.c === '#fff' &&
+                                 Math.abs(o.a[2] - C._MAPBLIP * R) < 0.5);
+  };
+  ok('the Warden gets a white ring on the map, because its own colour is the dish',
+     blipRing(4).length === 1,
+     'rgb(' + C._TYPES[4][9] + ') against a dish of ' + C._MAPBG + ' - the blip was ' +
+     'drawn all along and could not be seen. ' + C._SOLIDEW + 'px of white round it');
+  ok('and none of the others does, because none of them needs one',
+     [0, 1, 2, 3].every((k) => !blipRing(k).length),
+     'four types, four blips, no rings - it is the SOLID flag that asks for it, so a ' +
+     'later near-black ghost inherits this instead of having to be remembered');
+  ok('and the ring is what tells you which one the rainbow cannot hold',
+     C._TYPES[C._WARDEN][19] === 1 && C._TYPES.filter((t) => t[19]).length === 1,
+     'solid and bind-immune are the same ghost today, so the outline happens to ' +
+     'mark the one thing on the map worth knowing at a glance');
+
   // the bind circle, which DESIGN.md 6 says is what the map is FOR
   M.restart(); M.place([]); M.look(0, 0);
   let w2 = 0;

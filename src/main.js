@@ -1934,6 +1934,20 @@ const minimap = () => {
     // through it in time instead - the same cycle the horn and the eyes use.
     g.fillStyle = o[8] > 0 ? css(RBV[(clock * C._EYERB | 0) % RBV.length], 1) : 'rgb(' + TY(o)[9] + ')';
     g.fill();
+    // A near-black blip on a near-black dish is not a blip. The same answer the
+    // SPRITE already gives a solid ghost - a white edge so the silhouette reads -
+    // and off the same flag, so anything else near-black inherits it rather than
+    // needing to be remembered. Full white rather than SOLIDE's 0.34: the map is a
+    // readout and DESIGN.md 11 calls it a primary display, so it is read at a
+    // glance and off to one side rather than looked at.
+    //
+    // It also happens to say WHICH one it is, and that is the one worth knowing:
+    // the outlined blip is the one the rainbow cannot hold.
+    if (TY(o)[19]) {
+      g.strokeStyle = '#fff';
+      g.lineWidth = C._SOLIDEW;
+      g.stroke();
+    }
   }
 
   // You are the horn: the dot takes the same colour it does, gold at rest and
