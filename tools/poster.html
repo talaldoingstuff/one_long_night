@@ -8,10 +8,15 @@
   canvas{display:block;position:fixed;inset:0}
   #panel{position:fixed;top:0;left:0;bottom:0;width:330px;background:#0c0e18f2;border-right:1px solid #232a44;
          overflow-y:auto;padding:10px 12px 40px;box-shadow:8px 0 24px #0008;transition:transform .18s;z-index:3}
-  #panel.hid{transform:translateX(-318px)}
-  #grip{position:fixed;top:0;left:330px;width:12px;height:100%;cursor:col-resize;background:#161c30;
-        border-left:1px solid #232a44;transition:left .18s;display:flex;align-items:center;justify-content:center;color:#6b7599;z-index:3}
-  #grip.hid{left:12px}
+  #panel.hid{transform:translateX(-330px)}
+  /* A 12px unlabelled strip was collapsible and nobody could tell. This one is a
+     real button, wide enough to hit and captioned with what it does. */
+  #grip{position:fixed;top:0;left:330px;width:26px;height:100%;cursor:pointer;background:#161c30;
+        border-left:1px solid #232a44;transition:left .18s;display:flex;align-items:center;
+        justify-content:center;color:#8b93b8;z-index:4;user-select:none}
+  #grip:hover{background:#1f2740;color:#ffd23f}
+  #grip span{writing-mode:vertical-rl;letter-spacing:.22em;text-transform:uppercase;font-size:10px}
+  #grip.hid{left:0}
   h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7f89b0;margin:16px 0 6px;
      border-bottom:1px solid #232a44;padding-bottom:4px}
   h2:first-child{margin-top:0}
@@ -37,9 +42,9 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="grip">›</div>
+<div id="grip"><span></span></div>
 <div id="panel"></div>
-<div id="hint">the background is the game's own title screen · drag a ghost to move it · shift-drag to scale · alt-drag to turn</div>
+<div id="hint">drag a ghost to move it · shift-drag to scale · alt-drag to turn · H hides the panel</div>
 
 <script type="module">
 // Drives the GAME, not a copy of it. main.js takes over #c and runs its own loop
@@ -71,13 +76,17 @@ const seal = (el) => ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'
 seal(panel);
 seal($('grip'));
 
-// The title screen also draws CLICK ANYWHERE TO START and a version number, and
-// neither belongs on a card that is going to be posted. Dropping them by NAME at
-// the context is blunt but it is honest: it takes nothing away from the game, it
-// cannot get the title by accident, and if a string is ever reworded the line
-// simply comes back and is visible in the picture. Setting the prompt's alpha to
-// nothing through C would have been subtler and would have failed silently.
-const CHROME = ['CLICK ANYWHERE TO START', 'CLICK ANYWHERE TO SKIP', 'CLICK ANYWHERE TO PLAY'];
+// Every word the title screen draws - the title itself, the prompt under it and
+// the version - comes off the card. The picture is the art, and a posted card gets
+// its wordmark set properly in whatever it is laid out in rather than borrowing the
+// game's own heading at whatever size the window happened to be.
+//
+// Dropped by NAME at the context. Blunt, but honest: it takes nothing away from
+// the game, and if a string is ever reworded the line simply comes back and is
+// visible in the picture. Zeroing their alpha through C would have been subtler and
+// would have failed silently.
+const CHROME = ['ONE LONG NIGHT', 'CLICK ANYWHERE TO START', 'CLICK ANYWHERE TO SKIP',
+                'CLICK ANYWHERE TO PLAY', 'HOW TO PLAY', 'PERSONAL BEST'];
 const realText = g.fillText.bind(g);
 let chrome = 0;
 g.fillText = (s, x, y) => {
@@ -129,6 +138,14 @@ const rows = [];
 const build = () => {
   panel.innerHTML = '';
   const h = (t) => { const e = document.createElement('h2'); e.textContent = t; panel.append(e); };
+  const fb = document.createElement('div');
+  fb.className = 'btns';
+  const fold = document.createElement('button');
+  fold.id = 'fold';
+  fold.textContent = 'hide panel';
+  fold.onclick = () => collapse();
+  fb.append(fold);
+  panel.append(fb);
   const note = document.createElement('div');
   note.id = 'note';
   note.textContent = 'The background is the game drawing its own title screen. ' +
@@ -194,7 +211,7 @@ const build = () => {
   gg.className = guides ? 'on' : '';
   gg.onclick = () => { guides = !guides; gg.className = guides ? 'on' : ''; };
   const ch = document.createElement('button');
-  ch.textContent = 'prompt + version';
+  ch.textContent = 'game text';
   ch.className = chrome ? 'on' : '';
   ch.onclick = () => { chrome = !chrome; ch.className = chrome ? 'on' : ''; };
   const ex = document.createElement('button');
@@ -340,20 +357,31 @@ const save = () => {
   }));
 };
 
-// --- the panel grip -------------------------------------------------------------
-$('grip').onclick = () => {
-  panel.classList.toggle('hid');
-  $('grip').classList.toggle('hid');
-  $('grip').textContent = panel.classList.contains('hid') ? '›' : '‹';
+// --- collapsing the panel -------------------------------------------------------
+// One function, so the button, the grip and the H key cannot disagree about what
+// state the panel is in - which is what a toggle written three times always ends up
+// doing. The caption says what a click will DO, not what is currently true.
+const grip = $('grip');
+let hid = 0;
+const collapse = (v) => {
+  hid = v === undefined ? !hid : v;
+  panel.classList.toggle('hid', !!hid);
+  grip.classList.toggle('hid', !!hid);
+  grip.querySelector('span').textContent = hid ? '›  show the panel' : '‹  hide the panel';
+  const b = $('fold');
+  if (b) b.textContent = hid ? 'show panel' : 'hide panel';
 };
+grip.onclick = () => collapse();
 
 addEventListener('keydown', (e) => {
+  if (e.key === 'h' || e.key === 'H') collapse();
   if (e.key === 'Tab') { e.preventDefault(); sel = (sel + 1) % gh.length; build(); }
   if (e.key === 's' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); }
 });
 
 M.setScr(0);
 build();
+collapse(0);
 requestAnimationFrame(paint);
 </script>
 </body>
