@@ -498,6 +498,9 @@ export const C = {
   // leaving most of three seconds of it sitting still and readable.
   _LOREG: 4,           // seconds before the next paragraph begins
   _LOREF: 1.1,         // and how long one takes to arrive
+  // Shown instead of the game to anything whose primary pointer is a finger.
+  // Paragraphs split on | like the lore, and read by the same splitter.
+  _GATE: 'DESKTOP ONLY|It is aimed with a mouse.|Open it on a computer.',
   _VER: 'v 0.1',
   // The mute and quit squares: size and margin, in HUD units. They are the only
   // two things in the game meant to be CLICKED rather than aimed at, so they are
@@ -2956,7 +2959,38 @@ const drawParts = () => {
   g.globalAlpha = 1;
 };
 
+// Anything whose PRIMARY pointer is coarse - a finger - gets this instead of the
+// game. pointer:coarse is the right question: it asks what you are pointing WITH,
+// not how wide the window is or what the user agent claims, so a touchscreen
+// laptop being driven by a mouse still reports fine and still plays.
+//
+// Read once. It is a property of the device, and asking every frame would be a
+// media query sixty times a second for an answer that cannot change.
+//
+// Guarded because matchMedia does not exist in the harness the checks run main.js
+// inside, and the alternative was stubbing it into eight test files.
+const coarse = typeof matchMedia < 'u' && matchMedia('(pointer:coarse)').matches;
+
+const gate = () => {
+  const u = min(W, H) * C._HUDU;
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, W, H);
+  g.textAlign = 'center';
+  const P = C._GATE.split('|');
+  P.forEach((t, i) => {
+    // The heading in the game's gold at twice the size, the rest white under it.
+    // Both capped against the WIDTH, because a phone held upright is the one shape
+    // this is guaranteed to be read in.
+    g.fillStyle = i ? '#fff' : css(C._GOLD, 1);
+    g.font = (min(u * (i ? 1.15 : 2.3), W * (i ? 0.042 : 0.1)) | 0) +
+             'px Palatino Linotype,serif';
+    g.fillText(t, W / 2, H * (i ? 0.46 + i * 0.07 : 0.32));
+  });
+  g.textAlign = 'left';
+};
+
 const render = () => {
+  if (coarse) return gate();
   // On the over screen there is nothing to draw but the screen itself - no sky,
   // no ghosts, no puppet. Everything below assumes a run in progress.
   //

@@ -121,6 +121,12 @@ globalThis.localStorage = {
 let seed = 0x4d3f21;
 Math.random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
 
+// A FINE pointer, said explicitly. The gate is read once at import, and until this
+// existed the checks ran the game only because matchMedia happened to be undefined
+// in the harness - so the entire suite was passing by accident of a missing stub.
+// tests/gate.mjs is the other side of it.
+globalThis.matchMedia = () => ({ matches: false });
+
 const M = await import('../src/main.js');
 // The palette length, read from the game rather than remembered - it went from
 // six to seven and four checks were still counting to six.
