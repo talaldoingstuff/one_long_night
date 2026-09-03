@@ -2788,16 +2788,18 @@ console.log('--- the upgrade cards ---------------------------------------------
   ok('horn damage waits for wave ' + C._CARDS[1][1],
      !seen(C._CARDS[1][1] - 1, {}).has(1) && seen(C._CARDS[1][1], {}).has(1),
      'absent at wave ' + (C._CARDS[1][1] - 1) + ', present at ' + C._CARDS[1][1]);
-  for (const i of [2, 3])
+  for (const i of [2, 3, 4])
     ok(NAME[i].toLowerCase() + ' waits for wave ' + C._CARDS[i][1],
-       !seen(C._CARDS[i][1] - 1, {}).has(i) && seen(C._CARDS[i][1], {}).has(i),
-       'the two bind cards are staggered so they do not both land at once');
-  ok('extra heart waits for wave ' + C._CARDS[4][1],
-     !seen(C._CARDS[4][1] - 1, {}).has(4) && seen(C._CARDS[4][1], {}).has(4),
-     'absent at wave ' + (C._CARDS[4][1] - 1) + ', present at ' + C._CARDS[4][1]);
+       (C._CARDS[i][1] < 2 || !seen(C._CARDS[i][1] - 1, {}).has(i)) &&
+         seen(C._CARDS[i][1], {}).has(i),
+       'all three bind cards open on the first screen - FORCE was held back to wave 2 ' +
+       'by a gate it inherited from a card that no longer exists');
+  ok('extra heart waits for wave ' + C._CARDS[5][1],
+     !seen(C._CARDS[5][1] - 1, {}).has(5) && seen(C._CARDS[5][1], {}).has(5),
+     'absent at wave ' + (C._CARDS[5][1] - 1) + ', present at ' + C._CARDS[5][1]);
   ok('and its SECOND level waits until wave ' + C._HEART2,
-     !seen(C._HEART2 - 1, { 4: 1 }).has(4) && seen(C._HEART2, { 4: 1 }).has(4),
-     'one heart from wave ' + C._CARDS[4][1] + ', the next not until ' + C._HEART2);
+     !seen(C._HEART2 - 1, { 5: 1 }).has(5) && seen(C._HEART2, { 5: 1 }).has(5),
+     'one heart from wave ' + C._CARDS[5][1] + ', the next not until ' + C._HEART2);
 
   // --- what a merged card says -----------------------------------------------------
   {
@@ -2807,9 +2809,9 @@ console.log('--- the upgrade cards ---------------------------------------------
       M.drawCard(i, 0, 0, 900 * C._CARDW, 500 * C._CARDH);
       return rec.ops.filter((o) => o.op === 'text').map((o) => o.s);
     };
-    const force = lines(3, 6);                    // LV 7: damage flat, hold moving
+    const force = lines(4, 3);                    // LV 4: damage and crit both moving
     ok('a merged card shows both of the numbers it moves',
-       force.includes(C._CARDS[3][6]) && force.includes(C._CARD2[1]),
+       force.includes(C._CARDS[4][6]) && force.includes(C._CARD2[2]),
        '"' + force.join('" / "') + '" - showing one and improving the other quietly ' +
        'is the thing a card must not do');
 
@@ -2849,67 +2851,243 @@ console.log('--- the upgrade cards ---------------------------------------------
     // the ring landed - the checks were measuring an empty field. At 12m the
     // fastest covers 7.2m and still stops 4.8m short of contact, and MASTERY is
     // maxed so the 15m ring reaches the slowest, which barely moves at all.
-    const castOn = (types, force, at = 12) => {
+    //
+    // The two halves of a cast land at different moments now: the DAMAGE goes out
+    // with the wave, and the SHOVE waits for the hold to let go. So health is read
+    // at the cast and position after the release, and the range is read at the cast
+    // too, because everything before it is just walking.
+    //
+    // AND ONLY THE GHOSTS IT PLACED. The wave spawner is still running underneath -
+    // wave 1 has a budget of five and three seconds of charge is time for two of
+    // them - so a check that reads the whole field is reading its own Drifters plus
+    // whatever arrived while it waited. place() hands the game the very arrays it
+    // was given, so identity is the honest filter.
+    const castOn = (types, force, banish = 0, at = 12) => {
       M.restart(); M.look(0, 0); M.setFire(0);
       M.setLv(2, C._CARDS[2][0]);
-      M.setLv(3, force);
-      M.place(types.map((k, n) => [at * Math.cos(n * 2), C._GY, at * Math.sin(n * 2),
-                                   C._TYPES[k][0], C._TYPES[k][0], 0, 0, k, 0]));
-      const before = M.dbg().ghosts.map((o) => o[3]);
+      M.setLv(3, banish);
+      M.setLv(4, force);
+      const mine = types.map((k, n) => [at * Math.cos(n * 2), C._GY, at * Math.sin(n * 2),
+                                        C._TYPES[k][0], C._TYPES[k][0], 0, 0, k, 0]);
+      M.place(mine.slice());
       armed();
       let g2 = 0;
-      while (M.anim().charging && g2++ < 60 * 20) tick();
-      return { before, after: M.dbg().ghosts.map((o) => [o[7], o[3]]) };
+      // WHERE THE WAVE FINDS IT, sampled before each frame rather than after the
+      // charge ends. cast() runs ahead of the ghost update inside the same frame, so
+      // by the time charging reads false the throw has already travelled one frame -
+      // and measuring the shove from there reports it 0.12m short.
+      let mid = [];
+      while (M.anim().charging && g2++ < 60 * 20) {
+        mid = mine.map((o) => Math.hypot(o[0], o[2]));
+        tick();
+      }
+      const crit = M.anim().crit;
+      // tick() clears rec.ops and then renders, so this is the ops of the very frame
+      // the wave went out on - which is where the crit is supposed to be visible.
+      const drew = rec.ops.length;
+      const hp0 = mine.map((o) => o[3]), held0 = mine.map((o) => o[8]);
+      const rep0 = mine.map((o) => o[9]);
+      const flash0 = mine.map((o) => o[5]);
+      // Not just until nothing is HELD: a thrown ghost is still travelling after
+      // that, and where it ends up is the whole point of the card.
+      // Every frame it is still owed metres. The FIRST of these is the frame the
+      // throw is banked on, which has not travelled yet, so what matters is that
+      // there are positions between the two ends - not what any one of them is.
+      const flying = [];
+      let landed = 0, wasUp = 0;
+      while (M.dbg().ghosts.some((o) => o[8] || o[9]) && g2++ < 60 * 20) {
+        tick();
+        const q = Math.hypot(mine[0][0], mine[0][2]);
+        if (mine[0][9] > 0) { flying.push(q); wasUp = 1; }
+        else if (wasUp && !landed) landed = q;    // the frame it comes down
+      }
+      const live = new Set(M.dbg().ghosts);
+      return { mid, crit, hp0, held0, flash0, drew, flying, rep0, landed,
+               after: mine.filter((o) => live.has(o))
+                          .map((o) => [o[7], o[3], Math.hypot(o[0], o[2])]) };
+    };
+    // The crit is ONE ROLL FOR THE WHOLE CAST, so a check that reads damage off the
+    // health has to know which way it fell. Casting until it falls the way a check
+    // needs is cheaper than a seam, and it means both paths get walked rather than
+    // the rare one going untested.
+    const castWith = (want, ...a2) => {
+      let r;
+      for (let i = 0; i < 300; i++) if (!!(r = castOn(...a2)).crit === want) return r;
+      return r;
     };
 
-    const r0 = castOn([0], 0);
+    const r0 = castWith(false, [0], 0);
     ok('a cast takes health off what it catches',
        r0.after[0][1] === C._TYPES[0][0] - 1,
        'a Drifter at ' + C._TYPES[0][0] + ' hp is on ' + r0.after[0][1] + ' after one ' +
        'cast at FORCE level 1 - the ring used to hold and never hurt');
 
-    const r8 = castOn([0, 0, 0], 8);
+    ok('and it lands WITH the wave, on the frame the ring goes out',
+       r0.hp0[0] === C._TYPES[0][0] - 1 && r0.held0[0] > 0,
+       'hurt AND held on the same frame the wall sweeps over it. The damage belongs ' +
+       'to the picture the player is watching - a hit that arrives three seconds ' +
+       'after the wave that carried it is a hit the game never showed');
+
+    const r8 = castWith(false, [0, 0, 0], C._CARDS[4][0]);
     ok('and at full FORCE it clears the Drifters outright',
        !r8.after.length,
        'three Drifters, one cast, none left. 3 damage against 3 hp is the whole ' +
        'point of the card: at 1 and 2 nothing dies and the ring is only a delay');
 
-    const rest = castOn([1, 2, 3], 8);
+    const rest = castWith(false, [1, 2, 3], C._CARDS[4][0]);
     ok('and touches nothing else that matters',
        rest.after.length === 3 &&
        rest.after.every(([k, hp]) => hp === C._TYPES[k][0] - 3),
        'Darter, Hulk and Splitter all survive on ' +
-       rest.after.map(([k, hp]) => hp).join(', ') + ' - the ring sweeps chaff and ' +
+       rest.after.map(([, hp]) => hp).join(', ') + ' - the ring sweeps chaff and ' +
        'leaves what is dangerous to the horn');
 
-    const w = castOn([4], 8);
-    ok('and a Warden takes none of it, because it takes none of the hold',
-       w.after.length === 1 && w.after[0][1] === C._TYPES[4][0],
-       'immune to the hold is immune to the damage with it, on ' + w.after[0][1] +
-       ' of ' + C._TYPES[4][0] + ' hp - or the rule being shown is not the rule ' +
-       'being played');
+    // THE POINT OF THE CRIT. Its average is worth 1.125x at cap, and the average is
+    // not what it buys: 3.00 kills a Drifter and stops dead, where 3.00 x 1.5 is the
+    // first number in the game that clears a Darter's 4. A second kill threshold,
+    // which is the only thing worth selling against health that comes in whole numbers.
+    const dc = castWith(true, [1], C._CARDS[4][0]);
+    ok('and a crit clears a Darter, which a flat cast never does',
+       dc.crit && !dc.after.length,
+       'a Darter on ' + C._TYPES[1][0] + ' hp against 3.00 x ' + C._CRITX + ', where ' +
+       'the same cast without the roll leaves it standing on 1');
+
+    const hulkC = castWith(true, [2], C._CARDS[4][0]);
+    const hulkN = castWith(false, [2], C._CARDS[4][0]);
+    // --- what a crit LOOKS like ------------------------------------------------------
+    // Half the reason the roll is per-cast rather than per-ghost: a per-ghost roll
+    // cannot be drawn, because nothing on screen says WHICH ghost it hit. A Hulk for
+    // both, because at 18hp it survives either way and the two frames are otherwise
+    // the same picture.
+    // The WALL ALONE, not the frame it sits in. Counting a whole frame measures the
+    // spawner's ghosts as much as the wave - they differ run to run - and the cast
+    // frame itself is the worst one to count, because the wall starts at radius zero
+    // and most of it is still a degenerate quad. Five frames in it is standing up.
+    const wallOps = (want) => {
+      for (let t2 = 0; t2 < 400; t2++) {
+        M.restart(); M.look(0, 0); M.setFire(0);
+        M.setLv(2, C._CARDS[2][0]); M.setLv(4, C._CARDS[4][0]);
+        M.place([]);
+        armed();
+        let g4 = 0;
+        while (M.anim().charging && g4++ < 60 * 20) tick();
+        if (!!M.anim().crit !== want) continue;
+        tick(5);
+        rec.ops = [];
+        M.drawWall();
+        return rec.ops.length;
+      }
+      return -1;
+    };
+    const wc = wallOps(true), wn = wallOps(false);
+    ok('a crit sends the wave out taller, and it is still a rainbow',
+       wc > wn * 1.5,
+       wc + ' quads in the wall against ' + wn + ' - CRITW times the bands, and ' +
+       'every one of them still a rainbow colour. The loudest cast in the game must ' +
+       'not be the one where the rainbow goes away');
+    ok('and what it hits holds its white far longer',
+       hulkC.flash0[0] > hulkN.flash0[0] * 2,
+       hulkC.flash0[0].toFixed(2) + 's against ' + hulkN.flash0[0].toFixed(2) +
+       's, both read a frame after the wave so both have decayed once. Taller and ' +
+       'brighter are RELATIVE tells and a first crit has nothing to compare against; ' +
+       'a ghost holding its flash is legible on its own, and it is on the ghosts ' +
+       'that the player is looking');
+
+    // --- the shove -------------------------------------------------------------------
+    // A Hulk, because at 18hp it survives a maxed cast and can still be measured.
+    const push = C._REPELG * C._CARDS[3][0];
+    const rp = castWith(false, [2], C._CARDS[4][0], C._CARDS[3][0]);
+    ok('and the shove is part of the blow, not something the hold pays later',
+       rp.rep0[0] > 0 && rp.held0[0] > 0 && rp.after[0][2] > rp.mid[0],
+       'the metres are owed on the same frame the wave lands, and travelled before ' +
+       'the hold clock starts - so a caught ghost is blown back and THEN pinned out ' +
+       'there, while the ring is still on screen. It used to be paid three to five ' +
+       'seconds later, long after the player had stopped looking at the cast');
+    ok('a released ghost is thrown back by the repel',
+       Math.abs(rp.landed - rp.mid[0] - push) < 0.01,
+       'caught at ' + rp.mid[0].toFixed(2) + 'm and set down at ' +
+       rp.landed.toFixed(2) + 'm, which is the ' + push.toFixed(2) +
+       'm BANISH buys and not a metre more. Measured where it LANDS rather than ' +
+       'where the hold ends, because the walk starts again the moment it does');
+    ok('and it TRAVELS, rather than arriving between two frames',
+       rp.flying.filter((q) => q > rp.mid[0] + 0.001 && q < rp.mid[0] + push - 0.001).length > 5,
+       rp.flying.length + ' frames in the air, ' +
+       rp.flying.filter((q) => q > rp.mid[0] + 0.001 && q < rp.mid[0] + push - 0.001).length +
+       ' of them somewhere between the ' + rp.mid[0].toFixed(2) + 'm it was caught at ' +
+       'and the ' + (rp.mid[0] + push).toFixed(2) + 'm it ends at - so there is a ' +
+       'throw to watch. ' +
+       'A metre applied in one frame at twelve metres out is a metre nobody sees, ' +
+       'on a minimap blip that never appears to move');
+    ok('and no shove ever puts one outside the spawn ring',
+       rp.landed <= C._ARENA + 0.001,
+       rp.landed.toFixed(2) + 'm against an arena of ' + C._ARENA + ' - the clamp ' +
+       'cannot fire at these numbers, and is what makes the repel safe to raise');
+    // THE CAP IS ARITHMETIC, NOT TASTE. At full rainbow the cycle is a 6s cooldown
+    // and a 3s charge, and a caught ghost is held for 5 of those 9 - so it walks for
+    // four seconds, and the slowest thing in the game covers 2.8m in four. A shove
+    // bigger than that pushes a Hulk out faster than it comes in, and a wave ends
+    // only when the field is clear, so the run would HANG rather than get hard.
+    //
+    // The seconds in the AIR count too. Held, flying and walking sum to the cycle,
+    // and that sum does not care what order they happen in - so throwing first
+    // rather than last, which looks like it should buy room, buys none.
+    const cycle = C._BINDCD - C._CDG * C._CARDS[2][0] + C._BINDCHG;
+    const walk = C._GSPEED * C._TYPES[2][1] *
+                 (cycle - (C._BINDDUR + C._DURG * C._CARDS[3][0]) - push / C._REPELV);
+    ok('and the slowest ghost still closes, cast after cast',
+       push < walk,
+       'a Hulk walks ' + walk.toFixed(2) + 'm between casts - ' + cycle.toFixed(2) +
+       's less the hold and less the ' + (push / C._REPELV).toFixed(2) +
+       's in the air - against a ' + push.toFixed(2) + 'm throw, so it nets ' +
+       (walk - push).toFixed(2) + 'm closer. Past ' + walk.toFixed(2) +
+       'm it never arrives, and a wave that ends on a clear field never ends');
+
+    // --- the Warden ------------------------------------------------------------------
+    // ITS RULE CHANGED. It is immune to the hold and to the shove and to nothing
+    // else: everything in the ring stops dead, and it keeps walking at you and burns
+    // as it comes. That is a rule one wave of watching teaches, where "the ring does
+    // nothing to it at all" was a dead zone the rainbow paid for and never saw.
+    const w = castWith(false, [4], C._CARDS[4][0], C._CARDS[3][0]);
+    ok('a Warden takes the damage it cannot be held by',
+       w.after.length === 1 && w.hp0[0] === C._TYPES[4][0] - 3 &&
+         w.after[0][1] === C._TYPES[4][0] - 3,
+       'on ' + w.after[0][1] + ' of ' + C._TYPES[4][0] + ' hp - held by nothing, ' +
+       'shoved by nothing, and burned all the same');
+    ok('and is the one thing the ring never moves',
+       w.after[0][2] < w.mid[0],
+       'it closed from ' + w.mid[0].toFixed(2) + 'm to ' + w.after[0][2].toFixed(2) +
+       'm while it was being hit, where a held ghost comes out further away than it ' +
+       'went in - the shrug is the tell, and now it is the only tell');
 
     // The kill path is shared, so a Splitter killed by the ring must still split.
     M.restart(); M.look(0, 0); M.setFire(0);
-    M.setLv(2, C._CARDS[2][0]); M.setLv(3, 8);
-    M.place([[12, C._GY, 0, 3, 10, 0, 0, C._SPLIT, 0]]);  // three hp left, dies to a cast
+    M.setLv(2, C._CARDS[2][0]); M.setLv(4, C._CARDS[4][0]);
+    const sp = [12, C._GY, 0, 3, 10, 0, 0, C._SPLIT, 0];   // three hp left, dies to a cast
+    M.place([sp]);
+    // Who was on the field BEFORE the wave went out. It dies to the wave itself now,
+    // so a snapshot taken after the cast would already have its children in it. They
+    // appear where it was standing, and anything the wave sends arrives out on the
+    // 16m ring, so the two cannot be confused.
+    const was = new Set(M.dbg().ghosts);
     armed();
     let g3 = 0;
     while (M.anim().charging && g3++ < 60 * 20) tick();
-    const kids = M.dbg().ghosts;
+    while (M.dbg().ghosts.some((o) => o[8]) && g3++ < 60 * 20) tick();
+    const kids = M.dbg().ghosts.filter((o) => !was.has(o) &&
+                                              Math.hypot(o[0] - sp[0], o[2] - sp[2]) < 3 * C._SPLITD);
     ok('and a Splitter killed by the ring still dies into two Drifters',
        kids.length === 2 && kids.every((o) => o[7] === 0),
        kids.length + ' children, both Drifters. die() is one function called from ' +
-       'the horn and from the cast, so the children cannot be forgotten in one of them');
+       'the horn and from the wave, so the children cannot be forgotten in one');
     M.restart(); M.place([]);
   }
 
   // --- the chain -----------------------------------------------------------------
   ok('regen is locked until you have taken a heart',
-     !seen(12, { 4: 0 }).has(5) && seen(12, { 4: 1 }).has(5),
+     !seen(12, { 5: 0 }).has(6) && seen(12, { 5: 1 }).has(6),
      'hearts are the entry fee for sustain - which is how 9 wanted regen made rare');
   ok('and its second level until you have taken the second heart',
-     !seen(12, { 4: 1, 5: 1 }).has(5) && seen(12, { 4: 2, 5: 1 }).has(5),
+     !seen(12, { 5: 1, 6: 1 }).has(6) && seen(12, { 5: 2, 6: 1 }).has(6),
      'regen++ needs heart++, exactly as regen+ needed heart+');
 
   // --- the adaptive draw ----------------------------------------------------------
@@ -2929,9 +3107,21 @@ console.log('--- the upgrade cards ---------------------------------------------
   ok('and a bind-heavy player starts being offered the horn',
      bindHeavy < even - 0.05,
      (100 * bindHeavy).toFixed(0) + '% bind after nine bind cards - it works both ways');
+  // The sides are deliberately UNEVEN now - 16 horn levels against 12 bind - so the
+  // shift cannot compare raw levels. A player maxed on both has finished both and is
+  // behind on neither, which is the only thing "against its own cap" can mean.
+  // Half of one cap has to weigh the same as half of the other, or the shift is
+  // reading raw levels and calling the shorter side lazy.
+  const half = { 0: C._CARDS[0][0] / 2, 1: C._CARDS[1][0] / 2,
+                 2: C._CARDS[2][0] / 2, 3: C._CARDS[3][0] / 2, 4: C._CARDS[4][0] / 2 };
+  const hornLv = C._CARDS[0][0] + C._CARDS[1][0];
+  const bindLv = C._CARDS[2][0] + C._CARDS[3][0] + C._CARDS[4][0];
   ok('and each side is measured against its OWN cap',
-     C._CARDS[0][0] + C._CARDS[1][0] === C._CARDS[2][0] + C._CARDS[3][0],
-     '16 horn levels against 12 bind - two cards of eight is not two of four');
+     hornLv !== bindLv && Math.abs(share(half) - even) < 0.05,
+     hornLv + ' horn levels against ' + bindLv + ' bind, and a player half way up ' +
+     'both is drawn at ' + (100 * share(half)).toFixed(0) + '% bind against ' +
+     (100 * even).toFixed(0) + '% level - eight of sixteen is not six of twelve ' +
+     'unless each side is asked about its own ceiling');
 
   // --- a short pool, then Recovery -------------------------------------------------
   const maxAll = {};
@@ -2966,10 +3156,10 @@ console.log('--- the upgrade cards ---------------------------------------------
 
   // hearts and regen actually move
   M.restart(); M.look(0, 0); M.place([]);
-  M.setWave(6); M.setLv(4, 1);
+  M.setWave(6); M.setLv(5, 1);
   ok('an extra heart raises the maximum', M.anim().maxhp === C._HEARTS + 1,
      C._HEARTS + ' hearts became ' + M.anim().maxhp);
-  M.setLv(5, 2);
+  M.setLv(6, 2);
   ok('and regen heals more between waves', M.anim().regen === C._REGEN + 2,
      '+' + C._REGEN + ' a wave became +' + M.anim().regen);
 
@@ -2982,7 +3172,7 @@ console.log('--- the upgrade cards ---------------------------------------------
   const ROLLS = 40;
   const heartIn = (w, levels) => {
     let n = 0;
-    for (let i = 0; i < ROLLS; i++) if (dealAt(w, levels).includes(4)) n++;
+    for (let i = 0; i < ROLLS; i++) if (dealAt(w, levels).includes(5)) n++;
     return n;
   };
   const at8 = heartIn(C._HEARTW - 1);
@@ -3001,20 +3191,20 @@ console.log('--- the upgrade cards ---------------------------------------------
        M.restart(); M.look(0, 0); M.place([]);
        M.setWave(C._HEARTW); M.dealNow();            // forced, and arms the flag
        let n = 0;
-       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(4)) n++; }
+       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(5)) n++; }
        return n < ROLLS;
      })(),
      'the flag is set by the OFFER, not by the taking - the rule is about what the ' +
      'draw put in front of you, and declining one is still having been offered it');
   ok('and it cannot force one that is capped out',
-     !dealAt(C._HEARTW, { 4: C._CARDS[4][0] }).includes(4) &&
-       dealAt(C._HEARTW, { 4: C._CARDS[4][0] }).length === C._CARDN,
-     'at level ' + C._CARDS[4][0] + ' extra heart is out of the pool - pushing an ' +
+     !dealAt(C._HEARTW, { 5: C._CARDS[5][0] }).includes(5) &&
+       dealAt(C._HEARTW, { 5: C._CARDS[5][0] }).length === C._CARDN,
+     'at level ' + C._CARDS[5][0] + ' extra heart is out of the pool - pushing an ' +
      'index that is not in it would have dealt undefined as a card');
   ok('and a new run is owed its own',
      (() => {
        M.restart(); M.look(0, 0); M.place([]); M.setWave(C._HEARTW); M.dealNow();
-       return dealAt(C._HEARTW).includes(4);
+       return dealAt(C._HEARTW).includes(5);
      })(),
      'restart clears the memory, so one run cannot spend the next run guarantee');
 
@@ -3025,10 +3215,10 @@ console.log('--- the upgrade cards ---------------------------------------------
      (() => {
        M.restart(); M.look(0, 0); M.place([]);
        M.setWave(C._HEARTW); M.dealNow();            // the first, forced
-       pickCard(M.anim().offer.indexOf(4));          // taken: level 1, guarantee spent
+       pickCard(M.anim().offer.indexOf(5));          // taken: level 1, guarantee spent
        let n = 0;
-       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(4)) n++; }
-       return M.anim().lv[4] === 1 && n > 0 && n < ROLLS;
+       for (let i = 0; i < ROLLS; i++) { M.setWave(C._HEARTW); if (M.dealNow().includes(5)) n++; }
+       return M.anim().lv[5] === 1 && n > 0 && n < ROLLS;
      })(),
      'level 2 is open on the same wave and still had to be drawn for it. Present ' +
      'on some screens and absent from others, which is what weighted means');
@@ -3036,19 +3226,19 @@ console.log('--- the upgrade cards ---------------------------------------------
   // Heal is gated on HAVING a heart, not on having been shown one. The net hands
   // out an offer, never a level, so it must not move heal one wave earlier.
   let healShut = 0;
-  for (let i = 0; i < ROLLS; i++) if (dealAt(C._HEARTW).includes(5)) healShut++;
+  for (let i = 0; i < ROLLS; i++) if (dealAt(C._HEARTW).includes(6)) healShut++;
   ok('heal stays shut while no heart has been TAKEN, forced screen included',
      !healShut,
      '0 of ' + ROLLS + ' screens at wave ' + C._HEARTW + ' carried heal, and every ' +
      'one of them carried the forced heart - the net gives you the card, and the ' +
      'card is still what opens heal');
   ok('and it opens the moment one is taken, exactly as before',
-     seen(C._HEARTW, { 4: 1 }).has(5),
+     seen(C._HEARTW, { 5: 1 }).has(6),
      'with one heart in hand heal is back in the pool. open() asks for ' +
-     'lv[4] >= ' + C._CARDS[5][3] + ' + its own level, and nothing in the net touches a level');
+     'lv[5] >= ' + C._CARDS[6][3] + ' + its own level, and nothing in the net touches a level');
   ok('and it still leaves the pool at its cap',
-     !seen(C._HEARTW, { 4: 2, 5: C._CARDS[5][0] }).has(5),
-     'at level ' + C._CARDS[5][0] + ' heal is done, and a capped card is not offered');
+     !seen(C._HEARTW, { 5: 2, 6: C._CARDS[6][0] }).has(6),
+     'at level ' + C._CARDS[6][0] + ' heal is done, and a capped card is not offered');
 
   // --- the screen itself ------------------------------------------------------------
   M.restart(); M.look(0, 0); M.place([]);
@@ -3105,7 +3295,7 @@ console.log('--- the upgrade cards ---------------------------------------------
   M.restart(); M.setWave(6);
   const first = M.dealNow().map((i) => [C._CARDS[i][5], 'LV ' + (0 + C._CARDS[i][7] + 1)]);
   ok('a first card reads LV 2, because level 1 is what you start with',
-     C._CARDS.every((c, i) => c[7] + 1 === (i === 4 ? 1 : 2)),
+     C._CARDS.every((c, i) => c[7] + 1 === (i === 5 ? 1 : 2)),
      C._CARDS.map((c, i) => c[5] + ' -> LV ' + (c[7] + 1)).join(', '));
   ok('and its last reads the cap the table says',
      C._CARDS.every((c) => c[0] + c[7] === (c[0] === 8 ? 9 : c[0] === 4 ? 5 : c[7] ? 3 : 2)),
@@ -3149,7 +3339,7 @@ console.log('');
 console.log('--- the card icons ------------------------------------------------');
 {
   const NAME = [...C._CARDS.map((c) => c[5]), 'RECOVERY'];
-  const IDS = [0, 1, 2, 3, 4, 5, -1];
+  const IDS = [0, 1, 2, 3, 4, 5, 6, -1];
   // What a glyph amounts to on screen: the ops it makes, in order, with their
   // colour and how many points each had. Two icons with the same signature are
   // the same picture, whatever the code around them says.
@@ -3170,7 +3360,7 @@ console.log('--- the card icons ------------------------------------------------
   // the ops rather than judged by eye.
   const boxOf = (i) => {
     rec.ops = [];
-    M.cardGlyph(i, 100, 100, 27 * C._CARDIS[i < 0 ? 6 : i]);
+    M.cardGlyph(i, 100, 100, 27 * C._CARDIS[i < 0 ? 7 : i]);
     let y0 = 1e9, y1 = -1e9;
     for (const o of rec.ops) {
       const pad = (o.w || 0) / 2;
@@ -3219,17 +3409,24 @@ console.log('--- the card icons ------------------------------------------------
       filled: rec.ops.some((o) => o.op === 'fill' && o.n > 4),
     };
   };
-  // Two rainbow cards, so two rainbow glyphs. The clock that stood for cooldown
-  // went with the card it belonged to; cooldown lives inside MASTERY now and the
-  // rings are what that card is about.
-  const mast = rings(2), force = rings(3);
+  // Three rainbow cards now, so three rainbow glyphs, and each one has to say what
+  // its own card does: MASTERY is reach, BANISH is a shove, FORCE is a kill. The
+  // clock that stood for cooldown went with the card it belonged to - cooldown
+  // lives inside MASTERY, and the rings are what that card is about.
+  const glyphOps = (i) => { rec.ops = []; M.cardGlyph(i, 100, 100, 27); return rec.ops; };
+  const mast = rings(2), ban = rings(3), force = rings(4);
   ok('rainbow mastery is two rings, not one',
      mast.radii === 2, mast.radii + ' different arc radii - it reads as reach');
+  ok('and rainbow banish is a ring being pushed away from, on every side',
+     ban.radii === 1 && !ban.filled &&
+       glyphOps(3).filter((o) => o.op === 'stroke' && o.c === 'rgba(' + C._GOLD.join(',') + ',1)').length === 1,
+     'one ring and four gold arrows off it, nothing caught - where FORCE keeps ' +
+     'what it catches, this is the card that gets rid of it');
   ok('and rainbow force is a whole ring with something caught in it',
      Math.abs(force.swept - 2 * Math.PI) < 0.01 && force.filled,
      'a closed ring and a ghost filled inside it - the thing the card actually does');
   ok('and regen is no longer identical to Recovery',
-     sig(5) !== sig(-1),
+     sig(6) !== sig(-1),
      'one is a heart filling, the other a heart already full');
 
   const glyph = (i) => { rec.ops = []; M.cardGlyph(i, 100, 100, 27); return rec.ops; };
@@ -3248,10 +3445,10 @@ console.log('--- the card icons ------------------------------------------------
      descs.every((d) => d.split(' ').every((w) => w[0] === w[0].toUpperCase())),
      descs.join(' / '));
 
-  ok('two horn cards are SHOT and two bind ones are RAINBOW, a side each',
+  ok('two horn cards are SHOT and three bind ones are RAINBOW, a side each',
      [C._CARDS[0][5], C._CARDS[1][5]].every((n) => n.startsWith('SHOT')) &&
-     [2, 3].every((k) => C._CARDS[k][5].startsWith('RAINBOW')) &&
-     C._CARDS[5][5] === 'HEAL',
+     [2, 3, 4].every((k) => C._CARDS[k][5].startsWith('RAINBOW')) &&
+     C._CARDS[6][5] === 'HEAL',
      C._CARDS.map((c) => c[5]).join(', '));
   ok('and every title fits the card it is on',
      C._CARDS.concat([[0, 0, 0, 0, 0, 'RECOVERY']]).every((c) => {
@@ -3281,15 +3478,15 @@ console.log('--- the card icons ------------------------------------------------
      radii.length === 2 && radii[0] / radii[1] > 0.6,
      (radii[0] / radii[1]).toFixed(2) + ' of the outer, where it used to be 0.46');
 
-  const hearts5 = glyph(4).filter((o) => o.op === 'fill' && o.c === 'rgba(' + C._HPC.join(',') + ',1)');
+  const hearts5 = glyph(5).filter((o) => o.op === 'fill' && o.c === 'rgba(' + C._HPC.join(',') + ',1)');
   ok('extra heart is one heart with a plus, not two hearts',
-     hearts5.length === 1 && glyph(4).some((o) => o.op === 'stroke' && o.c === '#fff'),
+     hearts5.length === 1 && glyph(5).some((o) => o.op === 'stroke' && o.c === '#fff'),
      'one red heart, and the plus over it');
 
   const green = 'rgba(' + C._HEALC.join(',') + ',1)';
   ok('heal and Recovery are green, hearts and health apart',
-     glyph(5).some((o) => o.c === green) && glyph(-1).some((o) => o.c === green) &&
-     card(5).some((o) => o.op === 'srect' && o.c === green) &&
+     glyph(6).some((o) => o.c === green) && glyph(-1).some((o) => o.c === green) &&
+     card(6).some((o) => o.op === 'srect' && o.c === green) &&
      card(-1).some((o) => o.op === 'srect' && o.c === green),
      'icon and card border both ' + green + ', while extra heart stays rgb(' + C._HPC + ')');
 
@@ -3390,7 +3587,7 @@ console.log('--- the heal, seen -----------------------------------------------'
 
   // three at once, which is what Heal at its cap with both hearts actually does
   M.restart(); M.look(0, 0); M.place([]);
-  M.setWave(12); M.setLv(4, 2); M.setLv(5, 2);
+  M.setWave(12); M.setLv(5, 2); M.setLv(6, 2);
   const cap = M.anim().maxhp;
   let h3 = 0;
   while (M.dbg().hearts > cap - 3 && h3++ < 60 * 200) {

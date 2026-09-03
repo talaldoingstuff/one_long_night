@@ -56,11 +56,19 @@ const NAMES = C._CARDS.map((c) => c[5]);
 
 // --- how a player picks cards ------------------------------------------------------
 // An order of preference over the seven. Whichever of the three on offer comes
-// first in the list is taken.
+// first in the list is taken. The rainbow is three cards now and health moved down
+// the table with it, so every one of these is written in the new indices: horn is
+// 0 and 1, the rainbow is 2, 3 and 4, heart is 5 and heal is 6.
 const PLANS = {
-  'all guns':   [0, 1, 4, 5, 2, 3],
-  'balanced':   [4, 5, 0, 2, 1, 3],
-  'rainbow':    [2, 3, 4, 5, 0, 1],
+  'all guns':   [0, 1, 5, 6, 2, 3, 4],
+  'balanced':   [5, 6, 0, 2, 1, 3, 4],
+  'rainbow':    [2, 3, 4, 5, 6, 0, 1],
+  // The same build with the ORDER reversed inside the rainbow: damage before reach,
+  // reach before control. A rainbow run dies around wave 6 holding mastery 5 and
+  // force 2, which is a player who spent five picks on where the ring goes and two
+  // on what it does - so the question is whether the cards were wrong or the order
+  // they were taken in was.
+  'rainbow dmg': [4, 2, 3, 5, 6, 0, 1],
   'careless':   null,                             // takes whatever is in slot 1
 };
 
@@ -81,6 +89,17 @@ const REACT = 0.25;   // seconds before it accepts that the nearest has changed
 // Runs per (plan, aim) for the roster soak below. 'node tests/playtest.mjs 40'
 // for a heavy one - the default is what a check run can afford.
 const SOAK = Math.max(1, +(process.argv[2] || 7));
+// Probe seams, so a balance question can be ASKED without editing the game and
+// forgetting to put it back. SET rewrites constants on the live C - every stat
+// function reads it at call time - and ONLY narrows which plans are driven, which
+// is what makes a sweep affordable.
+//   SET=_RBDG=1 ONLY=rainbow node tests/playtest.mjs 5
+for (const kv of (process.env.SET || '').split(',').filter(Boolean)) {
+  const [k, v] = kv.split('=');
+  if (!(k in C)) throw new Error('SET: no such constant ' + k);
+  C[k] = +v;
+}
+const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 AIMS.keyboard = C._KTURN;
 
 const bearing = (o) => Math.atan2(o[0], o[2]);
@@ -101,9 +120,15 @@ const run = (plan, aim, s) => {
   // and reporting the wave it reached as 'died at' would be a lie. The first pass
   // capped at twelve sim-minutes and every strong build reported exactly 33.
   const CAP = 60 * 60 * 40;
-  let f = 0;
+  // THE STALL. A wave ends only when its budget is spent AND the field is clear, so
+  // anything the player cannot kill does not make a wave hard, it makes the wave
+  // never end - and a repel that outruns a slow ghost's walk is exactly that. The
+  // longest single wave is the number that catches it: a run that dies is made of
+  // short waves, and a run that hangs has one wave the length of the whole clock.
+  let f = 0, waveAt = 0, waveWas = 1, longest = 0;
   for (; f < CAP && !M.dbg().over; f++) {
     const d = M.dbg(), a = M.anim();
+    if (a.wave !== waveWas) { longest = Math.max(longest, f - waveAt); waveAt = f; waveWas = a.wave; }
 
     for (const o of d.ghosts) {
       if (!met.has(o)) { met.add(o); seen[o[7]]++; }
@@ -155,7 +180,8 @@ const run = (plan, aim, s) => {
   }
   // wave lives on anim(), not dbg() - reading it off dbg() gave NaN for every run.
   return { waves: M.anim().wave - 1, kills: M.dbg().kills, lv: M.anim().lv.slice(),
-           alive: f >= CAP, seen, shrugs, reached15, reached20 };
+           alive: f >= CAP, seen, shrugs, reached15, reached20,
+           longest: Math.max(longest, f - waveAt) / 60 };
 };
 
 const med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
@@ -170,17 +196,19 @@ console.log('  cards. The player aims at whatever is nearest and casts the rainb
 console.log('  when two are inside the ring or one is within 4m.');
 console.log('');
 console.log('  ' + P('cards taken', 14) + P('aim', 10) + R('worst', 7) + R('median', 8) +
-            R('best', 7) + R('kills', 8) + R('alive', 9) + '   what it ended up with');
-for (const plan of Object.keys(PLANS)) {
+            R('best', 7) + R('kills', 8) + R('alive', 9) + R('longest', 9) +
+            '   what it ended up with');
+for (const plan of Object.keys(PLANS).filter((k) => !ONLY.length || ONLY.includes(k))) {
   for (const aim of Object.keys(AIMS)) {
     const runs = [];
-    for (let i = 0; i < 7; i++) runs.push(run(plan, aim, 1000 + i * 7919));
+    for (let i = 0; i < SOAK; i++) runs.push(run(plan, aim, 1000 + i * 7919));
     const w = runs.map((r) => r.waves);
     const best = runs[w.indexOf(Math.max(...w))];
     console.log('  ' + P(plan, 14) + P(aim, 10) +
       R(Math.min(...w), 7) + R(med(w), 8) + R(Math.max(...w), 7) +
       R(med(runs.map((r) => r.kills)), 8) +
-      R(runs.filter((r) => r.alive).length + '/' + runs.length, 9) + '   ' +
+      R(runs.filter((r) => r.alive).length + '/' + runs.length, 9) +
+      R(Math.max(...runs.map((r) => r.longest)).toFixed(0) + 's', 9) + '   ' +
       best.lv.map((v, i) => (v ? NAMES[i].toLowerCase().replace('rainbow ', 'rb ') +
         ' ' + (v + C._CARDS[i][7]) : null)).filter(Boolean).join(', '));
   }
@@ -204,7 +232,7 @@ console.log('');
 console.log('=== DOES A RUN EVER MEET THE ROSTER? ===============================');
 console.log('');
 const ALL = [];
-for (const plan of Object.keys(PLANS))
+for (const plan of Object.keys(PLANS).filter((k) => !ONLY.length || ONLY.includes(k)))
   for (const aim of Object.keys(AIMS))
     for (let i = 0; i < SOAK; i++) ALL.push({ plan, aim, r: run(plan, aim, 50000 + ALL.length * 7919) });
 const pc = (n) => (100 * n / ALL.length).toFixed(0) + '%';
@@ -221,7 +249,7 @@ console.log('    SAW ONE SHRUG OFF THE RING: ' + pc(ALL.filter((x) => x.r.shrugs
 console.log('');
 console.log('  ' + P('cards taken', 14) + P('aim', 10) + R('to 15', 7) + R('to 20', 7) +
             R('wardens', 9) + R('shrugs', 8));
-for (const plan of Object.keys(PLANS)) {
+for (const plan of Object.keys(PLANS).filter((k) => !ONLY.length || ONLY.includes(k))) {
   for (const aim of Object.keys(AIMS)) {
     const g = ALL.filter((x) => x.plan === plan && x.aim === aim).map((x) => x.r);
     console.log('  ' + P(plan, 14) + P(aim, 10) +

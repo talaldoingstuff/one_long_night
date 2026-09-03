@@ -494,17 +494,28 @@ export const C = {
   // hold and the damage a cast lands. Two a side, sixteen levels a side, and every
   // rainbow card now buys two things at once - which is what makes one worth
   // taking against a horn card.
+  // THREE A SIDE ON THE RAINBOW, ALL TO LV 5. Two cards could never fill a
+  // three-card screen from one side, so ADAPT could not actually withhold a half -
+  // 2 horn and 2 rainbow into 3 slots always leaves one behind. Three rainbow cards
+  // can. And the cap halves with it: four steps instead of eight, each worth twice
+  // what it was, because a rainbow pick that moves a number by 0.25 is a pick the
+  // player cannot feel.
+  //
+  // MASTERY is reach and frequency, BANISH is control, FORCE is the kill. The
+  // rainbow's own three-way choice, where it used to be two cards that both just
+  // meant 'more rainbow'.
   _CARDS: [
     [8, 1,  -1, 0, 20, 'SHOT RATE',       'Shots A Second', 1],
     [8, 1,  -1, 0, 20, 'SHOT DAMAGE',     'Damage A Horn',  1],
-    [8, 1,  -1, 0, 20, 'RAINBOW MASTERY', 'Metres',         1],
-    [8, 2,  -1, 0, 20, 'RAINBOW FORCE',   'Wave Damage',    1],
+    [4, 1,  -1, 0, 20, 'RAINBOW MASTERY', 'Metres',         1],
+    [4, 1,  -1, 0, 20, 'RAINBOW BANISH',  'Seconds Held',   1],
+    [4, 1,  -1, 0, 20, 'RAINBOW FORCE',   'Wave Damage',    1],
     [2, 3,  -1, 0, 10, 'EXTRA HEART',     'Hearts',         0],
-    [2, 1,   4, 1, 10, 'HEAL',            'A Wave',         1],
+    [2, 1,   5, 1, 10, 'HEAL',            'A Wave',         1],
   ],
   // The second stat each merged card moves, labelled. Indexed from card 2, and
   // only the rainbow pair has one - everything else draws a single centred line.
-  _CARD2: ['Seconds Cooldown', 'Seconds Held'],
+  _CARD2: ['Seconds Cooldown', 'Metres Pushed', '% Crit Chance'],
   // Extra heart's second level waits longer than its first.
   _HEART2: 9,          // the wave extra heart level 2 opens on
   _HEARTW: 9,          // and the wave whose card screen FORCES the first one, if the
@@ -582,11 +593,11 @@ export const C = {
   // Per LEVEL, and all three are half what they were because there are twice as
   // many levels: radius still ends at 15m and the hold still ends at 5s, so the
   // ceiling is where it was and only the number of steps to it changed.
-  _RADG: 0.75,         // metres onto the bind radius per level
+  _RADG: 1.5,          // metres onto the bind radius per level
   // The cooldown is the exception and ends at 6s rather than 5. A ring that both
   // holds AND kills, coming back every 5 seconds, is a different game.
-  _CDG: 0.375,         // seconds off the cooldown per level
-  _DURG: 0.25,         // seconds onto the hold per level
+  _CDG: 0.75,          // seconds off the cooldown per level
+  _DURG: 0.5,          // seconds onto the hold per level
   // Levels of FORCE per point of damage a cast lands. 1 at the start, 3 at LV 9,
   // which is the whole card - the wipe is a capstone, not a step on the way.
   //
@@ -603,7 +614,49 @@ export const C = {
   //
   // 3.00 is chosen against the Drifter's 3 hp, and only the LAST level reaches it -
   // at LV 8 a cast leaves a Drifter on 0.25.
-  _RBDG: 0.25,
+  _RBDG: 0.5,
+  // BANISH's second number: metres a caught ghost is thrown, 0 to 2.4 in four steps.
+  // The ceiling is not taste, it is arithmetic. At full rainbow the cycle is 6s of
+  // cooldown and 3s of charge; a caught ghost spends 5 of those 9 held and another
+  // 0.34 in the air, so it only WALKS for 3.66 - and the slowest thing in the game
+  // covers 2.56m in that. A throw bigger than that puts a Hulk out faster than it
+  // comes in, and a wave ends only when the field is clear, so the run would HANG
+  // rather than get hard.
+  //
+  // ORDER DOES NOT MOVE THAT BOUND, which is worth writing down because it looks
+  // like it should: held, flying and walking sum to the cycle whichever way round
+  // they happen. 0.6 leaves the Hulk closing 0.16m a cycle, which is a real margin
+  // and a thin one - anything above this needs the check below re-read, not just
+  // re-run.
+  _REPELG: 0.6,
+  // How fast it travels once thrown, metres a second. The shove used to be a single
+  // frame of arithmetic - the ghost was simply somewhere else next frame - and a
+  // metre of that at twelve metres out is a step no eye catches, on a minimap blip
+  // that never appears to move. Nothing in this game draws a position CHANGE, so a
+  // displacement nobody watches happen is a displacement that did not happen.
+  //
+  // Well clear of the fastest thing on the field, which walks at 2.4, so being
+  // thrown never reads as walking backwards.
+  _REPELV: 7,
+  // FORCE's second number: the chance a cast crits, 5% before any card and 25% at
+  // LV 5. The average is worth little - 1.125x at cap - and the average is not the
+  // point. 3.00 damage kills a Drifter and NOTHING else; 3.00 x 1.5 is 4.50, which
+  // clears a Darter's 4hp. The card buys a second kill threshold, not a bigger
+  // number, which is a thing only the rainbow's flat damage can be sold.
+  _CRIT0: 0.05,
+  _CRITG: 0.05,
+  _CRITX: 1.5,         // what a crit multiplies the cast's damage by
+  // AND WHAT A CRIT LOOKS LIKE, which is half of why the roll is per-cast at all.
+  // The wave stands WALLREP times taller and goes out at full brightness, and what
+  // it touches holds its white for CRITF times as long.
+  //
+  // The wall alone would not be enough. Taller and brighter are RELATIVE tells, and
+  // a player seeing their first crit has nothing beside it to compare - where a
+  // ghost holding its flash three times as long is legible with no reference at
+  // all, and it lands on the ghosts, which is what the player is looking at when
+  // they cast. The pair is one tell the eye can catch and one it cannot miss.
+  _CRITW: 2,           // how much taller the wave stands on a crit
+  _CRITF: 3,           // and how much longer what it hits stays white
   _CARDW: 0.175,       // a card's width, as a fraction of the screen
   // Taller than it was, because a merged card carries four lines under the glyph
   // and 0.36 left three pixels between the LV and the icon and four between the
@@ -622,8 +675,8 @@ export const C = {
   // horns are drawn at 0.58 of it and a ring at all of it, so asking for the same
   // radius gave a 2.23x spread in what actually appeared - 30px of SHOT RATE
   // against 67px of RECOVERY. Measured off the ops each glyph emits, these bring
-  // all seven to the same height. Last entry is Recovery, which has no card row.
-  _CARDIS: [1.40, 0.88, 0.84, 0.84, 0.90, 0.85, 0.75],
+  // all eight to the same height. Last entry is Recovery, which has no card row.
+  _CARDIS: [1.40, 0.88, 0.84, 0.84, 0.84, 0.90, 0.85, 0.75],
   _CARDBG: 'rgba(14,16,28,0.96)',
   _HEALC: [96, 214, 118],       // the two cards that give health back
   _HEALP: 2,           // seconds an about-to-be-healed heart pulses before it settles
@@ -1048,14 +1101,14 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95],
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
     lv, offer, picking, sel, maxhp, healT, healA, healN, parts, glT, moT, conv,
-    heartS;
+    heartS, crit;
 
 const reset = () => {
   ghosts = []; horns = [];
   lv = C._CARDS.map(() => 0);
   maxhp = C._HEARTS;
   hearts = maxhp; kills = 0; over = 0;
-  offer = []; picking = 0; sel = 0; heartS = 0;
+  offer = []; picking = 0; sel = 0; heartS = 0; crit = 0;
   healT = 0; healA = 0; healN = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
@@ -1154,25 +1207,40 @@ const cast = () => {
   armT = -1;                                     // one press, one cast
   bindT = sCd();
   wallT = C._WALLDUR; wallR = r;                  // the wall sweeps to what it caught
+  // ONE ROLL FOR THE WHOLE RING, not one a ghost. A per-ghost roll is invisible -
+  // nothing on screen tells you WHICH ghost crit - where a per-cast one is an event
+  // the whole ring can be lit by, and it is one random() instead of one per ghost.
+  // Safe in a single slot because the cooldown is never shorter than the hold: 6s
+  // at its fastest against 5s at its longest, so a cast has always paid out before
+  // the next is rolled.
+  crit = random() < sCrit();
   arp(0);
-  // Backwards, because a cast can now KILL what it catches and killing splices.
+  // WHAT THE WAVE CARRIES, decided once for the whole ring and spent as it lands.
+  // The damage belongs to the wave going out, not to the hold letting go: the wall
+  // sweeping over a ghost is the thing the player watches, and a hit that arrives
+  // three seconds after the picture of it is a hit the game never showed.
+  const dmg = sRbD() * (crit ? C._CRITX : 1);
+  // Backwards, because the wave KILLS what it touches and killing splices.
   for (let i = ghosts.length; i--;) {
     const o = ghosts[i];
     // Distance on the ground, not through the air: the ring is a circle on the
     // floor and a ghost's float height must not decide whether it is inside.
     if (hypot(o[0], o[2]) > r) continue;
+    o[5] = C._GFLASH * (crit ? C._CRITF : 1);
     // DESIGN.md 7: the Warden is immune, and has to be SEEN shrugging it off, so
     // the rule is learned by watching rather than by being told. A negative hold
     // is that: same slot, so nothing else has to know about it, and it cannot be
     // mistaken for being held because held is strictly positive.
     //
-    // Immune to the HOLD is immune to the damage with it. The ring failing on a
-    // Warden has to fail completely, or the rule the player is being shown is not
-    // the rule the game is playing.
-    if (o[7] === C._WARDEN) { o[8] = -C._SHRUGD; continue; }
-    o[8] = sDur();
-    o[5] = C._GFLASH;
-    if ((o[3] -= sRbD()) <= 0) die(o, i);
+    // It is immune to the HOLD and to the SHOVE - not to the light. Everything else
+    // in the ring stops dead; the Warden keeps walking at you and burns anyway,
+    // which is a rule you can read off one wave of watching.
+    // THROWN FIRST, then held where it lands. The shove used to wait for the hold to
+    // run out, which put it three to five seconds after the cast that caused it -
+    // long after the player had stopped looking at the ring. It belongs to the blow.
+    if (o[7] === C._WARDEN) o[8] = -C._SHRUGD;
+    else { o[8] = sDur(); o[9] = sRep(); }
+    if ((o[3] -= dmg) <= 0) die(o, i);
   }
 };
 
@@ -1472,7 +1540,7 @@ const puppet = () => {
 const TY = (o) => C._TYPES[o[7]];
 
 const born = (x, z, k) =>
-  ghosts.push([x, C._GY, z, C._TYPES[k][0], C._TYPES[k][0], 0, random() * 9, k, 0]);
+  ghosts.push([x, C._GY, z, C._TYPES[k][0], C._TYPES[k][0], 0, random() * 9, k, 0, 0]);
 
 // A bearing that is not on top of anything already out there - and no more than
 // that. Two ghosts on one bearing hide behind each other and only one of them can
@@ -1538,13 +1606,16 @@ const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
 // downstream knows a card exists.
 const sFire = () => C._FIRE / C._FIREG ** lv[0];
 const sDmg = () => C._DMGG ** lv[1];
-// MASTERY moves both of these, FORCE moves both of those. One card, two numbers,
-// and the card face draws both rather than improving one of them quietly.
+// Two numbers a card, three cards: MASTERY reach and frequency, BANISH hold and
+// shove, FORCE damage and crit. The face draws both rather than improving one of
+// them quietly.
 const sRad = () => C._BINDR + C._RADG * lv[2];
 const sCd = () => C._BINDCD - C._CDG * lv[2];
 const sDur = () => C._BINDDUR + C._DURG * lv[3];
-const sRbD = () => 1 + C._RBDG * lv[3];
-const sRegen = () => C._REGEN + lv[5];
+const sRep = () => C._REPELG * lv[3];
+const sRbD = () => 1 + C._RBDG * lv[4];
+const sCrit = () => C._CRIT0 + C._CRITG * lv[4];
+const sRegen = () => C._REGEN + lv[6];
 
 // Is this card's next level on the table? Cap, wave gate, and the prerequisite
 // chain - regen behind extra heart, and extra heart's own second level behind a
@@ -1552,7 +1623,7 @@ const sRegen = () => C._REGEN + lv[5];
 const open = (i) => {
   const c = C._CARDS[i];
   if (lv[i] >= c[0]) return 0;
-  if (wave < (i === 4 && lv[i] ? C._HEART2 : c[1])) return 0;
+  if (wave < (i === 5 && lv[i] ? C._HEART2 : c[1])) return 0;
   return c[2] < 0 || lv[c[2]] >= c[3] + lv[i];
 };
 
@@ -1561,8 +1632,9 @@ const open = (i) => {
 // levels - two cards of eight is not the same progress as two of four.
 const weightOf = (i) => {
   const horn = (lv[0] + lv[1]) / (C._CARDS[0][0] + C._CARDS[1][0]);
-  const bind = (lv[2] + lv[3]) / (C._CARDS[2][0] + C._CARDS[3][0]);
-  const side = i < 2 ? horn : i < 4 ? bind : -1;
+  const bind = (lv[2] + lv[3] + lv[4]) /
+               (C._CARDS[2][0] + C._CARDS[3][0] + C._CARDS[4][0]);
+  const side = i < 2 ? horn : i < 5 ? bind : -1;
   const behind = horn === bind ? -1 : horn < bind ? 0 : 1;   // which half is trailing
   return C._CARDS[i][4] * (side >= 0 && (i < 2 ? 0 : 1) === behind ? C._ADAPT : 1);
 };
@@ -1580,8 +1652,8 @@ const deal = () => {
   // forced screen is still three cards and reads like every other one. It fires
   // on the draw that ends wave HEARTW - deal() runs before take() advances the
   // number, so this is the screen between 9 and 10.
-  if (wave === C._HEARTW && !heartS && pool.includes(4)) {
-    offer.push(pool.splice(pool.indexOf(4), 1)[0]);
+  if (wave === C._HEARTW && !heartS && pool.includes(5)) {
+    offer.push(pool.splice(pool.indexOf(5), 1)[0]);
   }
   while (offer.length < C._CARDN && pool.length) {
     let total = 0;
@@ -1590,7 +1662,7 @@ const deal = () => {
     for (; k < pool.length - 1 && (r -= weightOf(pool[k])) > 0; k++);
     offer.push(pool.splice(k, 1)[0]);
   }
-  if (offer.includes(4)) heartS = 1;              // seen once is seen for the run
+  if (offer.includes(5)) heartS = 1;              // seen once is seen for the run
   if (!offer.length) offer.push(-1);              // Recovery
 };
 
@@ -1598,16 +1670,17 @@ const deal = () => {
 // than a percentage the player has to trust.
 const statAt = (i, l) => [
   1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR + C._RADG * l,
-  1 + C._RBDG * l, C._HEARTS + l, C._REGEN + l,
+  C._BINDDUR + C._DURG * l, 1 + C._RBDG * l, C._HEARTS + l, C._REGEN + l,
 ][i];
 // And the second number a merged card moves. 0 for every card that only moves one,
 // which is what the face tests to decide between two lines and one centred.
 const stat2At = (i, l) => i === 2 ? C._BINDCD - C._CDG * l
-                        : i === 3 ? C._BINDDUR + C._DURG * l : 0;
+                        : i === 3 ? C._REPELG * l
+                        : i === 4 ? 100 * (C._CRIT0 + C._CRITG * l) : 0;
 
 const take = (i) => {
   if (i < 0) hearts = maxhp;                      // Recovery
-  else if (++lv[i] && i === 4) { maxhp++; hearts++; }
+  else if (++lv[i] && i === 5) { maxhp++; hearts++; }
   picking = 0;
   sfx(4);
   // Level the aim for the new wave. Pitch only: yaw is which way you are FACING,
@@ -1947,6 +2020,21 @@ const step = (dt) => {
   for (let i = ghosts.length; i--;) {
     const o = ghosts[i];
     o[5] = max(0, o[5] - dt);
+    // STILL IN THE AIR. The metres were owed by the wave and are travelled here, so
+    // the throw is something the player watches happen rather than a number applied
+    // between two frames - and it is spent BEFORE the hold, so a caught ghost is
+    // blown back and then pinned out there, one motion, while the ring is still on
+    // screen. The hold clock does not run until it lands.
+    //
+    // Clamped at the spawn ring: a throw may cost a ghost its whole approach but
+    // must never put one somewhere the game does not otherwise draw them.
+    if (o[9] > 0) {
+      const d0 = hypot(o[0], o[2]) || 1;
+      const m = min(o[9], C._REPELV * dt), k2 = min(C._ARENA, d0 + m) / d0;
+      o[9] -= m;
+      o[0] *= k2; o[2] *= k2;
+      continue;
+    }
     if (o[8] > 0) { o[8] -= dt; continue; }      // held: it neither moves nor reaches you
     if (o[8] < 0) o[8] = min(0, o[8] + dt);      // shrugging it off, and still coming
     const d = hypot(o[0], o[2]) || 1;
@@ -2425,8 +2513,8 @@ const cardIcon = (i, x, y, r) => {
   g.lineWidth = max(2, r * 0.11);
   g.lineCap = 'round';
 
-  if (i < 0 || i > 3) {                           // the three about health
-    if (i === 4) {                                // EXTRA HEART: red, and one more
+  if (i < 0 || i > 4) {                           // the three about health
+    if (i === 5) {                                // EXTRA HEART: red, and one more
       g.fillStyle = css(C._HPC, 1);
       heartAt(x, y + r * 0.12, r);
       g.strokeStyle = '#fff';
@@ -2470,19 +2558,37 @@ const cardIcon = (i, x, y, r) => {
   }
 
   // the three about the bind: a rainbow ring, and each is a different ring
-  const ring = (rr, from, to) => {
+  // The arc arguments were only ever 0 and 2PI, so a ring is a whole ring and the
+  // only thing worth passing is how big.
+  const ring = (rr) => {
     for (let k = 0; k < 14; k++) {
       g.strokeStyle = css(bow(k / 14), 1);
       g.beginPath();
-      g.arc(x, y, rr, from + (to - from) * k / 14, from + (to - from) * (k + 1) / 14);
+      g.arc(x, y, rr, 2 * PI * k / 14, 2 * PI * (k + 1) / 14);
       g.stroke();
     }
   };
   if (i === 2) {                                  // MASTERY: one ring inside another
-    ring(r * 0.74, 0, 2 * PI);
-    ring(r, 0, 2 * PI);
+    ring(r * 0.74);
+    ring(r);
+  } else if (i === 3) {                           // BANISH: shoved out, every way at once
+    // Four arrows and no ghost. A ring with a ghost in it is what FORCE already
+    // draws, and read as a list of ops - same arcs, same colours, same order - the
+    // two came out the SAME PICTURE, which is a card the player cannot tell from
+    // its neighbour. Arrows say the thing the card does and say it in one glance,
+    // and the ring can sit centred again now that nothing hangs off the top of it.
+    ring(r * 0.6);
+    g.strokeStyle = css(C._GOLD, 1);
+    g.beginPath();
+    for (let k = 0; k < 4; k++) {
+      const a = k * PI / 2;
+      g.moveTo(x + cos(a - 0.42) * r * 0.72, y + sin(a - 0.42) * r * 0.72);
+      g.lineTo(x + cos(a) * r * 0.98, y + sin(a) * r * 0.98);
+      g.lineTo(x + cos(a + 0.42) * r * 0.72, y + sin(a + 0.42) * r * 0.72);
+    }
+    g.stroke();
   } else {                                        // FORCE: a ghost caught inside it
-    ring(r, 0, 2 * PI);
+    ring(r);
     g.fillStyle = 'rgb(' + C._TYPES[0][9] + ')';
     const q = r * 0.52;
     g.beginPath();
@@ -2533,8 +2639,8 @@ const cardFace = (i, x, y, w, h) => {
     g.textAlign = 'center';
     g.fillStyle = C._CARDBG;
     g.fillRect(x, y, w, h);
-    g.strokeStyle = i < 0 || i === 5 ? css(C._HEALC, 1)
-      : i < 2 ? css(C._GOLD, 1) : i < 4 ? css(C._RIMC, 1) : css(C._HPC, 1);
+    g.strokeStyle = i < 0 || i === 6 ? css(C._HEALC, 1)
+      : i < 2 ? css(C._GOLD, 1) : i < 5 ? css(C._RIMC, 1) : css(C._HPC, 1);
     g.lineWidth = 2;
     g.strokeRect(x, y, w, h);
 
@@ -2568,10 +2674,10 @@ const cardFace = (i, x, y, w, h) => {
     // different amounts of room and a constant left the glyph high on one of them.
     // The top of the value line is its baseline less its own size, which is set off
     // the card's WIDTH - so the gap has to be worked out in the same breath.
-    const two = i >= 0 && stat2At(i, 0) > 0;      // a merged card: two of everything
+    const two = i > 1 && i < 5;                   // a merged card: two of everything
     const vy = (two ? 0.68 : 0.77) - C._CARDV * w / h;
     cardIcon(i, mx, y + h * (0.28 + vy) / 2,
-             min(w * C._CARDI, h * 0.16) * C._CARDIS[i < 0 ? 6 : i]);
+             min(w * C._CARDI, h * 0.16) * C._CARDIS[i < 0 ? 7 : i]);
 
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';
@@ -2580,7 +2686,7 @@ const cardFace = (i, x, y, w, h) => {
       g.fillText('Health', mx, y + h * 0.94);
     } else {
       // Hearts and heals are whole; everything else, damage included, is not.
-      const dp = i > 3 ? 0 : 2;
+      const dp = i > 4 ? 0 : 2;
       // One pair of lines, drawn wherever it is told. A card that moves one stat
       // gets a single pair CENTRED in the block the merged pair spans, so the two
       // kinds of card sit at the same weight rather than one looking half empty.
@@ -2605,7 +2711,7 @@ const cardFace = (i, x, y, w, h) => {
       // two kinds of card carry the same weight instead of one looking half empty.
       pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.68 : 0.77);
       if (two)
-        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], 2, 0.86);
+        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], i > 3 ? 0 : 2, 0.86);
     }
   }
   g.textAlign = 'left';
@@ -3013,8 +3119,10 @@ const groundBow = (r) => {
 const bindWall = () => {
   const u = 1 - wallT / C._WALLDUR;               // 0 at the cast, 1 as it dies
   const r = wallR * u ** 0.55;                   // out fast, then easing into place
-  const a = C._WALLA * (1 - u) ** 0.9;
-  const n = RBV.length * C._WALLREP;              // the same rainbow stacked, WALLREP times
+  // A crit sends it out at full brightness and CRITW times as tall - the same
+  // rainbow, more of it, so the loudest cast in the game is still a rainbow.
+  const a = (crit ? 1 : C._WALLA) * (1 - u) ** 0.9;
+  const n = RBV.length * C._WALLREP * (crit ? C._CRITW : 1);
   for (let i = 0; i < C._BINDSEG; i++) {
     const a0 = (i / C._BINDSEG) * 2 * PI, a1 = ((i + 1) / C._BINDSEG) * 2 * PI;
     for (let b = 0; b < n; b++) {
@@ -3323,17 +3431,18 @@ export const anim = () => ({ rec, blink, nextB, bindT, bindC, charging, wallT, w
                              pts: points(),
                              healT, healA, healN,
                              fire: sFire(), dmg: sDmg(), rad: sRad(), cd: sCd(), dur: sDur(),
-                             regen: sRegen(),
+                             rep: sRep(), rbd: sRbD(), critc: sCrit(), crit, regen: sRegen(),
                              bindR: bindR() });
 export const bindInfo = () => ({ ready: bindT <= 0, cd: bindT });
 export const setBind = (v) => { bindT = v; };  // editor: scrub the cooldown readout
 // test seam: start a run at a given wave, to reach an unlock without playing to it
 export const setWave = (w) => { wave = w; budget = budgetFor(w); waveT = 0; spawnT = 0; };
 // test seams for the draw: force a level, and deal without playing a wave
-export const setLv = (i, v) => { lv[i] = v; if (i === 4) { maxhp = C._HEARTS + v; hearts = maxhp; } };
+export const setLv = (i, v) => { lv[i] = v; if (i === 5) { maxhp = C._HEARTS + v; hearts = maxhp; } };
 export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 export const drawCard = cardFace;               // editor: every card, side by side
+export const drawWall = bindWall;               // the cast, on its own, for a check
 // What a card reads at a level, for the checks. Both, because a merged card shows
 // two numbers and a level that moves neither is a level that should not exist.
 export const cardStat = statAt;
