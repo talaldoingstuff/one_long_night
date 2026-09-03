@@ -75,7 +75,12 @@ export const C = {
   // painted on the glass. Anything behind you culls itself.
   // The last number is how much of that alpha survives at wave 1: an early
   // evening sky washes most of them out, and full dark brings them all up.
-  _STAR: [70, 60, 0.03, 0.75, 0.5, 0.25],
+  //
+  // 140 is twice what it was. Only a third of them are ever on screen - the rest
+  // are behind you or off the sides and cull themselves - so the count is not how
+  // many you see, it is how dense the band is in whichever direction you happen to
+  // be facing. At 70 a turn could bring up a bare patch of sky.
+  _STAR: [140, 60, 0.03, 0.75, 0.5, 0.25],
   // The ghosts drifting across the MENU sky: how many at once, the nearest and
   // furthest they are allowed, how high they ride as a FRACTION of their own
   // distance, how long one lasts, and how bright it gets at the top of its arch.
