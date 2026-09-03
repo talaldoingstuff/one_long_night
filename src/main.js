@@ -623,7 +623,7 @@ export const C = {
   // radius gave a 2.23x spread in what actually appeared - 30px of SHOT RATE
   // against 67px of RECOVERY. Measured off the ops each glyph emits, these bring
   // all seven to the same height. Last entry is Recovery, which has no card row.
-  _CARDIS: [1.79, 1.13, 0.84, 0.84, 0.90, 0.85, 0.75],
+  _CARDIS: [1.40, 0.88, 0.84, 0.84, 0.90, 0.85, 0.75],
   _CARDBG: 'rgba(14,16,28,0.96)',
   _HEALC: [96, 214, 118],       // the two cards that give health back
   _HEALP: 2,           // seconds an about-to-be-healed heart pulses before it settles
@@ -2562,7 +2562,15 @@ const cardFace = (i, x, y, w, h) => {
     // Capped against the card's HEIGHT as well as its width. The radius came off
     // the width alone, and the space it has to sit in is vertical - so on a wide,
     // short window the glyph grew while its room shrank, and rode up into the LV.
-    cardIcon(i, mx, y + h * 0.44,
+    //
+    // And centred in the gap it actually HAS, rather than at a fixed 0.44. A merged
+    // card's values start at 0.68 and a single card's at 0.77, so the two have
+    // different amounts of room and a constant left the glyph high on one of them.
+    // The top of the value line is its baseline less its own size, which is set off
+    // the card's WIDTH - so the gap has to be worked out in the same breath.
+    const two = i >= 0 && stat2At(i, 0) > 0;      // a merged card: two of everything
+    const vy = (two ? 0.68 : 0.77) - C._CARDV * w / h;
+    cardIcon(i, mx, y + h * (0.28 + vy) / 2,
              min(w * C._CARDI, h * 0.16) * C._CARDIS[i < 0 ? 6 : i]);
 
     if (i < 0) {                                  // Recovery says what it does instead
@@ -2571,10 +2579,8 @@ const cardFace = (i, x, y, w, h) => {
       g.fillText('Fully Recover', mx, y + h * 0.83);
       g.fillText('Health', mx, y + h * 0.94);
     } else {
-      // Damage a wave, hearts and heals are whole numbers; everything else is not.
       // Hearts and heals are whole; everything else, damage included, is not.
       const dp = i > 3 ? 0 : 2;
-      const two = stat2At(i, 0) > 0;              // a merged card, so two of these
       // One pair of lines, drawn wherever it is told. A card that moves one stat
       // gets a single pair CENTRED in the block the merged pair spans, so the two
       // kinds of card sit at the same weight rather than one looking half empty.

@@ -3179,11 +3179,22 @@ console.log('--- the card icons ------------------------------------------------
     }
     return y1 - y0;
   };
+  // NOT all the same height, deliberately. A solid gold triangle reads heavier than
+  // a thin ring at the same measured height, so the two horns are drawn smaller on
+  // purpose - equal height is not equal weight. What this catches is the 2.23x it
+  // used to be, where one glyph could not fit the space another sat comfortably in.
   const heights = IDS.map(boxOf);
-  ok('and every one of them is the same height on the card',
-     Math.max(...heights) / Math.min(...heights) < 1.1,
+  const spread = Math.max(...heights) / Math.min(...heights);
+  ok('and no glyph is wildly bigger than another',
+     spread < 1.4,
      heights.map((h, k) => NAME[k] + ' ' + h.toFixed(0)).join(', ') + ' - a spread of ' +
-     (Math.max(...heights) / Math.min(...heights)).toFixed(2) + 'x, where it was 2.23x');
+     spread.toFixed(2) + 'x, where it was 2.23x. The horns are the small ones and ' +
+     'are meant to be: a filled shape carries more weight than an outline');
+
+  // ...and the two that are drawn smallest are the two FILLED ones.
+  ok('and the filled glyphs are the ones drawn smaller, not an accident',
+     heights[0] < heights[2] && heights[1] < heights[2],
+     'SHOT RATE and SHOT DAMAGE are solid gold; the rainbow pair are rings');
 
   ok('every card icon is a different picture', !dupes.length,
      IDS.length + ' glyphs, no two alike' + (dupes.length ? ': ' + dupes.join(', ') : ''));
