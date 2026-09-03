@@ -3781,11 +3781,21 @@ console.log('--- the time of day -----------------------------------------------
      'near ' + w1[1].to + ' against far ' + w1[1].from + '. Screen y IS distance on ' +
      'a ground plane, so a vertical ramp is a radial one for free');
 
-  // and it gets dark
-  ok('wave 1 is an evening and wave 30 is night',
-     lum(w30[0].from) < lum(w1[0].from) / 4 && lum(w30[1].to) < lum(w1[1].to) / 3,
-     'sky ' + w1[0].from + ' -> ' + w30[0].from + ', ground ' + w1[1].to + ' -> ' +
-     w30[1].to);
+  // AND IT GETS DARK - but the sky does, and the sand does not. This asked for a
+  // third of the brightness off the ground too, and the palette that is shipped
+  // keeps the floor lit all the way through: 321 down to 267, where it used to end
+  // near black. That is a deliberate look rather than a drift, so what the check
+  // guards is the shape of it - the evening drains the SKY, and the ground is left
+  // standing out against it instead of going down with it.
+  const sky1 = lum(w1[0].from), sky30 = lum(w30[0].from);
+  const gnd1 = lum(w1[1].to), gnd30 = lum(w30[1].to);
+  ok('wave 1 is an evening and wave 30 is a night sky over lit sand',
+     sky30 < sky1 / 4 && gnd30 < gnd1 && gnd30 / sky30 > 4 * (gnd1 / sky1),
+     'sky ' + w1[0].from + ' -> ' + w30[0].from + ', down ' +
+     (sky1 / sky30).toFixed(1) + 'x. Ground ' + w1[1].to + ' -> ' + w30[1].to +
+     ', down only ' + (gnd1 / gnd30).toFixed(2) + 'x - so the floor stands ' +
+     (gnd30 / sky30).toFixed(1) + 'x the sky by wave ' + C._ENVW + ', against ' +
+     (gnd1 / sky1).toFixed(1) + 'x at the start');
   ok('and the sky at the skyline is the warm part of it',
      rgb(w1[0].to)[0] > rgb(w1[0].from)[0] && rgb(w1[0].to)[2] < rgb(w1[0].from)[2],
      'crimson at the horizon under purple above it: ' + w1[0].from + ' to ' + w1[0].to);
@@ -3818,44 +3828,63 @@ console.log('--- the time of day -----------------------------------------------
 console.log('');
 console.log('--- the world ------------------------------------------------------');
 {
-  // THE GRAIN ON THE SAND, before the ring that sits on it. The ground was two
-  // colours and a ramp, which is a wash and not a surface: a vertical gradient looks
-  // identical from every bearing, so turning on the spot moved nothing down there at
-  // all. These sit at fixed places on the floor and go through the same projection
-  // as everything else, so it slides past when you turn.
-  const SC = 'rgba(' + C._SANDC.join(',') + ',';
-  const grains = (ops) => ops.filter((o) => o.op === 'rect' && o.c.startsWith(SC));
+  // THE SAND, before the ring that sits on it. The ground was two colours and a
+  // ramp, which is a wash and not a surface: a vertical gradient looks identical
+  // from every bearing, so turning on the spot moved nothing down there at all.
+  // These are facets lying ON the floor, through the same projection as everything
+  // else, so it slides past when you turn.
+  // Everything BEFORE the composite goes additive. The puppet is triangles too, and
+  // a filter that only asked for three points was measuring the unicorn's gold as
+  // though it were sand - which reported a red of 139 for a palette whose brightest
+  // entry is 84. The sand is the only three-point fill drawn under source-over.
+  const facets = (ops) => {
+    const i = ops.findIndex((o) => o.comp === 'lighter');
+    return (i < 0 ? ops : ops.slice(0, i)).filter((o) => o.op === 'fill' && o.n === 3 && o.p);
+  };
+  const red = (o) => +o.c.split('(')[1].split(',')[0];
   M.restart(); M.look(0, 0); M.place([]); M.setFire(0); M.setWave(1);
   rec.ops = []; tick();
-  const G0 = grains(rec.ops).map((o) => o.y);
+  const F0 = facets(rec.ops);
   const sky0 = 500 / 2;                           // pitch is level, so that is the horizon
-  const lo = G0.filter((y) => y > sky0 + (500 - sky0) * 0.5).length;
-  ok('the sand has grain on it, spread down the floor and not piled at the skyline',
-     G0.length > 40 && lo > G0.length * 0.15,
-     G0.length + ' grains on screen, ' + lo + ' of them on the near half of the ' +
-     'floor. Spread LOG-uniformly in distance because screen height off the horizon ' +
-     'goes with 1/distance - even spacing in metres puts almost all of them in the ' +
-     'few rows nearest the skyline, which is a dirty horizon rather than a surface');
-  // The whole point is that it MOVES. Two bearings, and the grain has to land
-  // somewhere else - a gradient cannot do this, which is why the ground had no
-  // parallax at all before there was anything standing on it.
+  const meanY = (o) => (o.p[0][1] + o.p[1][1] + o.p[2][1]) / 3;
+  const near = F0.filter((o) => meanY(o) > sky0 + (500 - sky0) * 0.5);
+  ok('the sand is a lattice of facets, spread down the floor and not piled at the skyline',
+     F0.length > 40 && near.length > 4,
+     F0.length + ' facets drawn, ' + near.length + ' of them on the near half of the ' +
+     'floor. The generator spaces rings by sqrt(r/N), which is equal AREA and right ' +
+     'for a disc seen from above - read along a floor it puts the first ring 20m out ' +
+     'and leaves nothing where you are looking, so these are geometric instead');
+  // The facets ARE the distance ramp, not something painted over it: the shade runs
+  // from the near ground colour under your feet to the far one at the rim, so
+  // nothing the gradient was doing is lost by covering it.
+  const farOnes = F0.filter((o) => meanY(o) < sky0 + (500 - sky0) * 0.2);
+  const avg = (a2) => a2.reduce((t, o) => t + red(o), 0) / (a2.length || 1);
+  ok('and they carry the distance ramp themselves, near lit and far not',
+     near.length && farOnes.length && avg(near) > avg(farOnes) + 3,
+     'red ' + avg(near).toFixed(1) + ' near against ' + avg(farOnes).toFixed(1) +
+     ' far. Opaque facets over a gradient would have thrown the gradient away; ' +
+     'these run between its two ends instead, which is also what leaves the rim at ' +
+     'exactly the colour behind it and makes the edge of the disc invisible');
+  // The whole point is that it MOVES. A gradient cannot do this, which is why the
+  // ground had no parallax of its own at all.
+  const before = F0.map((o) => o.p[0][0]).join();
   M.look(1, 0); rec.ops = []; tick();
-  const G1 = grains(rec.ops).map((o) => o.x);
+  const F1 = facets(rec.ops);
   ok('and it swings with the view, which is the whole reason it is there',
-     G1.length > 40,
-     G1.length + ' of them at a second bearing. They are floor, not glass: a ' +
-     'vertical gradient is the same picture from every angle, and standing on one ' +
-     'is why turning used to feel like the world turning with you');
+     F1.length > 40 && F1.map((o) => o.p[0][0]).join() !== before,
+     F1.length + ' facets at a second bearing, in different places. They are floor, ' +
+     'not glass - and standing on a gradient is why turning used to move nothing ' +
+     'below the horizon');
   // It follows the light down. The floor is nearly black by ENVW and lit sand on an
   // unlit floor would be the one thing on screen the night never reached.
-  M.setWave(C._ENVW); rec.ops = []; tick();
-  const late = grains(rec.ops);
-  const early = (() => { M.setWave(1); rec.ops = []; tick(); return grains(rec.ops); })();
+  M.look(0, 0); M.setWave(C._ENVW); rec.ops = []; tick();
+  const lateF = facets(rec.ops);
   ok('and it dims with the ground it lies on',
-     late.length && early.length && late[0].alpha < early[0].alpha,
-     'alpha ' + (late[0] || {}).alpha + ' at wave ' + C._ENVW + ' against ' +
-     (early[0] || {}).alpha + ' at wave 1 - the floor goes almost black by then, and ' +
-     'grain that did not follow it down would be lit sand on an unlit floor');
+     lateF.length && avg(lateF) < avg(F0) - 10,
+     'mean red ' + avg(lateF).toFixed(1) + ' at wave ' + C._ENVW + ' against ' +
+     avg(F0).toFixed(1) + ' at wave 1 - it reads the same two palette entries the ' +
+     'ground ramp does, so it cannot drift away from the time of day');
+  M.setWave(1);
 
   const RC = 'rgba(' + C._RINGC.join(',') + ',';
   const ringOps = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 4 && o.c.startsWith(RC));

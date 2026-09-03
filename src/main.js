@@ -65,8 +65,8 @@ export const C = {
   // for the same 61 if a hard change per five waves ever reads better.
   //
   // Each row is skyTop, skyHorizon, groundFar, groundNear, horizonLine.
-  _ENV0: [[46, 20, 74], [130, 42, 70], [40, 33, 30], [84, 70, 56], [150, 80, 80]],
-  _ENV1: [[3, 4, 9], [8, 8, 18], [7, 7, 10], [16, 15, 18], [27, 32, 54]],
+  _ENV0: [[46, 20, 74], [89, 29, 48], [59, 48, 43], [127, 107, 87], [88, 50, 50]],
+  _ENV1: [[3, 4, 9], [8, 8, 18], [21, 21, 14], [101, 93, 73], [27, 32, 54]],
   _ENVW: 30,          // the wave the night is complete on
 
   // --- The world ----------------------------------------------------------------
@@ -114,23 +114,34 @@ export const C = {
   // small to read as ghosts at all, which is the only thing they are here to do.
   _BG: [18, 11, 30, 0.16, 7, 0.85],
   _STARS: 2.8,        // and how big, in pixels
-  // GRAIN ON THE SAND. The ground was two colours and a ramp between them, which
-  // is a wash rather than a surface: turn on the spot and nothing down there moved
-  // at all, because a vertical gradient looks the same from every bearing. These
-  // sit at fixed places ON THE FLOOR and go through the same projection everything
-  // else does, so the ground finally slides past when you turn - which is the cue
-  // that says you are standing on something.
+  // LOW-POLY SAND. The ground was two colours and a ramp between them, which is a
+  // wash and not a surface: a vertical gradient looks identical from every bearing,
+  // so turning on the spot moved nothing down there at all. This is a lattice of
+  // facets lying ON the floor, through the same projection as everything else, so
+  // the ground slides past when you turn.
   //
-  // Spread LOG-uniformly between the near and far numbers rather than evenly.
-  // Screen height off the horizon goes with 1/distance, so even spacing in metres
-  // piles almost all of them into the few rows nearest the skyline; even spacing in
-  // the LOG is close enough to even on screen, for one ** and no arithmetic.
+  // Rings, segments, nearest ring, furthest, how far a point may wander around its
+  // segment, how far it may wander along the radius as a fraction of its ring, and
+  // how much the facets vary in shade.
   //
-  // Count, nearest, furthest, pixels, brightest, and how much survives full night -
-  // the ground itself goes almost black by ENVW and grain that did not follow it
-  // down would be lit sand on an unlit floor.
-  _SAND: [260, 1.4, 55, 1.7, 0.5, 0.22],
-  _SANDC: [255, 236, 200],      // warmer than the floor it sits on, and lighter
+  // RINGS ARE GEOMETRIC, NOT EQUAL-AREA. The generator this came from draws a disc
+  // seen from above, where sqrt(r/N) puts the same floor area in every ring - and
+  // read along a floor instead of down at one that is exactly backwards: it would
+  // land the first ring 20m out and leave nothing at all in the stretch you are
+  // actually looking at. Screen height off the horizon goes with 1/distance, so
+  // spacing the rings geometrically is what makes the facets an even size ON SCREEN.
+  // At 12 and 90 they fall at 1.5, 2.1, 3.1, 4.5, 6.5, 9.5, 14, 20, 29, 43, 62 and
+  // 90 metres - SEVEN of them inside the arena, which is where the game happens and
+  // where the facets therefore have to be.
+  //
+  // The furthest ring is 90m and NOT jittered, so the disc ends on a clean circle
+  // just under the skyline, where its shade has reached the far colour the gradient
+  // is already painting - which is what makes the edge of it invisible.
+  //
+  // The last number is the SEED. One lattice is not better than another and there
+  // is no arguing a floor into being right, so the thing to do is turn the number
+  // until one of them looks like sand - which is what tools/sand-editor.html is for.
+  _SAND: [12, 24, 1, 90, 0.5, 0.25, 0.75, 330],
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
   // The mesh is the unicorn head and neck from the previous game, recovered from
@@ -3011,8 +3022,9 @@ const envC = (i) => mix(C._ENV0[i], C._ENV1[i], night());
 const STARS = [];
 // And a fixed floor, made the same way and for the same reason: both are scenery
 // at a fixed bearing that has to swing with the view rather than be painted on the
-// glass.
-const SAND = [];
+// glass. Points in polar, one shade a facet, and the lattice that joins them is
+// arithmetic rather than a stored index list.
+const SANDP = [], SANDS = [];
 // Ghosts drifting across the sky behind the menus, fading in and out. They are
 // never drawn during a run - see the call site - so they cannot be mistaken for
 // something to shoot at, and that is what lets them come close enough to actually
@@ -3075,23 +3087,100 @@ const sky = () => {
   g.globalAlpha = 1;
 };
 
-// The grain, over the ground ramp and under everything that stands on it. Drawn
-// before the composite goes to lighter, so these tint the floor rather than glow
-// on it - sand catching what light is left, not sparks.
+// Sky, ground, sand, and the horizon between them. Every horizontal direction
+// shares the same vanishing height, so the horizon is one straight line whose only
+// input is pitch. Overdrawn by the kick, so the shake cannot expose an edge.
+//
+// Its own function because it is the one part of a frame that stands alone - no
+// ghosts, no puppet, no HUD - which is what lets an editor draw the world without
+// drawing a game into it.
+const env = () => {
+  const m = C._SHAKEA;
+  // Both gradients are anchored to the HORIZON rather than to the screen, so the
+  // warm band stays welded to the skyline when the view pitches instead of sliding
+  // up and down it.
+  const hy = H / 2 + tan(pitch) * C._F * PX;
+  const ramp = (y0, y1, a, b) => {
+    const q = g.createLinearGradient(0, y0, 0, y1);
+    q.addColorStop(0, css(envC(a), 1));
+    q.addColorStop(1, css(envC(b), 1));
+    return q;
+  };
+  g.fillStyle = ramp(hy - H, hy, 0, 1);
+  g.fillRect(-m, -m, W + 2 * m, H + 2 * m);
+  sky();                                          // before the ground, which clips them
+  // Ground brightness is distance: the floor under you catches the last of the
+  // light and it falls away toward the skyline. Screen y IS distance on a ground
+  // plane, so a vertical ramp is a radial one for free.
+  g.fillStyle = ramp(hy, H + m, 2, 3);
+  g.fillRect(-m, hy, W + 2 * m, H - hy + m);
+  sand();
+  g.fillStyle = css(envC(4), 1);
+  g.fillRect(-m, hy - 1, W + 2 * m, 2);
+};
+
+// The sand, over the ground ramp and under everything that stands on it. Built
+// once and then only ever projected, because the lattice is the same every frame
+// and only the camera moves.
+//
+// SEEDED, not random(). The floor has to be the same floor on every run or it is
+// noise rather than a place, and a fixed multiplier is a generator in nine
+// characters where carrying an array of positions would be hundreds of bytes.
 const sand = () => {
-  const q = C._SAND;
-  if (!SAND.length)
-    for (let i = 0; i < q[0]; i++)
-      SAND.push([random() * 2 * PI, q[1] * (q[2] / q[1]) ** random(), 0.35 + random() * 0.65]);
-  const lit = q[5] + (1 - q[5]) * (1 - night());
-  g.fillStyle = css(C._SANDC, 1);
-  for (const t of SAND) {
-    const p = gpt(t[0], t[1], 0);
-    if (!p) continue;
-    g.globalAlpha = t[2] * q[4] * lit;
-    g.fillRect(p[0], p[1], q[3], q[3]);
+  const q = C._SAND, N = q[0], S = q[1];
+  if (!SANDP.length) {
+    let z = q[7];
+    const rnd = () => (z = z * 16807 % 2147483647) / 2147483647;
+    SANDP.push([0, 0]);                           // the point under your feet
+    for (let r = 1; r <= N; r++) {
+      // Half a segment of turn on every other ring, so no facet edge ever runs
+      // straight out from the middle - a lattice that lines up radially reads as a
+      // dartboard, which is the one pattern a floor must not have.
+      const d = q[2] * (q[3] / q[2]) ** (r / N), rim = r === N;
+      for (let i = 0; i < S; i++)
+        SANDP.push([(i + (r % 2) / 2 + (rim ? 0 : (rnd() - 0.5) * q[4])) / S * 2 * PI,
+                    rim ? d : d * (1 + (rnd() - 0.5) * q[5])]);
+    }
+    // One shade a facet, in the order the draw below walks them. It runs from the
+    // near ground colour under your feet to the far one at the rim, so the facets
+    // ARE the distance ramp rather than something painted over it - and the wander
+    // is scaled by the shade, which leaves the rim at exactly the colour the
+    // gradient behind it is already showing.
+    for (let r = 1; r <= N; r++)
+      for (let i = S * (r > 1 ? 2 : 1); i--;) {
+        const t = 1 - (r - 0.5) / N;
+        SANDS.push(t * (1 + (rnd() - 0.5) * q[6]));
+      }
   }
-  g.globalAlpha = 1;
+  // Both ends of the ramp, read once. The facets are mixed between the SAME two
+  // palette entries the ground gradient uses, so the floor and the sand on it can
+  // never disagree about the time of day - whatever the palette is retuned to, and
+  // whether the evening ends dark or merely cooler.
+  const F = envC(2), Nr = envC(3);
+  let k = 0;
+  for (let r = 1; r <= N; r++)
+    for (let i = 0; i < S; i++) {
+      const j = (i + 1) % S, A = 1 + (r - 2) * S, B = 1 + (r - 1) * S;
+      // A fan on the innermost ring and a pair of facets a quad after that.
+      for (const T of r === 1 ? [[0, 1 + i, 1 + j]]
+                              : [[A + i, B + i, B + j], [A + i, B + j, A + j]]) {
+        const t = min(1, max(0, SANDS[k++]));
+        const p0 = gpt(SANDP[T[0]][0], SANDP[T[0]][1], 0);
+        const p1 = gpt(SANDP[T[1]][0], SANDP[T[1]][1], 0);
+        const p2 = gpt(SANDP[T[2]][0], SANDP[T[2]][1], 0);
+        if (!p0 || !p1 || !p2) continue;
+        // Stroked in its own colour as well as filled. Two antialiased edges meeting
+        // under source-over do NOT sum to one whole - they leave a hairline of the
+        // gradient showing between every pair of facets - and a hairline grid is
+        // worse than no facets at all.
+        g.fillStyle = g.strokeStyle = css(mix(F, Nr, t), 1);
+        g.lineWidth = 0.6;
+        g.beginPath();
+        g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]);
+        g.closePath();
+        g.fill(); g.stroke();
+      }
+    }
 };
 
 // One band of the ground rainbow: the ring of floor between r0 and r1, filled.
@@ -3292,30 +3381,7 @@ const render = () => {
   g.save();
   if (shake) g.translate((random() - 0.5) * shake * m, (random() - 0.5) * shake * m);
 
-  // Sky, ground, and the horizon between them. Every horizontal direction shares
-  // the same vanishing height, so the horizon is one straight line whose only
-  // input is pitch. Overdrawn by the kick, so the shake cannot expose an edge.
-  const hy = H / 2 + tan(pitch) * C._F * PX;
-  // Both gradients are anchored to the HORIZON rather than to the screen, so the
-  // warm band stays welded to the skyline when the view pitches instead of
-  // sliding up and down it.
-  const ramp = (y0, y1, a, b) => {
-    const q = g.createLinearGradient(0, y0, 0, y1);
-    q.addColorStop(0, css(envC(a), 1));
-    q.addColorStop(1, css(envC(b), 1));
-    return q;
-  };
-  g.fillStyle = ramp(hy - H, hy, 0, 1);
-  g.fillRect(-m, -m, W + 2 * m, H + 2 * m);
-  sky();                                          // before the ground, which clips them
-  // Ground brightness is distance: the floor under you catches the last of the
-  // light and it falls away toward the skyline. Screen y IS distance on a ground
-  // plane, so a vertical ramp is a radial one for free.
-  g.fillStyle = ramp(hy, H + m, 2, 3);
-  g.fillRect(-m, hy, W + 2 * m, H - hy + m);
-  sand();                                         // and the grain on it
-  g.fillStyle = css(envC(4), 1);
-  g.fillRect(-m, hy - 1, W + 2 * m, 2);
+  env();
   // The menus sit over the world's own sky rather than over black - the same dusk
   // the first wave starts in, and it costs nothing because it is drawn already.
   // The sky's ghosts belong to the menus and ONLY to the menus: they were drawn
@@ -3487,6 +3553,10 @@ export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 export const drawCard = cardFace;               // editor: every card, side by side
 export const drawWall = bindWall;               // the cast, on its own, for a check
+export const drawEnv = env;                     // the world with no game in it
+// The lattice is built once and then only projected, so a page that turns the
+// numbers has to be able to throw the built one away.
+export const reseedSand = () => { SANDP.length = SANDS.length = 0; };
 // What a card reads at a level, for the checks. Both, because a merged card shows
 // two numbers and a level that moves neither is a level that should not exist.
 export const cardStat = statAt;

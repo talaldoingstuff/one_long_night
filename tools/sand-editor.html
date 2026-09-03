@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sand</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060e;overflow:hidden;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#c8cee6}
+  #c{position:fixed;inset:0;opacity:0;pointer-events:none}
+  #stage{display:block;position:fixed;inset:0;width:100%;height:100%}
+  #panel{position:fixed;top:0;left:0;bottom:0;width:300px;background:#0c0e18f2;border-right:1px solid #232a44;
+         overflow-y:auto;padding:10px 12px 40px;box-shadow:8px 0 24px #0008;z-index:3}
+  h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7f89b0;margin:16px 0 6px;
+     border-bottom:1px solid #232a44;padding-bottom:4px}
+  h2:first-child{margin-top:0}
+  .row{display:grid;grid-template-columns:70px 1fr 46px;gap:6px;align-items:center;margin:2px 0}
+  .row label{color:#8b93b8}
+  .row input[type=range]{width:100%;accent-color:#ffd23f}
+  .row input[type=color]{width:100%;height:20px;padding:0;border:1px solid #2e3860;background:#1a2138;border-radius:3px}
+  .row .v{text-align:right;color:#e8ecf8;font-variant-numeric:tabular-nums}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  button{background:#1a2138;border:1px solid #2e3860;color:#c8cee6;padding:5px 9px;border-radius:4px;
+         cursor:pointer;font:inherit}
+  button:hover{background:#232c4a}
+  #note{margin:0 0 8px;padding:6px 8px;border-radius:4px;background:#101528;border:1px solid #232a44;color:#8b93b8}
+  #read{margin-top:6px;color:#59618a;line-height:1.7}
+  #read b{font-weight:400;color:#c8cee6}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="stage"></canvas>
+<div id="panel"></div>
+
+<script type="module">
+// Drives the real module, so the floor on screen here is the floor in the game.
+//
+// The game keeps running in its own hidden canvas - it owns #c, and its loop is
+// what keeps resize, the wave clock and the pointer working. setCtx points it at
+// the stage for exactly as long as one environment draw takes and hands it
+// straight back; JavaScript is single threaded, so the game's next frame cannot
+// land in the middle of that.
+//
+// drawEnv is the sky, the stars, the ground ramp, the sand and the horizon, and
+// NOTHING else - no ghosts, no puppet, no HUD, no ring. What the sand looks like
+// is a question about the world, and every other thing on screen is an argument
+// against being able to see it.
+const M = await import('/src/main.js');
+const { C } = M;
+const hostCtx = document.getElementById('c').getContext('2d');
+const stage = document.getElementById('stage');
+const stc = stage.getContext('2d');
+const panel = document.getElementById('panel');
+
+// The game listens on window, so a slider drag would also drag the aim underneath
+// it. Dragging the STAGE is meant to turn the view - that is the whole point of
+// looking at a floor in perspective - so only the panel is sealed.
+['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'keydown', 'keyup']
+  .forEach((t) => panel.addEventListener(t, (e) => e.stopPropagation()));
+
+let wave = 1;
+
+// --- the panel -----------------------------------------------------------------
+const h2 = (t) => { const e = document.createElement('h2'); e.textContent = t; panel.append(e); };
+const note = (t) => { const e = document.createElement('div'); e.id = 'note'; e.textContent = t; panel.append(e); };
+
+const row = (lab, kids) => {
+  const d = document.createElement('div');
+  d.className = 'row';
+  const l = document.createElement('label');
+  l.textContent = lab;
+  d.append(l, ...kids);
+  panel.append(d);
+  return d;
+};
+
+const slider = (lab, lo, hi, step, get, set, fmt = (v) => (+v).toFixed(step < 1 ? 2 : 0)) => {
+  const r = document.createElement('input');
+  const v = document.createElement('span');
+  r.type = 'range';
+  Object.assign(r, { min: lo, max: hi, step, value: get() });
+  v.className = 'v';
+  v.textContent = fmt(get());
+  r.oninput = () => { set(+r.value); v.textContent = fmt(+r.value); };
+  row(lab, [r, v]);
+  return r;
+};
+
+// A colour as the module keeps it - three numbers - against what an <input> wants.
+const hex = (c) => '#' + c.map((n) => ('0' + Math.round(n).toString(16)).slice(-2)).join('');
+const swatch = (lab, arr, i) => {
+  const r = document.createElement('input');
+  r.type = 'color';
+  r.value = hex(arr[i]);
+  r.oninput = () => {
+    const h = r.value;
+    arr[i] = [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
+  };
+  row(lab, [r]);
+};
+
+// --- the lattice ---------------------------------------------------------------
+// Every one of these rebuilds it. The points are generated once and then only ever
+// projected, so a page that turns the numbers has to throw the built one away or
+// it is looking at the floor it had before.
+h2('lattice');
+note('Rebuilds on every change. Rings are spaced geometrically, not by sqrt - even ' +
+     'in metres puts the first ring 20m out and leaves nothing where you are looking.');
+const build = (i, lab, lo, hi, step) =>
+  slider(lab, lo, hi, step, () => C._SAND[i], (v) => { C._SAND[i] = v; M.reseedSand(); });
+
+const seedR = build(7, 'seed', 1, 400, 1);
+build(0, 'rings', 3, 12, 1);
+build(1, 'segments', 6, 26, 1);
+build(2, 'nearest', 0.5, 6, 0.1);
+build(3, 'furthest', 25, 200, 1);
+build(4, 'turn wobble', 0, 1, 0.05);
+build(5, 'reach wobble', 0, 0.8, 0.05);
+build(6, 'shade spread', 0, 1, 0.05);
+
+const btns = document.createElement('div');
+btns.className = 'btns';
+panel.append(btns);
+const button = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; btns.append(b); };
+// One lattice is not better than another and there is no arguing a floor into
+// being right, so the useful control is the one that just deals another.
+button('another seed', () => {
+  seedR.value = 1 + Math.floor(Math.random() * 400);
+  seedR.oninput();                                // sets the number, reseeds, redraws the readout
+});
+
+// --- the time of day -----------------------------------------------------------
+// The facets read the same two palette entries the ground ramp does - groundFar
+// under the skyline and groundNear at your feet - so they cannot drift away from
+// the time of day, and the wave is what mixes between the two palettes below.
+h2('time of day');
+slider('wave', 1, C._ENVW, 1, () => wave, (v) => { wave = v; });
+
+h2('dusk  (wave 1)');
+note('The sand is these colours. Facets run between groundFar and groundNear, so ' +
+     'those two ARE the floor - the other three are the sky it sits under.');
+['sky top', 'sky horizon', 'ground far', 'ground near', 'horizon'].forEach((n, i) => swatch(n, C._ENV0, i));
+
+h2('night  (wave ' + C._ENVW + ')');
+['sky top', 'sky horizon', 'ground far', 'ground near', 'horizon'].forEach((n, i) => swatch(n, C._ENV1, i));
+
+// --- the readout ---------------------------------------------------------------
+h2('what that is');
+const read = document.createElement('div');
+read.id = 'read';
+panel.append(read);
+
+const btns2 = document.createElement('div');
+btns2.className = 'btns';
+panel.append(btns2);
+const b2 = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; btns2.append(b); };
+// What the page is FOR: the two lines to paste back into main.js.
+const config = () => {
+  const arr = (a) => '[' + a.map((c) => '[' + c.join(', ') + ']').join(', ') + ']';
+  return '_SAND: [' + C._SAND.join(', ') + '],\n' +
+         '_ENV0: ' + arr(C._ENV0) + ',\n' +
+         '_ENV1: ' + arr(C._ENV1) + ',';
+};
+b2('copy config', () => navigator.clipboard.writeText(config()));
+
+// --- the frame -----------------------------------------------------------------
+// The wave is pinned rather than set once - the game's own clock is still running
+// in the hidden canvas and would otherwise walk the evening on underneath the
+// slider - but ONLY when it has drifted. setWave puts the spawn timer back to
+// zero, so calling it every frame buys a ghost every frame, and the hidden game
+// chokes on a field nobody can see. The field is emptied every frame for the same
+// reason: none of it is drawn here, so none of it should cost anything.
+const draw = () => {
+  const d = M.dbg();
+  if (stage.width !== d.W || stage.height !== d.H) { stage.width = d.W; stage.height = d.H; }
+  if (M.anim().wave !== wave) M.setWave(wave);
+  M.place([]);
+  M.setCtx(stc);
+  M.drawEnv();
+  M.setCtx(hostCtx);
+  const q = C._SAND;
+  const rings = [];
+  for (let r = 1; r <= q[0]; r++) rings.push((q[2] * (q[3] / q[2]) ** (r / q[0])).toFixed(1));
+  read.innerHTML =
+    '<b>' + (q[1] + 2 * q[1] * (q[0] - 1)) + '</b> facets, ' +
+    '<b>' + (1 + q[0] * q[1]) + '</b> points<br>' +
+    'rings at <b>' + rings.join('</b>, <b>') + '</b> m<br>' +
+    'the arena is <b>' + C._ARENA + '</b> m, and a ghost reaches you at <b>' + C._GCONTACT + '</b> m<br>' +
+    'drag the floor to look around';
+  requestAnimationFrame(draw);
+};
+draw();
+</script>
+</body>
+</html>
