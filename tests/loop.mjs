@@ -2809,20 +2809,27 @@ console.log('--- the upgrade cards ---------------------------------------------
     };
     const force = lines(3, 6);                    // LV 7: damage flat, hold moving
     ok('a merged card shows both of the numbers it moves',
-       force.includes('Damage A Wave') && force.includes('Seconds Held'),
+       force.includes(C._CARDS[3][6]) && force.includes(C._CARD2[1]),
        '"' + force.join('" / "') + '" - showing one and improving the other quietly ' +
        'is the thing a card must not do');
 
-    // FORCE buys damage every fourth level, so six levels in nine do not move it.
-    ok('and a step that does not step shows its value rather than "2 > 2"',
-       force.some((t) => t === '2') && !force.some((t) => /^(\d+) > $/.test(t)),
-       'at LV 7 the damage line reads 2, not 2 > 2 - an arrow to the same number ' +
-       'reads as a broken card rather than as a level that buys the other stat');
-
-    const rising = lines(3, 3);                   // LV 4 -> 5 is where damage steps
-    ok('and it shows the arrow on the level that does move it',
-       rising.includes('1 > 2'),
-       'LV 4 to 5 is 1 > 2 - the card is only quiet when the number is');
+    // THE ONE THAT MATTERS. A card offering a level that changes nothing reads as
+    // broken, and FORCE used to do exactly that: whole-number damage at LV 5 and
+    // LV 9 meant six levels in nine bought no damage at all. The fix was to make
+    // the number move, not to dress up a flat one.
+    const flat = [];
+    for (let c = 0; c < C._CARDS.length; c++)
+      for (let l = 0; l < C._CARDS[c][0]; l++) {
+        if (M.cardStat(c, l) === M.cardStat(c, l + 1))
+          flat.push(C._CARDS[c][5] + ' LV' + (l + C._CARDS[c][7] + 1));
+        const a = M.cardStat2(c, l);
+        if (a && a === M.cardStat2(c, l + 1))
+          flat.push(C._CARDS[c][5] + ' second stat LV' + (l + C._CARDS[c][7] + 1));
+      }
+    ok('and no card, at any level, offers a step that changes nothing',
+       !flat.length,
+       flat.length ? flat.join(', ') : 'all six cards move every number they show, ' +
+       'at every level - so the arrow on a card is always earned');
 
     const single = lines(0, 2);
     ok('and a single card still shows one pair',
@@ -3050,8 +3057,11 @@ console.log('--- the upgrade cards ---------------------------------------------
   rec.ops = []; tick();
   const texts = rec.ops.filter((o) => o.op === 'text');
   const bx = M.boxes();
+  // Half the HEIGHT, not 0.4 of it: a merged card carries four lines under its
+  // glyph and the card grew to 0.44 to give them room. Width and the total across
+  // are what stop it swallowing the screen, and neither moved.
   ok('a card is a card, not half the screen',
-     bx[0][2] < 900 * 0.2 && bx[0][3] < 500 * 0.4 &&
+     bx[0][2] < 900 * 0.2 && bx[0][3] < 500 * 0.5 &&
      bx[bx.length - 1][0] + bx[0][2] - bx[0][0] < 900 * 0.75,
      bx[0][2].toFixed(0) + 'x' + bx[0][3].toFixed(0) + 'px each, ' +
      (bx[bx.length - 1][0] + bx[0][2] - bx[0][0]).toFixed(0) + 'px across for all three');

@@ -498,7 +498,7 @@ export const C = {
     [8, 1,  -1, 0, 20, 'SHOT RATE',       'Shots A Second', 1],
     [8, 1,  -1, 0, 20, 'SHOT DAMAGE',     'Damage A Horn',  1],
     [8, 1,  -1, 0, 20, 'RAINBOW MASTERY', 'Metres',         1],
-    [8, 2,  -1, 0, 20, 'RAINBOW FORCE',   'Damage A Wave',  1],
+    [8, 2,  -1, 0, 20, 'RAINBOW FORCE',   'Wave Damage',    1],
     [2, 3,  -1, 0, 10, 'EXTRA HEART',     'Hearts',         0],
     [2, 1,   4, 1, 10, 'HEAL',            'A Wave',         1],
   ],
@@ -595,9 +595,21 @@ export const C = {
   // there because a Darter has 4, a Splitter 10 and a Hulk 18: the ring sweeps the
   // chaff and never touches what is actually dangerous, and the Warden shrugs it
   // off entirely.
-  _RBDG: 4,
+  // Damage a cast lands, per level of FORCE. 1.00 at the start and 3.00 at LV 9,
+  // and it MOVES EVERY LEVEL - it used to step in whole numbers at LV 5 and LV 9,
+  // so six levels in nine bought no damage at all and the card had nothing to show
+  // for them. Fractional damage against integer health is fine: a ghost dies when
+  // its health reaches zero, whatever the arithmetic on the way.
+  //
+  // 3.00 is chosen against the Drifter's 3 hp, and only the LAST level reaches it -
+  // at LV 8 a cast leaves a Drifter on 0.25.
+  _RBDG: 0.25,
   _CARDW: 0.175,       // a card's width, as a fraction of the screen
-  _CARDH: 0.36,        // and its height, as a fraction of the height
+  // Taller than it was, because a merged card carries four lines under the glyph
+  // and 0.36 left three pixels between the LV and the icon and four between the
+  // icon and the first value. Type is sized off the WIDTH and the lines are placed
+  // as fractions of the HEIGHT, so height alone buys spacing and grows nothing.
+  _CARDH: 0.44,        // and its height, as a fraction of the height
   // Type is sized off the CARD, not off the HUD unit. It was HUD-sized inside a
   // card half the screen tall, which is how it managed to be both too big and
   // unreadable at once.
@@ -1525,7 +1537,7 @@ const sDmg = () => C._DMGG ** lv[1];
 const sRad = () => C._BINDR + C._RADG * lv[2];
 const sCd = () => C._BINDCD - C._CDG * lv[2];
 const sDur = () => C._BINDDUR + C._DURG * lv[3];
-const sRbD = () => 1 + (lv[3] / C._RBDG | 0);
+const sRbD = () => 1 + C._RBDG * lv[3];
 const sRegen = () => C._REGEN + lv[5];
 
 // Is this card's next level on the table? Cap, wave gate, and the prerequisite
@@ -1580,7 +1592,7 @@ const deal = () => {
 // than a percentage the player has to trust.
 const statAt = (i, l) => [
   1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR + C._RADG * l,
-  1 + (l / C._RBDG | 0), C._HEARTS + l, C._REGEN + l,
+  1 + C._RBDG * l, C._HEARTS + l, C._REGEN + l,
 ][i];
 // And the second number a merged card moves. 0 for every card that only moves one,
 // which is what the face tests to decide between two lines and one centred.
@@ -2538,11 +2550,9 @@ const cardFace = (i, x, y, w, h) => {
     type(C._CARDL);
     if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.28);
 
-    // Wedged between the LV line above it and the first value below. The glyph is
-    // 0.26 of the card tall and there is 0.29 to put it in, so it only fits at all
-    // once the values moved down to 0.65 - at 0.62 it touched the value, and lifted
-    // clear of that it touched the LV instead.
-    cardIcon(i, mx, y + h * 0.42, w * C._CARDI);
+    // Between the LV line above it and the first value below, with room on both
+    // sides now the card is 0.44 of the screen rather than 0.36.
+    cardIcon(i, mx, y + h * 0.44, w * C._CARDI);
 
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';
@@ -2551,7 +2561,8 @@ const cardFace = (i, x, y, w, h) => {
       g.fillText('Health', mx, y + h * 0.94);
     } else {
       // Damage a wave, hearts and heals are whole numbers; everything else is not.
-      const dp = i > 2 ? 0 : 2;
+      // Hearts and heals are whole; everything else, damage included, is not.
+      const dp = i > 3 ? 0 : 2;
       const two = stat2At(i, 0) > 0;              // a merged card, so two of these
       // One pair of lines, drawn wherever it is told. A card that moves one stat
       // gets a single pair CENTRED in the block the merged pair spans, so the two
@@ -2559,12 +2570,11 @@ const cardFace = (i, x, y, w, h) => {
       const pair = (v0, v1, unit, d, at) => {
         g.fillStyle = '#cfd6f5';
         type(C._CARDV);
-        // A step that does not step says so by not pretending to. FORCE buys damage
-        // every fourth level, so six levels in nine read "1 > 1" - which looks like
-        // a broken card rather than like a level that buys the other stat. It shows
-        // the value it holds instead, and the pair beside it is the one working.
-        g.fillText(v0 === v1 ? v0.toFixed(d) : v0.toFixed(d) + ' > ' + v1.toFixed(d),
-                   mx, y + h * at);
+        // Every card moves every number it shows at every level - a check walks all
+        // six and asserts it - so the arrow is always earned and there is nothing
+        // here to hide. FORCE used to step in whole numbers and read "1 > 1" on six
+        // levels in nine; the fix was to make the damage move, not to dress it up.
+        g.fillText(v0.toFixed(d) + ' > ' + v1.toFixed(d), mx, y + h * at);
         g.fillStyle = '#8b93b8';
         type(C._CARDU);
         g.fillText(unit, mx, y + h * (at + 0.065));
@@ -2576,9 +2586,9 @@ const cardFace = (i, x, y, w, h) => {
       //
       // A single card's pair sits centred in the span a merged one covers, so the
       // two kinds of card carry the same weight instead of one looking half empty.
-      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.65 : 0.74);
+      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.68 : 0.77);
       if (two)
-        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], 2, 0.83);
+        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], 2, 0.86);
     }
   }
   g.textAlign = 'left';
@@ -3307,6 +3317,10 @@ export const setLv = (i, v) => { lv[i] = v; if (i === 4) { maxhp = C._HEARTS + v
 export const dealNow = () => { deal(); picking = 1; return offer; };
 export const boxes = () => offer.map((_, n) => cardBox(offer.length, n));
 export const drawCard = cardFace;               // editor: every card, side by side
+// What a card reads at a level, for the checks. Both, because a merged card shows
+// two numbers and a level that moves neither is a level that should not exist.
+export const cardStat = statAt;
+export const cardStat2 = stat2At;
 export const cardGlyph = cardIcon;
 // The audio editor drives these directly, so what it tunes is what plays.
 export const startAudio = audio;
