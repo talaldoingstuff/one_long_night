@@ -617,7 +617,13 @@ export const C = {
   _CARDL: 0.095,       // the level under it
   _CARDV: 0.115,       // the number it takes you to
   _CARDU: 0.085,       // and the unit that number is in
-  _CARDI: 0.17,        // the icon's radius
+  _CARDI: 0.17,        // the icon's radius, before the evening-out below
+  // Per glyph, because every one of them spends the radius differently: three
+  // horns are drawn at 0.58 of it and a ring at all of it, so asking for the same
+  // radius gave a 2.23x spread in what actually appeared - 30px of SHOT RATE
+  // against 67px of RECOVERY. Measured off the ops each glyph emits, these bring
+  // all seven to the same height. Last entry is Recovery, which has no card row.
+  _CARDIS: [1.79, 1.13, 0.84, 0.84, 0.90, 0.85, 0.75],
   _CARDBG: 'rgba(14,16,28,0.96)',
   _HEALC: [96, 214, 118],       // the two cards that give health back
   _HEALP: 2,           // seconds an about-to-be-healed heart pulses before it settles
@@ -2552,7 +2558,12 @@ const cardFace = (i, x, y, w, h) => {
 
     // Between the LV line above it and the first value below, with room on both
     // sides now the card is 0.44 of the screen rather than 0.36.
-    cardIcon(i, mx, y + h * 0.44, w * C._CARDI);
+    //
+    // Capped against the card's HEIGHT as well as its width. The radius came off
+    // the width alone, and the space it has to sit in is vertical - so on a wide,
+    // short window the glyph grew while its room shrank, and rode up into the LV.
+    cardIcon(i, mx, y + h * 0.44,
+             min(w * C._CARDI, h * 0.16) * C._CARDIS[i < 0 ? 6 : i]);
 
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';

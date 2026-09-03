@@ -3163,6 +3163,28 @@ console.log('--- the card icons ------------------------------------------------
   for (let a = 0; a < sigs.length; a++)
     for (let b = a + 1; b < sigs.length; b++)
       if (sigs[a] === sigs[b]) dupes.push(NAME[a] + ' = ' + NAME[b]);
+  // ...and the same SIZE. Every glyph spends the radius differently - three horns
+  // are drawn at 0.58 of it and a ring at all of it - so asking for one radius gave
+  // a 2.23x spread in what appeared: 30px of SHOT RATE against 67px of RECOVERY,
+  // and the tall ones rode up into the LV line. CARDIS evens them out, measured off
+  // the ops rather than judged by eye.
+  const boxOf = (i) => {
+    rec.ops = [];
+    M.cardGlyph(i, 100, 100, 27 * C._CARDIS[i < 0 ? 6 : i]);
+    let y0 = 1e9, y1 = -1e9;
+    for (const o of rec.ops) {
+      const pad = (o.w || 0) / 2;
+      if (o.a) { y0 = Math.min(y0, o.a[1] - o.a[2] - pad); y1 = Math.max(y1, o.a[1] + o.a[2] + pad); }
+      for (const q of (o.p || [])) { y0 = Math.min(y0, q[1] - pad); y1 = Math.max(y1, q[1] + pad); }
+    }
+    return y1 - y0;
+  };
+  const heights = IDS.map(boxOf);
+  ok('and every one of them is the same height on the card',
+     Math.max(...heights) / Math.min(...heights) < 1.1,
+     heights.map((h, k) => NAME[k] + ' ' + h.toFixed(0)).join(', ') + ' - a spread of ' +
+     (Math.max(...heights) / Math.min(...heights)).toFixed(2) + 'x, where it was 2.23x');
+
   ok('every card icon is a different picture', !dupes.length,
      IDS.length + ' glyphs, no two alike' + (dupes.length ? ': ' + dupes.join(', ') : ''));
 
