@@ -31,7 +31,7 @@ const ctx = new Proxy({ canvas }, {
     if (k === 'strokeRect') return (x, y, w, h) => rec.ops.push({ op: 'srect', x, y, w, h, c: rec.sstyle, lw: rec.lw, alpha: rec.alpha });
     if (k === 'fillRect') return (x, y, w, h) => rec.ops.push({ op: 'rect', x, y, w, h, c: rec.style, alpha: rec.alpha, comp: rec.comp });
     // alpha too: text that breathes cannot be checked without it
-    if (k === 'fillText') return (s, x, y) => rec.ops.push({ op: 'text', s, x, y, c: rec.style, align: rec.align, f: parseFloat(rec.font), comp: rec.comp, alpha: rec.alpha });
+    if (k === 'fillText') return (s, x, y) => rec.ops.push({ op: 'text', s, x, y, c: rec.style, align: rec.align, f: parseFloat(/[\d.]+/.exec(rec.font)), font: rec.font, comp: rec.comp, alpha: rec.alpha });
     // A fixed advance of 0.6em a character. The game is drawn in a SERIF now, so
     // this is no longer what a browser would return - but it does not need to be.
     // What is being checked is that the card screen MEASURES rather than assuming,
@@ -1363,39 +1363,55 @@ console.log('--- the HUD ------------------------------------------------------'
      (heartL - track.x).toFixed(0) + 'px left of the hearts');
 
   const readyOf = (ops) => ops.find((o) => o.op === 'text' && o.s === 'RAINBOW READY');
-  const healthOf = (ops) => ops.find((o) => o.op === 'text' && o.s === 'HEALTH');
-  const hp = healthOf(rec.ops);
-  ok('HEALTH is captioned under the hearts, in their own colour',
-     !!hp && hp.c === 'rgba(' + C._HPC.join(',') + ',1)' && hp.y > heartB && hp.align === 'right',
-     '"' + hp.s + '" in ' + hp.c + ', ' + (hp.y - heartB).toFixed(0) + 'px under the last heart');
-  ok('and the bar clears it rather than crowding it',
-     track.y > hp.y,
-     'the bar starts ' + (track.y - hp.y).toFixed(0) + 'px below the label');
-  ok('and the two captions match each other in size',
-     hp.f === readyOf(rec.ops).f,
-     'both ' + hp.f + 'px - captions, not readouts');
-  ok('and both hang off the same right edge as the hearts and the bar',
-     hp.x === 900 - 16 && readyOf(rec.ops).x === 900 - 16,
-     'one column down the right of the screen');
+  // TWO CAPTIONS ARE GONE. HEALTH sat under the hearts in their own colour, which
+  // is a label on the one thing on screen that could not have been anything else;
+  // and CLICK/SPACE & HOLD sat under READY, which is an instruction that never
+  // leaves and so stops being read after the first wave while going on costing the
+  // corner for the whole run. The how-to screen still carries it.
+  ok('nothing captions the hearts, and nothing explains the bind forever',
+     !rec.ops.some((o) => o.op === 'text' &&
+       (o.s === 'HEALTH' || o.s === 'CLICK/SPACE & HOLD')),
+     'three red hearts and a rainbow bar, with no words telling you what they are');
+  ok('and the bar closes up into the room the label had',
+     track.y > heartB && track.y - heartB < Math.min(900, 500) * C._HUDU * C._HEARTS2,
+     'the bar starts ' + (track.y - heartB).toFixed(0) + 'px under the last heart, ' +
+     'inside a heart height of it rather than a caption away');
 
   ok('RAINBOW READY sits under the bar while the bind is up',
      !!readyOf(rec.ops) && readyOf(rec.ops).y > track.y + track.h &&
-       readyOf(rec.ops).c === 'rgba(' + C._RIMC.join(',') + ',1)',
+       readyOf(rec.ops).c.startsWith('rgba(' + C._RIMC.join(',') + ','),
      '"' + readyOf(rec.ops).s + '" in the bind own cyan, ' +
      (readyOf(rec.ops).y - track.y - track.h).toFixed(0) + 'px under the bar');
-  ok('and matches the kill count size while staying cyan',
-     readyOf(rec.ops).f === kills.f,
-     readyOf(rec.ops).f + 'px, same as KILLS, and still ' + readyOf(rec.ops).c);
-  const hint = ops2 => ops2.find((o) => o.op === 'text' && o.s === 'CLICK/SPACE & HOLD');
-  ok('and it says how to use it, under the words that name it',
-     !!hint(rec.ops) && hint(rec.ops).c === '#fff' &&
-     hint(rec.ops).y > readyOf(rec.ops).y && hint(rec.ops).align === 'right',
-     '"CLICK/SPACE & HOLD" in white at ' + hint(rec.ops).f + 'px, ' +
-     (hint(rec.ops).y - readyOf(rec.ops).y).toFixed(0) + 'px under RAINBOW READY');
-  ok('and it is smaller than the label it explains',
-     hint(rec.ops).f < readyOf(rec.ops).f &&
-     Math.abs(hint(rec.ops).f - (readyOf(rec.ops).f * C._HINTF | 0)) < 1.5,
-     hint(rec.ops).f + 'px against the ' + readyOf(rec.ops).f + 'px label - HINTF ' + C._HINTF);
+  // Same SIZE as the kill count, heavier WEIGHT. It is the one caption left in the
+  // corner and the one thing there you act on, so it carries a little more ink than
+  // the readouts around it without growing and shoving the column about.
+  ok('and matches the kill count size, in a heavier weight',
+     readyOf(rec.ops).f === kills.f && /bold/.test(readyOf(rec.ops).font),
+     '"' + readyOf(rec.ops).font + '" against the ' + kills.f + 'px kill count - ' +
+     'same size, more ink');
+
+  // AND IT BREATHES. Sampled across frames rather than asserted from the constant:
+  // what matters is that the alpha actually moves on screen, stays inside the swing
+  // RDYP allows, and never reaches zero - a caption that blinks out reads as a
+  // fault rather than as a thing waiting to be used.
+  const alphaOfText = (o) => +o.c.slice(o.c.lastIndexOf(',') + 1, -1);
+  const seenA = [];
+  for (let i = 0; i < 90; i++) {
+    M.place([]);                                  // nothing may reach you mid-sample
+    rec.ops = []; tick();
+    const r = readyOf(rec.ops);
+    if (r) seenA.push(alphaOfText(r));
+  }
+  const loA = Math.min(...seenA), hiA = Math.max(...seenA);
+  const floor = 1 - C._RDYP[1];
+  ok('and it breathes rather than sitting there',
+     seenA.length > 60 && hiA - loA > 0.05 &&
+       loA >= floor - 1e-6 && hiA <= 1 + 1e-6,
+     'alpha ran ' + loA.toFixed(2) + '..' + hiA.toFixed(2) + ' over ' + seenA.length +
+     ' frames, inside the ' + floor.toFixed(2) + '..1 that RDYP allows. ' +
+     (2 * Math.PI / C._RDYP[0]).toFixed(1) + 's a breath - at four seconds it was so ' +
+     'slow that any single glance was just a caption at some alpha, and a pulse ' +
+     'nobody can see moving is a pulse that is not there');
 
   ok('and is pushed right, to the edge the bar and the hearts end on',
      readyOf(rec.ops).align === 'right' && readyOf(rec.ops).x === 900 - 16,
@@ -1481,9 +1497,6 @@ console.log('--- the game over screen -----------------------------------------'
   rec.ops = []; tick();
   const texts = rec.ops.filter((o) => o.op === 'text');
   const waves = texts.find((o) => /^WAVES SURVIVED/.test(o.s));
-  ok('and the wave you died ON is not counted as survived',
-     waves.s === 'WAVES SURVIVED ' + (M.anim().wave - 1),
-     'died in wave ' + M.anim().wave + ', so "' + waves.s + '"');
   const again = texts.find((o) => /PLAY AGAIN$/.test(o.s));
 
   ok('and every game object is gone with it',
@@ -1491,46 +1504,58 @@ console.log('--- the game over screen -----------------------------------------'
      !rec.ops.some((o) => o.op === 'fill' && /^rgb\(/.test(o.c)) && // no puppet, no ghosts
      !rec.ops.some((o) => o.op === 'fill' && o.n === 6 &&
        o.p.every((q) => q[1] < 500 / 2)),                          // no hearts
-     'nothing drawn but a black field and four lines');
-  const bestLine = texts.find((o) => /^BEST/.test(o.s));
+     'nothing drawn but a black field and the six lines of the result');
   const gameOver = texts.find((o) => o.s === 'GAME OVER');
-  ok('four lines, and only four', texts.length === 4,
+  const bestLab = texts.find((o) => o.s === 'PERSONAL BEST');
+  const nums = texts.filter((o) => /^\d+$/.test(o.s)).sort((x, y) => x.y - y.y);
+  const [waveN, bestN] = nums;
+  ok('and the wave you died ON is not counted as survived',
+     waveN.s === '' + (M.anim().wave - 1),
+     'died in wave ' + M.anim().wave + ', so the figure under WAVES SURVIVED ' +
+     'reads "' + waveN.s + '" - reaching wave 2 and dying there is one cleared');
+  ok('six lines, and only six', texts.length === 6,
      texts.map((o) => '"' + o.s + '"').join(', '));
-  ok('GAME OVER leads, in the hearts own red',
-     !!gameOver && gameOver.y < waves.y && gameOver.c === 'rgba(' + C._HPC.join(',') + ',1)',
-     'the same red the hearts are, so the thing that ran out and the screen that ' +
-     'says so are one colour');
-  ok('and the personal best is one of them, under the run you just had',
-     !!bestLine && bestLine.y > waves.y && /^BEST \d+$/.test(bestLine.s),
-     '"' + bestLine.s + '" - the comparison the over screen exists to make. The ' +
-     'kill count is gone from it: a wave sends a different number of ghosts every ' +
-     'time, so counting them measured the spawner');
-  ok('waves survived on top, in the horn gold',
-     !!waves && waves.c === 'rgba(' + C._GOLD.join(',') + ',1)',
-     '"' + waves.s + '" in ' + waves.c);
-  ok('the best under it', bestLine.y > waves.y,
-     '"' + bestLine.s + '" ' + (bestLine.y - waves.y).toFixed(0) + 'px below');
-  ok('and the invitation under that', !!again && again.y > bestLine.y,
-     '"' + again.s + '" ' + (again.y - bestLine.y).toFixed(0) + 'px below that');
-  ok('all three stacked down the centre of the screen',
+  ok('GAME OVER leads, in the hearts own red and heavier than the rest',
+     !!gameOver && gameOver.y < waves.y && /bold/.test(gameOver.font) &&
+       gameOver.c === 'rgba(' + C._HPC.join(',') + ',1)',
+     '"' + gameOver.font + '" in the same red the hearts are, so the thing that ran ' +
+     'out and the screen that says so are one colour');
+
+  // A CAPTION OVER A NUMBER, twice - the shape the title screen already uses. The
+  // figure used to be buried in the sentence: "WAVES SURVIVED 12" and "BEST 31",
+  // which makes the thing you came to read the smallest part of the line it is in.
+  ok('waves survived is a caption over its number, both in the horn gold',
+     !!waveN && waveN.y > waves.y && waveN.f > waves.f &&
+       waves.c === 'rgba(' + C._GOLD.join(',') + ',1)' && waves.c === waveN.c,
+     '"' + waves.s + '" at ' + waves.f + 'px over "' + waveN.s + '" at ' + waveN.f +
+     'px - the number is what you came to read, so it is the big half');
+  ok('and the personal best is the same shape under it, in white',
+     !!bestLab && !!bestN && bestLab.y > waveN.y && bestN.y > bestLab.y &&
+       bestN.f > bestLab.f && bestLab.c === '#fff' && bestN.c === '#fff',
+     '"' + bestLab.s + '" over "' + bestN.s + '" - the comparison the over screen ' +
+     'exists to make. The kill count is gone from it: a wave sends a different ' +
+     'number of ghosts every time, so counting them measured the spawner');
+
+  // THE GROUPING IS THE POINT. Four evenly spaced lines read as four unrelated
+  // lines; a label bound tight to its own figure reads as two results.
+  const inPair = waveN.y - waves.y, between = bestLab.y - waveN.y;
+  ok('and each label is bound tighter to its number than to the other result',
+     inPair < between && Math.abs(inPair - (bestN.y - bestLab.y)) < 0.5,
+     inPair.toFixed(0) + 'px inside a pair against ' + between.toFixed(0) +
+     'px between them, and both pairs spaced the same');
+
+  ok('and the invitation is last, and further off than that',
+     !!again && again.y > bestN.y && again.y - bestN.y > between,
+     '"' + again.s + '" ' + (again.y - bestN.y).toFixed(0) + 'px under the last ' +
+     'number, against ' + between.toFixed(0) + 'px between the results - it is an ' +
+     'instruction, not part of the score');
+  ok('all six stacked down the centre of the screen',
      texts.every((o) => o.x === 900 / 2 && o.align === 'center'),
      'every line centred on x=' + (900 / 2));
-  ok('and they get smaller down the stack, so the score leads',
-     waves.f > bestLine.f && bestLine.f > again.f,
-     gameOver.f + 'px, ' + waves.f + 'px, then ' + bestLine.f + 'px, then ' + again.f + 'px');
-  // It used to have to be 1.4x the instruction under it. The instruction is half
-  // as big again as it was and pulses now, deliberately - it is the one thing on
-  // the screen that has to be acted on - so what is left to hold is the order:
-  // the score still leads, and the instruction still does not outgrow it.
-  ok('the best is white and still leads the instruction under it',
-     bestLine.c === '#fff' && bestLine.f > again.f,
-     '"' + bestLine.s + '" at ' + bestLine.f + 'px, against ' + again.f +
-     'px for the instruction under it');
-  ok('and the instruction is set apart from the result rather than stacked on it',
-     again.y - bestLine.y > (bestLine.y - waves.y) * 1.4,
-     (again.y - bestLine.y).toFixed(0) + 'px under the best, against ' +
-     (bestLine.y - waves.y).toFixed(0) + 'px between the two numbers - it is an ' +
-     'instruction, not part of the score');
+  ok('and the numbers lead everything under them',
+     waveN.f > again.f && bestN.f > again.f && gameOver.f > waveN.f,
+     gameOver.f + 'px for the title, ' + waveN.f + 'px for the figures, ' +
+     again.f + 'px for the instruction');
 
   // and clicking anywhere really does start again
   press(700, 400); release(); tick();
@@ -4695,7 +4720,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
   // screen. It is checked here rather than left to the title's own check, which
   // would otherwise pass or fail for two different reasons at once.
   ok('the game opens on the lore, a paragraph at a time',
-     txt().some((t) => /centuries the horn/.test(t)) &&
+     txt().some((t) => /For centuries/.test(t)) &&
      !txt().includes('ONE LONG NIGHT') &&
      txt().some((t) => /SKIP/.test(t)),
      txt().map((t) => '"' + t + '"').join(', '));
@@ -4718,13 +4743,16 @@ console.log('--- the title, the how-to, and the best ---------------------------
   // stub's fixed advance, which would answer for a font the game is not drawn in.
   {
     const TITLE = 9.095, LINE = 16.136;             // 'ONE LONG NIGHT', longest lore line
+    // The longest line moved when the lore was cut to two paragraphs - it is in
+    // the FIRST one now, and finding it by a word from the old text would have
+    // measured whichever line happened to answer instead.
     globalThis.innerWidth = 400; globalThis.innerHeight = 800;
     (L.resize || []).forEach((f) => f());
     // Far enough in that every paragraph is up - the longest line is in the second
     // one, and one frame after a resize only has the first.
     tick(60 * 10);
     draw();
-    const lo = rec.ops.find((o) => o.op === 'text' && /vaporizes/.test(o.s));
+    const lo = rec.ops.find((o) => o.op === 'text' && /^burdened/.test(o.s));
     ok('and neither runs off the edge of a portrait window',
        lo.f * LINE < 400 * 0.92,
        'the longest line is ' + (100 * lo.f * LINE / 400).toFixed(0) + '% of a 400px ' +
@@ -4732,7 +4760,10 @@ console.log('--- the title, the how-to, and the best ---------------------------
     // The cap is a number tied to THIS text: a longer line needs a smaller one. This
     // holds the text to what 0.055W was measured for, so growing a line fails HERE
     // rather than on somebody's phone.
-    const longest = Math.max(...C._LORE.split(/[|/]/).map((t) => t.length));
+    // Measured on what is DRAWN: the asterisks marking the white word are a
+    // delimiter and never reach the screen, so counting them would hold the text to
+    // a width two characters tighter than the one the cap was measured for.
+    const longest = Math.max(...C._LORE.replace(/[*~]/g, '').split(/[|/]/).map((t) => t.length));
     ok('and the writing stays inside what that cap was measured for',
        longest <= 36,
        'longest line ' + longest + ' characters, cap measured at 36 - if this fails, ' +
@@ -4749,7 +4780,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
   tick(60 * 60);
   draw();
   ok('and it holds there until it is dismissed, however long that takes',
-     txt().some((t) => /Purge the dark/.test(t)) && !txt().includes('ONE LONG NIGHT'),
+     txt().some((t) => /your problem/.test(t)) && !txt().includes('ONE LONG NIGHT'),
      'a minute in, still the lore - and every paragraph of it is up, because the ' +
      'last one arrives ' + (C._LORE.split('|').length * C._LOREG).toFixed(0) +
      's in and nothing takes it away afterwards');

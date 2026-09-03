@@ -550,9 +550,12 @@ export const C = {
   // string literal costs six. Every character here is about a byte once packed,
   // so this is where the screen's whole cost lives - the machinery below is 100
   // bytes and the writing is the rest.
-  _LORE: 'For centuries the horn was carried/to turn back evil spirits.|' +
-         'Someone shaped the last one/into a weapon that vaporizes ghosts.|' +
-         'Now, the Alicorn is yours./Purge the dark.',
+  // A span between markers is drawn in a colour of its own instead of the gold
+  // everything else is: ASTERISKS make it white, for the name of the thing you are
+  // handed, and TILDES the hearts' red - the same red GAME OVER is set in, which is
+  // the point of using it here.
+  _LORE: 'For centuries, the *Alicorn* was/burdened to turn back evil spirits.|' +
+         'Now, vaporizing ghosts/~is your problem.~',
   // The gap is generous because nothing is lost by it now: the screen HOLDS at the
   // end rather than timing out, so a reader who wants to move is one press away and
   // a reader who does not is never hurried. 1.1s of that is the paragraph arriving,
@@ -735,8 +738,6 @@ export const C = {
   _ASSIST: 5,          // and closes that much of the gap a second
   _BARSLW: 3,          // the charging outline, px
   _BARSC: '#fff',
-  _HINTF: 0.8,         // the how-to line under RAINBOW READY, against the caption
-                      // size - it is an instruction, so it sits below the label
   _TGTR: 0.9,          // how much of a ghost's own radius counts as "on it". Under
                       // 1, so the crosshair has to be inside the body rather than
                       // anywhere near it
@@ -769,10 +770,18 @@ export const C = {
   _BARN: 5,            // the rainbow bar is as wide as this many hearts would be,
                       // so it runs out past the left of the three that are there
   _BARH: 0.3,          // its height, as a fraction of a heart's
-  _BARGAP: 0.55,       // and the gap under the HEALTH label, so it does not crowd it
-  _HPC: [255, 59, 107],// the hearts, and the word under them - one colour, so the
-                      // label and the thing it names read as one block. An array
-                      // rather than a hex string, so a healing heart can be mixed
+  _BARGAP: 0.55,       // and the gap between the hearts and it. It used to clear the
+                      // HEALTH caption as well; with that gone the bar simply hangs
+                      // off the hearts.
+  // READY BREATHES rather than sitting there: radians a second, and how much of
+  // its alpha the swing is worth. 3.2 rad/s is a two-second breath - a four-second
+  // one was so slow that on any single glance it was simply a caption at some
+  // alpha, and a pulse nobody can see moving is a pulse that is not there. It
+  // never reaches zero, because a caption that blinks out reads as a fault rather
+  // than as a thing waiting to be used.
+  _RDYP: [3.2, 0.45],
+  _HPC: [255, 59, 107],// the hearts. An array rather than a hex string, so a
+                      // healing heart can be mixed
                       // toward white instead of just blinking between the two.
   _BARBG: 'rgba(255,255,255,0.1)',
 
@@ -2330,12 +2339,12 @@ const hud = () => {
     g.fill();
   }
 
-  // Both labels are the kill count's size: they are captions, not readouts.
+  // READY is the kill count's size: a caption, not a readout. HEALTH used to be
+  // captioned here in the hearts' own colour, and three red hearts do not need a
+  // word telling you they are health - it was a label on the one thing on screen
+  // that could not be anything else.
   const lbl = u * C._KILLF;
   g.textAlign = 'right';
-  g.font = (lbl | 0) + 'px Palatino Linotype,serif';
-  g.fillStyle = css(C._HPC, 1);
-  g.fillText('HEALTH', W - 16, 18 + hu + lbl);
 
   // The rainbow bar under them: how much of the bind is back. DESIGN.md 11 says
   // no cooldown bar, because the arm's saturation was to carry it - but that arm
@@ -2345,7 +2354,7 @@ const hud = () => {
   // 1.35 is the heart pitch used above, so BARN of 5 is exactly the width five
   // hearts would occupy - which puts its left end well past the three there are.
   const bw = hu * (1 + (C._BARN - 1) * 1.35), bh = hu * C._BARH;
-  const bx = W - 16 - bw, by = 18 + hu + lbl + hu * C._BARGAP;
+  const bx = W - 16 - bw, by = 18 + hu + hu * C._BARGAP;
   g.fillStyle = C._BARBG;
   g.fillRect(bx, by, bw, bh);
   // The fill is only ever the passive refill: how much of the bind is back.
@@ -2388,12 +2397,19 @@ const hud = () => {
   // held blips already use, so it says which thing is ready without a word more.
   // Right-aligned to the same edge the bar and the hearts end on, so the whole
   // corner reads as one column.
+  //
+  // CLICK/SPACE & HOLD used to sit under it. An instruction that never leaves the
+  // screen stops being read after the first wave and goes on costing the corner
+  // for the rest of the run - the how-to screen is where it belongs, and it is
+  // still there.
+  //
+  // BOLD, and the font is set HERE rather than above the bar. It is the only text
+  // this half of the HUD draws, so carrying the face down past the minimap only
+  // gave something else a chance to change it on the way.
   if (!charging && bindT <= 0) {
-    g.fillStyle = css(C._RIMC, 1);
+    g.font = 'bold ' + (lbl | 0) + 'px Palatino Linotype,serif';
+    g.fillStyle = css(C._RIMC, 1 - C._RDYP[1] * (1 + sin(clock * C._RDYP[0])) / 2);
     g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
-    g.fillStyle = '#fff';
-    g.font = (lbl * C._HINTF | 0) + 'px Palatino Linotype,serif';
-    g.fillText('CLICK/SPACE & HOLD', W - 16, by + bh + lbl * 2.5);
   }
 
   // Wave above, threat below it, both on the centre line. The wave takes the
@@ -2738,19 +2754,29 @@ const overScreen = (u) => {
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
   g.fillStyle = css(C._HPC, 1);                   // the hearts' own red
-  g.font = (u * 2.2 | 0) + 'px Palatino Linotype,serif';
-  g.fillText('GAME OVER', W / 2, H / 2 - u * 3.2);
-  g.fillStyle = css(C._GOLD, 1);
-  g.font = (u * 2 | 0) + 'px Palatino Linotype,serif';
+  g.font = 'bold ' + (u * 2.2 | 0) + 'px Palatino Linotype,serif';
+  g.fillText('GAME OVER', W / 2, H / 2 - u * 4.4);
+  // Each result is a CAPTION over its NUMBER rather than a sentence with a figure
+  // buried in it - the same shape the title screen already uses for PERSONAL BEST,
+  // so the two screens say the same thing the same way. The number is what you
+  // came to read, so it is the big half and the words are the small one.
+  //
+  // The gap INSIDE a pair is smaller than the gap between the pairs. Four evenly
+  // spaced lines read as four unrelated lines; this reads as two results.
+  const res = (lab, num, col, y) => {
+    g.fillStyle = col;
+    g.font = (u * 0.95 | 0) + 'px Palatino Linotype,serif';
+    g.fillText(lab, W / 2, y);
+    g.font = (u * 2 | 0) + 'px Palatino Linotype,serif';
+    g.fillText('' + num, W / 2, y + u * 1.6);
+  };
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
   // is one wave cleared, and dying in wave 1 is none.
-  g.fillText('WAVES SURVIVED ' + (wave - 1), W / 2, H / 2 - u * 1.1);
-  g.fillStyle = '#fff';
-  g.font = (u * 1.3 | 0) + 'px Palatino Linotype,serif';
-  g.fillText('BEST ' + best, W / 2, H / 2 + u * 0.5);
+  res('WAVES SURVIVED', wave - 1, css(C._GOLD, 1), H / 2 - u * 2.1);
+  res('PERSONAL BEST', best, '#fff', H / 2 + u * 1.7);
   // The same line the title and the how-to end on, drawn by the same hand: it is
   // the one thing on any of those three screens the player has to act on.
-  anywhere('CLICK ANYWHERE TO PLAY AGAIN', H / 2 + u * 3.4, u);
+  anywhere('CLICK ANYWHERE TO PLAY AGAIN', H / 2 + u * 5.9, u);
   g.textAlign = 'left';
 };
 
@@ -2890,6 +2916,15 @@ const loreScreen = (u) => {
   // check holds it to that rather than leaving it to be discovered on a phone.
   const ls = min(u * 1.7, W * 0.055);
   g.font = (ls | 0) + 'px Palatino Linotype,serif';
+  // CENTRED ON THE BLOCK, not started at a fixed fraction of the screen. It began
+  // at 0.22H, which was measured when this was three paragraphs; two is a shorter
+  // block and the same top left it sitting high with the screen empty underneath.
+  // The last baseline is ROWS steps below the first, so half of that above the
+  // middle puts the whole thing on it - and it stays right if the writing is ever
+  // cut or grown again.
+  let rows = 0.6 * (P.length - 1) - 1;
+  for (const pg of P) rows += pg.split('/').length;
+  const top = H * 0.5 - rows * ls * 1.4 / 2;
   let n = 0;
   for (let i = 0; i < P.length; i++) {
     const a = min(1, max(0, (clock - i * C._LOREG) / C._LOREF));
@@ -2901,7 +2936,26 @@ const loreScreen = (u) => {
       // proportions when the cap above is what decides that size. It starts higher
       // than it used to because a bigger block is a taller one and the skip prompt
       // is where it always was.
-      if (a) g.fillText(ln, W / 2, H * 0.22 + n * ls * 1.4);
+      //
+      // Split so the MARKERS SURVIVE, because which one opened a span is what says
+      // what colour it is. Everything at an even index is text and everything odd
+      // is a marker, so a span is text at k where k % 4 is 2, and the marker that
+      // opened it is the one right before it.
+      //
+      // The line is centred AS A WHOLE rather than piece by piece: textAlign is
+      // centre, so handing fillText three pieces at W/2 would stack them on top of
+      // each other. Each is placed at its own middle instead, off a running edge.
+      const q = ln.split(/([*~])/);
+      let lw = 0;
+      for (let k = 0; k < q.length; k += 2) lw += g.measureText(q[k]).width;
+      let lx = W / 2 - lw / 2;
+      for (let k = 0; k < q.length; k += 2) {
+        const tw = g.measureText(q[k]).width;
+        g.fillStyle = k % 4 === 2 ? (q[k - 1] === '*' ? '#fff' : css(C._HPC, 1))
+                                  : css(C._GOLD, 1);
+        if (a) g.fillText(q[k], lx + tw / 2, top + n * ls * 1.4);
+        lx += tw;
+      }
       n++;
     }
     n += 0.6;                                     // a gap between paragraphs
@@ -2950,7 +3004,7 @@ const menuScreen = () => {
     g.fillStyle = '#fff';
     g.fillText(tail, x0 + wn, H * 0.69);
     g.textAlign = 'center';
-    anywhere('CLICK ANYWHERE TO PLAY', H * 0.79, u);
+    anywhere('CLICK ANYWHERE TO PLAY', H * 0.84, u);
   } else if (loreScreen(u)) {
     return;
   } else {
