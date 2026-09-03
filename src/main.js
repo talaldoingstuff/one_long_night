@@ -114,6 +114,23 @@ export const C = {
   // small to read as ghosts at all, which is the only thing they are here to do.
   _BG: [18, 11, 30, 0.16, 7, 0.85],
   _STARS: 2.8,        // and how big, in pixels
+  // GRAIN ON THE SAND. The ground was two colours and a ramp between them, which
+  // is a wash rather than a surface: turn on the spot and nothing down there moved
+  // at all, because a vertical gradient looks the same from every bearing. These
+  // sit at fixed places ON THE FLOOR and go through the same projection everything
+  // else does, so the ground finally slides past when you turn - which is the cue
+  // that says you are standing on something.
+  //
+  // Spread LOG-uniformly between the near and far numbers rather than evenly.
+  // Screen height off the horizon goes with 1/distance, so even spacing in metres
+  // piles almost all of them into the few rows nearest the skyline; even spacing in
+  // the LOG is close enough to even on screen, for one ** and no arithmetic.
+  //
+  // Count, nearest, furthest, pixels, brightest, and how much survives full night -
+  // the ground itself goes almost black by ENVW and grain that did not follow it
+  // down would be lit sand on an unlit floor.
+  _SAND: [260, 1.4, 55, 1.7, 0.5, 0.22],
+  _SANDC: [255, 236, 200],      // warmer than the floor it sits on, and lighter
 
   // --- The puppet (DESIGN.md 6) ---------------------------------------------
   // The mesh is the unicorn head and neck from the previous game, recovered from
@@ -476,9 +493,9 @@ export const C = {
   // Gates are what shape the pool, not the weights: regen sitting behind extra
   // heart means hearts are the entry fee for sustain, which is 9's "weight regen
   // rarer" done with a rule instead of a number.
-  // Three of these must be open at the very first draw or there is nothing to put
-  // beside the guaranteed fire rate - the gates were staggered so hard that wave
-  // 1 had a pool of one.
+  // Three of these must be open at the very first draw or there is not a screen to
+  // offer at all - the gates were once staggered so hard that wave 1 had a pool of
+  // one.
   // Row: cap, gate wave, prerequisite card (-1 for none), the level of that card
   // needed per level of this one, draw weight, name, unit, and the level the card
   // counts from.
@@ -1639,15 +1656,18 @@ const weightOf = (i) => {
   return C._CARDS[i][4] * (side >= 0 && (i < 2 ? 0 : 1) === behind ? C._ADAPT : 1);
 };
 
-// Deal CARDN distinct cards. Fire rate is guaranteed in the FIRST draw only -
-// after that it takes its chances like everything else. When the pool runs dry
-// the offer is a single Recovery, which is a full heal and never runs out.
+// Deal CARDN distinct cards, every one of them drawn. NOTHING IS PROMISED: fire
+// rate used to be pushed into the first screen, which made the opening the one
+// choice in the game that was not a choice - and the horn is strong enough that
+// being handed it was most of the reason a rainbow opening never happened. The
+// only card the draw ever forces now is the heart, and only as a safety net.
+// When the pool runs dry the offer is a single Recovery, a full heal that never
+// runs out.
 const deal = () => {
   offer = [];
   sel = 0;
   const pool = [];
   for (let i = 0; i < C._CARDS.length; i++) if (open(i)) pool.push(i);
-  if (wave === 1 && pool.includes(0)) offer.push(pool.splice(pool.indexOf(0), 1)[0]);
   // The safety net. Offered as one of the CARDN rather than on top of them, so a
   // forced screen is still three cards and reads like every other one. It fires
   // on the draw that ends wave HEARTW - deal() runs before take() advances the
@@ -2989,6 +3009,10 @@ const envC = (i) => mix(C._ENV0[i], C._ENV1[i], night());
 // spread is even in ANGLE - taking the height straight piles most of them up
 // near the horizon, where the projection is squashed.
 const STARS = [];
+// And a fixed floor, made the same way and for the same reason: both are scenery
+// at a fixed bearing that has to swing with the view rather than be painted on the
+// glass.
+const SAND = [];
 // Ghosts drifting across the sky behind the menus, fading in and out. They are
 // never drawn during a run - see the call site - so they cannot be mistaken for
 // something to shoot at, and that is what lets them come close enough to actually
@@ -3047,6 +3071,25 @@ const sky = () => {
     if (!p) continue;
     g.globalAlpha = t[2] * dark;
     g.fillRect(p[0], p[1], C._STARS, C._STARS);
+  }
+  g.globalAlpha = 1;
+};
+
+// The grain, over the ground ramp and under everything that stands on it. Drawn
+// before the composite goes to lighter, so these tint the floor rather than glow
+// on it - sand catching what light is left, not sparks.
+const sand = () => {
+  const q = C._SAND;
+  if (!SAND.length)
+    for (let i = 0; i < q[0]; i++)
+      SAND.push([random() * 2 * PI, q[1] * (q[2] / q[1]) ** random(), 0.35 + random() * 0.65]);
+  const lit = q[5] + (1 - q[5]) * (1 - night());
+  g.fillStyle = css(C._SANDC, 1);
+  for (const t of SAND) {
+    const p = gpt(t[0], t[1], 0);
+    if (!p) continue;
+    g.globalAlpha = t[2] * q[4] * lit;
+    g.fillRect(p[0], p[1], q[3], q[3]);
   }
   g.globalAlpha = 1;
 };
@@ -3270,6 +3313,7 @@ const render = () => {
   // plane, so a vertical ramp is a radial one for free.
   g.fillStyle = ramp(hy, H + m, 2, 3);
   g.fillRect(-m, hy, W + 2 * m, H - hy + m);
+  sand();                                         // and the grain on it
   g.fillStyle = css(envC(4), 1);
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
   // The menus sit over the world's own sky rather than over black - the same dusk

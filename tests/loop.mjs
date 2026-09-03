@@ -2767,18 +2767,21 @@ console.log('--- the upgrade cards ---------------------------------------------
   };
 
   // --- the guarantee -------------------------------------------------------------
-  let all = true;
-  for (let i = 0; i < 60; i++) if (!dealAt(1).includes(0)) all = false;
-  ok('fire rate is guaranteed in the first draw', all,
-     'sixty wave 1 draws and every one had it - the only card that is ever promised');
-  ok('and it is one of THREE, not the whole draw',
+  // NOTHING IS PROMISED. Fire rate used to be pushed into the first screen, which
+  // made the opening the one choice in the game that was not a choice - and the horn
+  // is strong enough that being handed it was most of the reason a rainbow opening
+  // never happened.
+  let without = 0;
+  for (let i = 0; i < 60; i++) if (!dealAt(1).includes(0)) without++;
+  ok('fire rate takes its chances in the first draw, like everything else',
+     without > 0,
+     without + ' of sixty wave 1 draws came up without it - the opening is a screen ' +
+     'you read now, where it used to hand you the horn and ask which of two others ' +
+     'you wanted beside it');
+  ok('and the first draw is still three cards',
      dealAt(1).length === C._CARDN,
-     'the first draw offers ' + dealAt(1).length + ' cards with fire rate among them, ' +
-     'which needs three of them open at wave 1 to be possible at all');
-  let always = true;
-  for (let i = 0; i < 60; i++) if (!dealAt(6).includes(0)) always = false;
-  ok('and only in the first - after that it takes its chances', !always,
-     'a wave 6 draw can come up without it');
+     'the first draw offers ' + dealAt(1).length + ' cards, which needs three of ' +
+     'them open at wave 1 to be possible at all');
 
   ok('three cards are offered', dealAt(6).length === C._CARDN,
      C._CARDN + ' of them, and never two levels of one card: ' +
@@ -3591,7 +3594,12 @@ console.log('--- the heal, seen -----------------------------------------------'
   const cap = M.anim().maxhp;
   let h3 = 0;
   while (M.dbg().hearts > cap - 3 && h3++ < 60 * 200) {
-    if (!M.dbg().ghosts.length) M.place([[C._GCONTACT - 0.01, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
+    // The field is REPLACED every frame, not topped up when it empties. Topping
+    // up left the wave spawner's own arrivals standing in the queue, and at wave
+    // 12 one of those can be a Hulk - which hits for 3 where a Drifter hits for 1,
+    // and walks the count straight past the three hearts this is trying to land
+    // on. Nothing here is about the spawner, so nothing here should hear it.
+    M.place([[C._GCONTACT - 0.01, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
     tick();
   }
   ok('with both heart cards and Heal at its cap you can be three down',
@@ -3810,6 +3818,45 @@ console.log('--- the time of day -----------------------------------------------
 console.log('');
 console.log('--- the world ------------------------------------------------------');
 {
+  // THE GRAIN ON THE SAND, before the ring that sits on it. The ground was two
+  // colours and a ramp, which is a wash and not a surface: a vertical gradient looks
+  // identical from every bearing, so turning on the spot moved nothing down there at
+  // all. These sit at fixed places on the floor and go through the same projection
+  // as everything else, so it slides past when you turn.
+  const SC = 'rgba(' + C._SANDC.join(',') + ',';
+  const grains = (ops) => ops.filter((o) => o.op === 'rect' && o.c.startsWith(SC));
+  M.restart(); M.look(0, 0); M.place([]); M.setFire(0); M.setWave(1);
+  rec.ops = []; tick();
+  const G0 = grains(rec.ops).map((o) => o.y);
+  const sky0 = 500 / 2;                           // pitch is level, so that is the horizon
+  const lo = G0.filter((y) => y > sky0 + (500 - sky0) * 0.5).length;
+  ok('the sand has grain on it, spread down the floor and not piled at the skyline',
+     G0.length > 40 && lo > G0.length * 0.15,
+     G0.length + ' grains on screen, ' + lo + ' of them on the near half of the ' +
+     'floor. Spread LOG-uniformly in distance because screen height off the horizon ' +
+     'goes with 1/distance - even spacing in metres puts almost all of them in the ' +
+     'few rows nearest the skyline, which is a dirty horizon rather than a surface');
+  // The whole point is that it MOVES. Two bearings, and the grain has to land
+  // somewhere else - a gradient cannot do this, which is why the ground had no
+  // parallax at all before there was anything standing on it.
+  M.look(1, 0); rec.ops = []; tick();
+  const G1 = grains(rec.ops).map((o) => o.x);
+  ok('and it swings with the view, which is the whole reason it is there',
+     G1.length > 40,
+     G1.length + ' of them at a second bearing. They are floor, not glass: a ' +
+     'vertical gradient is the same picture from every angle, and standing on one ' +
+     'is why turning used to feel like the world turning with you');
+  // It follows the light down. The floor is nearly black by ENVW and lit sand on an
+  // unlit floor would be the one thing on screen the night never reached.
+  M.setWave(C._ENVW); rec.ops = []; tick();
+  const late = grains(rec.ops);
+  const early = (() => { M.setWave(1); rec.ops = []; tick(); return grains(rec.ops); })();
+  ok('and it dims with the ground it lies on',
+     late.length && early.length && late[0].alpha < early[0].alpha,
+     'alpha ' + (late[0] || {}).alpha + ' at wave ' + C._ENVW + ' against ' +
+     (early[0] || {}).alpha + ' at wave 1 - the floor goes almost black by then, and ' +
+     'grain that did not follow it down would be lit sand on an unlit floor');
+
   const RC = 'rgba(' + C._RINGC.join(',') + ',';
   const ringOps = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 4 && o.c.startsWith(RC));
   const alphaOf = (o) => parseFloat(o.c.split(',').pop());
