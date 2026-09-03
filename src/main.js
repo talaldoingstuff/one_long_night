@@ -70,30 +70,6 @@ export const C = {
   _ENVW: 30,          // the wave the night is complete on
 
   // --- The world ----------------------------------------------------------------
-  // One ring on the floor, close in. A set of them every 4m out to the arena did
-  // not earn its keep - four faint circles read as pattern rather than as scale -
-  // and one at arm's length does: it is the distance at which a ghost has become
-  // your problem. White, because it is the only thing on the floor that is not a
-  // rainbow, and its width is a fraction of its radius rather than a number of
-  // metres so perspective cannot thin it to nothing.
-  _RINGC: [255, 255, 255],
-  _RING: [4, 0.02, 0.6],    // radius in metres, width as a fraction of it, alpha
-  // A second circle outside it, as a MULTIPLE of the first radius so the two
-  // cannot drift apart when either is tuned, then its own width and alpha.
-  _RING2: [1.26, 0.0159, 0.6],
-  // And the crown between them: how many triangles, and their alpha. Their bases
-  // meet corner to corner on the inner circle and their apexes touch the outer
-  // one, so the gaps they leave are themselves triangles pointing inward - the
-  // band reads as one zigzag rather than as a row of separate spikes. 32 against
-  // a 4m ring puts the base at 0.80m under a 0.90m rise, which is a spike rather
-  // than a bump. Dimmer than either circle, so the circles stay the shape and
-  // this stays the texture.
-  _RINGT: [32, 0.28],
-  // The ring breathes: radians a second, and how much of its alpha the swing is
-  // worth. Drawn additively, so brightening reads as a glow rather than as the
-  // shape changing. Slow on purpose - 1.6 rad/s is a four-second breath, and
-  // anything faster reads as a warning rather than as something merely alive.
-  _RINGP: [1.6, 0.35],
   // Stars sit at a fixed bearing and height on a far cylinder, so they go through
   // the same projection as the floor and swing with the view instead of being
   // painted on the glass. Anything behind you culls itself.
@@ -3392,30 +3368,6 @@ const render = () => {
 
   const target = underCrosshair();
   g.globalCompositeOperation = 'lighter';
-  // The floor ring, under everything standing on it. Drawn with the same band()
-  // the ground rainbow uses, so its width is in metres and a stroked circle's
-  // fat-near-thin-far problem never arises.
-  // One breath, shared by the inner circle, the outer one and the crown between
-  // them, so the ornament pulses as a single thing rather than three.
-  const rp = 1 + C._RINGP[1] * sin(clock * C._RINGP[0]);
-  band(C._RING[0] * (1 - C._RING[1]), C._RING[0] * (1 + C._RING[1]), C._RINGC, C._RING[2] * rp);
-  // The outer circle and the crown filling the gap. Same band() for the circle,
-  // and the triangles go through gpt() like everything else on this floor, so
-  // they sit ON the ground in metres rather than being a shape drawn at the
-  // screen - which is what stops the far side of the ring being as thick as the
-  // near side. Additive, along with the circle they hang off.
-  const rb = C._RING[0] * C._RING2[0];
-  band(rb * (1 - C._RING2[1]), rb * (1 + C._RING2[1]), C._RINGC, C._RING2[2] * rp);
-  const ra = C._RING[0] * (1 + C._RING[1]), rn = C._RINGT[0];
-  g.fillStyle = css(C._RINGC, C._RINGT[1] * rp);
-  for (let i = 0; i < rn; i++) {
-    const ai = i / rn * 2 * PI, aj = (i + 1) / rn * 2 * PI;
-    const tq = [gpt(ai, ra, 0), gpt(aj, ra, 0), gpt((ai + aj) / 2, rb * (1 - C._RING2[1]), 0)];
-    if (!tq[0] || !tq[1] || !tq[2]) continue;
-    g.beginPath();
-    for (const t of tq) g.lineTo(t[0], t[1]);
-    g.fill();
-  }
   // Nothing is drawn until the bind is genuinely charging: the rim and the floor
   // arrive together. The rim used to fade in across the arming window as a "keep
   // holding" cue, which was worth it at ARM 1s and is not at 0.3s - every press

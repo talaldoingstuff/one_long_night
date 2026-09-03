@@ -5,3 +5,10 @@ dist/
 .boost-probe/
 screenshot/
 screenshots/
+
+# The editors. Dev tools, not the game and not the build - the js13k "readable"
+# rule wants a public repo that BUILDS, and these are the only things in tools/
+# that nothing in the build path touches. config.js and inline.js are imported by
+# vite.config.js and size.js runs in both `npm run size` and `npm run check`, so
+# those three stay tracked or a fresh clone cannot pack the entry at all.
+tools/*.html

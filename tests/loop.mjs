@@ -939,7 +939,7 @@ console.log('--- the bind -----------------------------------------------------'
   // Additive, like everything the bind puts on the floor - which is also what
   // keeps the unicorn's own four-point rainbow paths out of the count.
   const ground = rec.ops.filter((o) => o.op === 'fill' && o.n === 4 && o.comp === 'lighter' &&
-    o.c.startsWith('rgba(') && !o.c.startsWith('rgba(' + C._RINGC.join(',') + ','));
+    o.c.startsWith('rgba('));
   ok('nothing is drawn on the ground while it is only arming',
      ground.length === 0 && M.anim().charging === 0,
      'a frame short of arming, and neither the rim nor the floor exists yet');
@@ -961,7 +961,7 @@ console.log('--- the bind -----------------------------------------------------'
      'alpha ' + a0.toFixed(3) + ' then ' + a1.toFixed(2) + ' then ' + a2.toFixed(2) +
      ' across the first ' + C._RIMFI + 's of the charge');
   const both = rec.ops.filter((o) => o.op === 'fill' && o.n === 4 &&
-    o.c.startsWith('rgba(') && !o.c.startsWith('rgba(' + C._RINGC.join(',') + ','));
+    o.c.startsWith('rgba('));
   const cyan = both.filter((o) => o.c.startsWith('rgba(' + C._RIMC.join(',') + ','));
   ok('and the floor is up by then too',
      cyan.length > 8 && both.length > cyan.length,
@@ -1017,11 +1017,11 @@ console.log('--- the bind -----------------------------------------------------'
      'held for ' + (h / 60).toFixed(2) + 's against ' + C._BINDDUR + 's');
 
   // --- the ground rainbow ------------------------------------------------------
-  // The distance rings are drawn with the same band() the ground rainbow uses, so
-  // 'a four-point rgba fill on the floor' now matches them too. They are the one
-  // thing on that floor which is never a rainbow colour.
-  const RINGC = 'rgba(' + C._RINGC.join(',') + ',';
-  const isBow = (c) => c.startsWith('rgba(') && !c.startsWith(RINGC);
+  // Every four-point rgba fill on the floor is the bind's own rainbow again. It
+  // was not while the distance rings were drawn there - they went through the same
+  // band() and were the one thing on that floor that was never a rainbow colour,
+  // so they had to be filtered out by their white.
+  const isBow = (c) => c.startsWith('rgba(');
   // A four-point fill in a rainbow colour used to mean the bind and nothing
   // else. The unicorn's mane is rainbow-coloured too and has four-point paths of
   // its own, so what separates them is the blending: the bind is drawn additively
@@ -3885,106 +3885,6 @@ console.log('--- the world -----------------------------------------------------
      avg(F0).toFixed(1) + ' at wave 1 - it reads the same two palette entries the ' +
      'ground ramp does, so it cannot drift away from the time of day');
   M.setWave(1);
-
-  const RC = 'rgba(' + C._RINGC.join(',') + ',';
-  const ringOps = (ops) => ops.filter((o) => o.op === 'fill' && o.n === 4 && o.c.startsWith(RC));
-  const alphaOf = (o) => parseFloat(o.c.split(',').pop());
-
-  M.restart(); M.look(0, 0); M.place([]); M.setFire(0);
-  rec.ops = []; tick();
-  const r = ringOps(rec.ops);
-  const q = C._RING;
-  // Where a ground point at radius rr lands, straight ahead. Against the module's
-  // own projection rather than counting quads: the ones behind you cull themselves.
-  const ahead = (rr) => M.proj(M.cam([0, C._EYE, rr]))[1];
-  ok('there is one ring on the floor, close in',
-     r.length > 0 &&
-       r.some((o) => o.p.some((t) => Math.abs(t[1] - ahead(q[0])) < 3 &&
-         Math.abs(t[0] - 900 / 2) < 40)),
-     'at ' + q[0] + 'm, where the projection says ' + q[0] + 'm is. Four of them ' +
-     'every 4m out to the arena read as pattern rather than as scale; one close in ' +
-     'is the distance at which a ghost has become your problem');
-  // One ring with a BAND on it is not the same thing as a series of rings. The
-  // second circle sits just outside the first and the gap between them is filled,
-  // so the pair reads as a single ornament - two circles set far apart would be
-  // exactly the scale the check above exists to prevent.
-  ok('and a second circle just outside it, not a second ring further out',
-     r.some((o) => o.p.some((t) => Math.abs(t[1] - ahead(q[0] * C._RING2[0])) < 3 &&
-       Math.abs(t[0] - 900 / 2) < 40)) && C._RING2[0] < 1.5,
-     'outer at ' + (q[0] * C._RING2[0]).toFixed(2) + 'm against ' + q[0] + 'm, ' +
-     C._RING2[0] + 'x - near enough to read as one band rather than as two marks');
-  // They are the same band drawn twice. The width fraction is a fraction of each
-  // circle's OWN radius, so matching them means a smaller number on the outer one,
-  // not the same number - and getting that backwards is what made it look thin.
-  const wIn = q[0] * 2 * q[1], wOut = q[0] * C._RING2[0] * 2 * C._RING2[1];
-  ok('and it is the same band as the inner one, not a fainter echo of it',
-     Math.abs(wIn - wOut) < 0.005 && C._RING2[2] === q[2],
-     wOut.toFixed(3) + 'm of floor at alpha ' + C._RING2[2] + ' against the inner ' +
-     wIn.toFixed(3) + 'm at ' + q[2] + '. Measured in METRES on purpose: the outer ' +
-     'circle is ' + C._RING2[0] + 'x the radius, so the same width is a SMALLER fraction');
-  // The alpha BREATHES now, so it cannot be matched exactly. The colour still
-  // identifies the crown - nothing else on that floor is white - and the alpha is
-  // checked against the band the pulse is allowed to swing through.
-  const RC3 = 'rgba(' + C._RINGC.join(',') + ',';
-  const crown = rec.ops.filter((o) => o.op === 'fill' && o.n === 3 && o.c.startsWith(RC3));
-  const crownA = crown.map((o) => parseFloat(o.c.slice(RC3.length)));
-  ok('and the gap between them is filled with triangles',
-     crown.length > 0 && crown.length <= C._RINGT[0],
-     crown.length + ' of ' + C._RINGT[0] + ' drawn - the rest are behind the eye and ' +
-     'drop themselves, which is what gpt() returning null is for');
-  // Depth is what decides where a ground point lands, so this is asked STRAIGHT
-  // AHEAD: to the side, a point on the inner circle is nearer than one on the outer
-  // and sits lower on the screen, which would make a naive min/max meaningless.
-  const rIn = C._RING[0] * (1 + C._RING[1]);
-  const rOut = C._RING[0] * C._RING2[0] * (1 - C._RING2[1]);
-  const mid = crown.flatMap((o) => o.p)
-    .filter((t) => Math.abs(t[0] - 900 / 2) < 60).map((t) => t[1]);
-  ok('and it spans exactly the gap - bases on the inner circle, apexes on the outer',
-     mid.length > 2 && Math.abs(Math.max(...mid) - ahead(rIn)) < 3 &&
-       Math.min(...mid) >= ahead(rOut) - 1 && Math.min(...mid) < ahead(rIn) - 5,
-     'straight ahead its nearest point is where ' + rIn.toFixed(2) + 'm projects and ' +
-     'its furthest stops at ' + rOut.toFixed(2) + 'm, so it fills the gap and spills ' +
-     'past neither circle');
-  ok('and they are dimmer than the two circles they hang between',
-     C._RINGT[1] < C._RING[2] && C._RINGT[1] < C._RING2[2],
-     C._RINGT[1] + ' against ' + C._RING[2] + ' and ' + C._RING2[2] + ' - the circles ' +
-     'are the shape, the crown is the texture, so it must not shout over them');
-  // The whole ornament breathes as ONE thing: the two circles and the crown all
-  // ride the same pulse, so the ring never comes apart into three rings.
-  const swing = C._RINGP[1];
-  ok('and the whole ring breathes, on one pulse',
-     crownA.every((a) => a >= C._RINGT[1] * (1 - swing) - 1e-9 &&
-                         a <= C._RINGT[1] * (1 + swing) + 1e-9) &&
-       [...new Set(crownA.map((a) => a.toFixed(6)))].length === 1,
-     'every crown triangle at one alpha inside the ' +
-     (C._RINGT[1] * (1 - swing)).toFixed(3) + '..' + (C._RINGT[1] * (1 + swing)).toFixed(3) +
-     ' the pulse allows - one breath, not one per shape');
-  {
-    const alphaNow = () => {
-      rec.ops = []; tick();
-      const q = rec.ops.filter((o) => o.op === 'fill' && o.n === 3 && o.c.startsWith(RC3));
-      return q.length ? parseFloat(q[0].c.slice(RC3.length)) : -1;
-    };
-    const a0 = alphaNow();
-    let moved = 0, same = 0;
-    for (let i = 0; i < 40; i++) { const a = alphaNow(); if (Math.abs(a - a0) > 1e-6) moved++; else same++; }
-    ok('and it is slow enough to read as breathing, not blinking',
-       moved > 0 && C._RINGP[0] < 4,
-       (2 * Math.PI / C._RINGP[0]).toFixed(1) + 's a breath at ' + C._RINGP[0] +
-       ' rad/s, swinging ' + (swing * 100).toFixed(0) + '% of its alpha. Faster than ' +
-       'about 4 rad/s stops reading as alive and starts reading as a warning');
-  }
-  ok('and it is white, the one thing on that floor that is not a rainbow',
-     r.every((o) => o.c.startsWith('rgba(255,255,255,')),
-     'so it can never be mistaken for the bind, which owns every other colour down there');
-  ok('and it is on the floor, under everything standing on it',
-     r.every((o) => o.comp === 'lighter') &&
-       rec.ops.indexOf(r[r.length - 1]) < rec.ops.findIndex((o) => o.op === 'text'),
-     'drawn additively, before the ghosts and the HUD');
-  const thick = Math.abs(ahead(q[0] * (1 - q[1])) - ahead(q[0] * (1 + q[1])));
-  ok('and it is thick enough to see', thick > 1.5,
-     thick.toFixed(1) + 'px deep. Its width is a fraction of its radius rather than ' +
-     'a number of metres - at a fixed 0.035m a ring is 2.5px at 4m and 0.2px at 16m');
 
   // --- the sky -------------------------------------------------------------------
   const starOps = (ops) => ops.filter((o) => o.op === 'rect' && o.w === C._STARS);
