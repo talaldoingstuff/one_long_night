@@ -3,13 +3,17 @@
 import { readFileSync, statSync, existsSync } from 'node:fs';
 
 export const ZIP_LIMIT = 13312;   // competition hard limit, 13 * 1024
-export const GAME_LIMIT = 12450;  // hard ceiling for the game itself
+// The competition limit less the reserve, and nothing else held back. It was
+// 11,500 and then 12,450, and both were a number kept for work that had not been
+// specified yet and then defended after that work had shipped - a contingency
+// only ever spent by finding out it was never needed is not a margin.
+export const GAME_LIMIT = 13212;  // hard ceiling for the game itself
 
 // DESIGN.md 2 reserves 100 bytes for the Wavedash SDK, down from an 800-byte
-// guess. Build-order step 4 measured it: the platform INJECTS the SDK before the
-// game's code runs, so nothing is bundled and the only thing in the zip is one
-// guarded call. A throwaway build with and without it differed by 28 bytes. 100 is
-// that with room for a second call site.
+// guess, and it is now the ONLY thing held back. Build-order step 4 measured it:
+// the platform INJECTS the SDK before the game's code runs, so nothing is bundled
+// and the only thing in the zip is one guarded call. A throwaway build with and
+// without it differed by 28 bytes. 100 is that with room for a second call site.
 export const SDK_RESERVE = 100;
 const measured = 28;
 
@@ -70,9 +74,8 @@ export function report(zipPath = 'dist/index.zip', htmlPath = 'dist/index.html')
   console.log(`  headroom to ${GAME_LIMIT} (game)  ${String(GAME_LIMIT - zip).padStart(6)} bytes`);
   console.log(`  headroom to ${ZIP_LIMIT} (total) ${String(ZIP_LIMIT - zip).padStart(6)} bytes`);
   console.log(
-    `  of which ${SDK_RESERVE} is the Wavedash reserve ` +
-    `(${measured === null ? 'DESIGN.md estimate' : 'measured at ' + measured}), ` +
-    `${ZIP_LIMIT - GAME_LIMIT - SDK_RESERVE} contingency`
+    `  the ${ZIP_LIMIT - GAME_LIMIT} between them is the Wavedash reserve ` +
+    `(${measured === null ? 'DESIGN.md estimate' : 'measured at ' + measured})`
   );
   console.log('');
   console.log(`  zip contents: ${entries.join(', ') || '(unreadable)'}`);
