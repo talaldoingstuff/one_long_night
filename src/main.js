@@ -530,7 +530,7 @@ export const C = {
   _CARDS: [
     [8, 1,  -1, 0, 20, 'SHOT RATE',       'Shots A Second', 1],
     [8, 1,  -1, 0, 20, 'SHOT DAMAGE',     'Damage A Horn',  1],
-    [4, 1,  -1, 0, 20, 'RAINBOW MASTERY', 'Metres',         1],
+    [4, 1,  -1, 0, 20, 'RAINBOW MASTERY', 'Wave Range',     1],
     [4, 1,  -1, 0, 20, 'RAINBOW BANISH',  'Seconds Held',   1],
     [4, 1,  -1, 0, 20, 'RAINBOW FORCE',   'Wave Damage',    1],
     [2, 3,  -1, 0, 10, 'EXTRA HEART',     'Hearts',         0],
@@ -538,7 +538,10 @@ export const C = {
   ],
   // The second stat each merged card moves, labelled. Indexed from card 2, and
   // only the rainbow pair has one - everything else draws a single centred line.
-  _CARD2: ['Seconds Cooldown', 'Metres Pushed', '% Crit Chance'],
+  // The second stat each merged card moves, labelled. A unit on its own says
+  // nothing - MASTERY read "Metres" and left you to guess metres of what - so
+  // every one of these names the THING and lets the number carry the unit.
+  _CARD2: ['Seconds Cooldown', 'Distance Pushed', '% Crit Chance'],
   // Extra heart's second level waits longer than its first.
   _HEART2: 9,          // the wave extra heart level 2 opens on
   _HEARTW: 9,          // and the wave whose card screen FORCES the first one, if the
@@ -568,8 +571,8 @@ export const C = {
   // everything else is: ASTERISKS make it white, for the name of the thing you are
   // handed, and TILDES the hearts' red - the same red GAME OVER is set in, which is
   // the point of using it here.
-  _LORE: 'For centuries, the *Alicorn* was/burdened to turn back evil spirits.|' +
-         'Now, vaporizing ghosts/~is your problem.~',
+  _LORE: 'For centuries, a gun was burdened/to turn back evil spirits.|' +
+         'Now, with *The Alicorn* in your hand,/~vaporizing ghosts is your problem.~',
   // The gap is generous because nothing is lost by it now: the screen HOLDS at the
   // end rather than timing out, so a reader who wants to move is one press away and
   // a reader who does not is never hurried. 1.1s of that is the paragraph arriving,
@@ -1191,14 +1194,14 @@ const RBV = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95],
 let ghosts, horns, hearts, kills, over, fireT, spawnT, inv, clock, last, shake,
     rec, blink, nextB, bindT, bindC, charging, wallT, wallR, wave, budget, waveT, hurtT,
     lv, offer, picking, sel, maxhp, healT, healA, healN, parts, glT, moT, conv,
-    heartS, crit;
+    heartS, crit, btn;
 
 const reset = () => {
   ghosts = []; horns = [];
   lv = C._CARDS.map(() => 0);
   maxhp = C._HEARTS;
   hearts = maxhp; kills = 0; over = 0;
-  offer = []; picking = 0; sel = 0; heartS = 0; crit = 0;
+  offer = []; picking = 0; sel = 0; heartS = 0; crit = 0; btn = -1;
   healT = 0; healA = 0; healN = 0;
   wave = 1; budget = budgetFor(1); waveT = 0;
   fireT = 0; spawnT = 0.6; inv = 0; clock = 0; shake = 0; hurtT = 0;
@@ -1375,15 +1378,19 @@ const onDown = (e) => {
   // where the game starts and it has not been seen yet.
   if (!scr && !lore) { sfx(4); lore = 1; return; }
   if (scr < 2) { sfx(4); if (++scr > 1) reset(); return; }
-  if (!over && !picking) {
+  // THE PRESS ONLY ARMS A BUTTON, it does not act on one. It used to act, and the
+  // main verb of this game is click-and-drag - so a turn that began with the cursor
+  // over the arrow ended the run before the drag had moved a pixel. A button fires
+  // when the pointer comes back UP on it, the way every button anywhere does.
+  //
+  // Nor is it gated on !picking any anymore: the card screen draws these two, and a
+  // drawn button that ignores a press is a lie. The card hit test is below this and
+  // returns on its own, so a press can only ever be one or the other.
+  if (!over) {
     for (let i = 0; i < 2; i++) {
-      const [bx, by, bs] = hudBtn(i);
-      if (e.clientX < bx || e.clientX > bx + bs || e.clientY < by || e.clientY > by + bs) continue;
-      // Quitting is a screen change and sounds like every other one. Mute is
-      // not: it is a toggle, and a click on the press that asks for silence
-      // would be answering the wrong question.
-      if (i) { sfx(4); saveBest(); scr = 1; } else muted ^= 1;
-      return;
+      if (!onBtn(i, e)) continue;
+      btn = i;
+      return;                                     // and the press goes no further
     }
   }
   down = 1; lx = e.clientX; ly = e.clientY;
@@ -1419,7 +1426,29 @@ const onMove = (e) => {
 };
 // Letting go early abandons the charge rather than casting a smaller one: the
 // trigger is the only thing that fires it.
-const onUp = () => { down = 0; charging = 0; bindC = 0; armT = -1; };
+// Is this pointer inside button i? Wanted twice - once to arm one and once to fire
+// it - and the two have to ask the same question, or a button could arm and then
+// never fire.
+const onBtn = (i, e) => {
+  const [bx, by, bs] = hudBtn(i);
+  return e.clientX >= bx && e.clientX <= bx + bs && e.clientY >= by && e.clientY <= by + bs;
+};
+
+const onUp = (e) => {
+  // A button fires on release, and only back on the one the press went down on.
+  // Dragging off it is how you change your mind - which is every button's own
+  // behaviour, and the reason this needs no confirmation dialog: the way to not
+  // quit is to let go somewhere else, and it costs the run nothing to do it.
+  if (btn >= 0) {
+    // Quitting is a screen change and sounds like every other one. Mute is not: it
+    // is a toggle, and a click on the press that asks for silence would be
+    // answering the wrong question.
+    if (onBtn(btn, e)) { if (btn) { sfx(4); saveBest(); scr = 1; } else muted ^= 1; }
+    btn = -1;
+    return;
+  }
+  down = 0; charging = 0; bindC = 0; armT = -1;
+};
 
 // Keyboard. DESIGN.md 12 specifies pointer only; this is an addition rather than
 // a replacement, and every path below ends in the same state the pointer sets.
@@ -2393,6 +2422,58 @@ const musicStep = (dt) => {
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
+// Mute and quit, on their own so they can outlive the rest of the HUD. On the
+// card screen everything else is gone and these two are drawn OVER the cards -
+// they are the only things there you can still press besides a card, and a
+// button you can see but not reach is worse than one that is not there.
+const btns = () => {
+  // Mute and quit, always there. A touch player has no keyboard for M or ESC, and
+  // a mouse player loses nothing by being able to click them.
+  for (let i = 0; i < 2; i++) {
+    const [bx, by, bs] = hudBtn(i);
+    const gl = i ? '→' : 'M';
+    g.globalAlpha = i || !muted ? 0.85 : 1;
+    // Sized off the SQUARE rather than off the HUD unit, so the glyph keeps its
+    // proportion whatever HBTN is set to. Set before the black pass, because that
+    // pass strokes the glyph too and needs to know how big it is.
+    const fp = bs * 0.53;                         // the glyph's size, wanted thrice
+    g.font = (fp | 0) + C._FF;
+    g.textAlign = 'center';
+    // A right arrow rather than an X: leaving a run is going somewhere, not
+    // closing something. The glyph is already in the file, on the how-to line.
+    //
+    // Centred by the BASELINE rule rather than by a fraction of the box. 0.72
+    // was tuned for a capital M, which sits on the baseline; an arrow sits on
+    // the maths axis, half a glyph higher, so the same number put it low. This
+    // one centres anything.
+    g.textBaseline = 'middle';
+    // The black pass first, the square and its glyph together, then the white
+    // over it. Both are stroked from the same centre line, so the black shows as
+    // an even rim on each side rather than shifting anything.
+    g.strokeStyle = '#000';
+    g.lineWidth = C._HBTN[2];
+    g.strokeRect(bx, by, bs, bs);
+    // The arrow is thickened by stroking it in its own colour after the fill, so
+    // the black rim under it has to be wider by the same amount or the white
+    // would eat it. A serif arrow is one thin stroke and reads as lighter than a
+    // letter beside it, which is the wrong weight for the thing that leaves a run.
+    g.lineWidth = fp * (C._HBTN[3] + (i ? C._HBTN[4] : 0));
+    g.strokeText(gl, bx + bs / 2, by + bs / 2);
+    g.strokeStyle = '#fff';
+    g.lineWidth = 2;
+    g.strokeRect(bx, by, bs, bs);
+    g.fillStyle = i || !muted ? '#fff' : css(C._GOLD, 1);
+    g.fillText(gl, bx + bs / 2, by + bs / 2);
+    if (i) {
+      g.lineWidth = fp * C._HBTN[4];
+      g.strokeText(gl, bx + bs / 2, by + bs / 2);
+    }
+    g.textBaseline = 'alphabetic';
+    g.textAlign = 'left';
+  }
+  g.globalAlpha = 1;
+};
+
 const hud = () => {
   const u = min(W, H) * C._HUDU, hu = u * C._HEARTS2;
   if (over) return overScreen(u);
@@ -2516,51 +2597,7 @@ const hud = () => {
              18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
 
-  // Mute and quit, always there. A touch player has no keyboard for M or ESC, and
-  // a mouse player loses nothing by being able to click them.
-  for (let i = 0; i < 2; i++) {
-    const [bx, by, bs] = hudBtn(i);
-    const gl = i ? '→' : 'M';
-    g.globalAlpha = i || !muted ? 0.85 : 1;
-    // Sized off the SQUARE rather than off the HUD unit, so the glyph keeps its
-    // proportion whatever HBTN is set to. Set before the black pass, because that
-    // pass strokes the glyph too and needs to know how big it is.
-    const fp = bs * 0.53;                         // the glyph's size, wanted thrice
-    g.font = (fp | 0) + C._FF;
-    g.textAlign = 'center';
-    // A right arrow rather than an X: leaving a run is going somewhere, not
-    // closing something. The glyph is already in the file, on the how-to line.
-    //
-    // Centred by the BASELINE rule rather than by a fraction of the box. 0.72
-    // was tuned for a capital M, which sits on the baseline; an arrow sits on
-    // the maths axis, half a glyph higher, so the same number put it low. This
-    // one centres anything.
-    g.textBaseline = 'middle';
-    // The black pass first, the square and its glyph together, then the white
-    // over it. Both are stroked from the same centre line, so the black shows as
-    // an even rim on each side rather than shifting anything.
-    g.strokeStyle = '#000';
-    g.lineWidth = C._HBTN[2];
-    g.strokeRect(bx, by, bs, bs);
-    // The arrow is thickened by stroking it in its own colour after the fill, so
-    // the black rim under it has to be wider by the same amount or the white
-    // would eat it. A serif arrow is one thin stroke and reads as lighter than a
-    // letter beside it, which is the wrong weight for the thing that leaves a run.
-    g.lineWidth = fp * (C._HBTN[3] + (i ? C._HBTN[4] : 0));
-    g.strokeText(gl, bx + bs / 2, by + bs / 2);
-    g.strokeStyle = '#fff';
-    g.lineWidth = 2;
-    g.strokeRect(bx, by, bs, bs);
-    g.fillStyle = i || !muted ? '#fff' : css(C._GOLD, 1);
-    g.fillText(gl, bx + bs / 2, by + bs / 2);
-    if (i) {
-      g.lineWidth = fp * C._HBTN[4];
-      g.strokeText(gl, bx + bs / 2, by + bs / 2);
-    }
-    g.textBaseline = 'alphabetic';
-    g.textAlign = 'left';
-  }
-  g.globalAlpha = 1;
+  btns();
 
   const a = proj(aimAt());                        // crosshair, on the horn's line
   const c = min(W, H) * C._XHR;
@@ -2990,14 +3027,14 @@ const loreScreen = (u) => {
   // read as the small print of its own skip button. 1.7u is half again as big as
   // that prompt - but u comes off the NARROW side, and on a portrait window the
   // narrow side is the width the line has to fit across. The longest line here is
-  // 15.3x its own font size in Trebuchet, so 1.7u would run off a portrait window.
-  // Hence the cap: 0.054W is that line at 83% of the width, whichever is smaller.
+  // 16.1x its own font size in Trebuchet, so 1.7u would run off a portrait window.
+  // Hence the cap: 0.051W is that line at 82% of the width, whichever is smaller.
   //
-  // MEASURED IN A REAL BROWSER, not reasoned about: 15.348 for Trebuchet against
-  // 15.022 for the Palatino this used to be set in. The number here is tied to BOTH
-  // the face and the text - a longer line or a wider face needs a smaller cap - and
-  // a check holds it to that rather than leaving it to be found on somebody's phone.
-  const ls = min(u * 1.7, W * 0.054);
+  // MEASURED IN A REAL BROWSER EVERY TIME EITHER MOVES, not reasoned about. It has
+  // been 15.022 (Palatino), 15.348 (Trebuchet) and now 16.108, because the longest
+  // line changed with the writing - the cap is tied to BOTH the face and the text,
+  // and a check holds it to that rather than leaving it to be found on a phone.
+  const ls = min(u * 1.7, W * 0.051);
   g.font = (ls | 0) + C._FF;
   // CENTRED ON THE BLOCK, not started at a fixed fraction of the screen. It began
   // at 0.22H, which was measured when this was three paragraphs; two is a shorter
@@ -3680,8 +3717,15 @@ const render = () => {
     g.fillRect(0, 0, W, H);
   }
   if (over) return;                               // dying: the world and the red, no HUD
-  hud();
-  if (picking) cardScreen();
+  // THE CARD SCREEN REPLACES THE HUD, it does not cover it. Hearts, the rainbow
+  // bar, READY, the wave, the threat level, the minimap and the crosshair are all
+  // answers to a question the run is not asking while it is held - and a dimmed
+  // readout behind a card is a readout you try to read anyway.
+  //
+  // The two buttons go over the top rather than under, because dimming the one
+  // thing on the screen you can still press is exactly backwards.
+  if (picking) { cardScreen(); btns(); }
+  else hud();
 };
 
 const loop = (t) => {

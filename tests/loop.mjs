@@ -147,7 +147,7 @@ let t = 0;
 const tick = (n = 1) => { for (let i = 0; i < n; i++) { rec.ops = []; t += 1000 / 60; rafCb(t); } };
 const fire = (t2, e) => (L[t2] || []).forEach((f) => f(e));
 const press = (x = 450, y = 250) => fire('pointerdown', { clientX: x, clientY: y });
-const release = () => fire('pointerup', {});
+const release = (x = 450, y = 250) => fire('pointerup', { clientX: x, clientY: y });
 const drag = (x, y) => fire('pointermove', { clientX: x, clientY: y });
 // Press and wait for the arming window to actually finish. Ticking exactly
 // ARM*60 frames looks equivalent and is not: dt comes off a float clock that has
@@ -3237,6 +3237,38 @@ console.log('--- the upgrade cards ---------------------------------------------
   ok('with everything taken, the only card left is Recovery',
      JSON.stringify(dealAt(40, maxAll)) === '[-1]',
      'one card, a full heal, and it never runs out');
+
+  // RECOVERY IS A ONE-OFF, NOT A LEVEL. take() answers a negative index by setting
+  // hearts to the maximum and doing nothing else - so the heal card you already own
+  // keeps every level it bought, and its regen goes on applying afterwards. If it
+  // ever fell through to the ++lv branch it would take a level of whatever card sat
+  // at that index, which is the quiet way this could break.
+  {
+    M.restart(); M.look(0, 0); M.place([]); M.setFire(0);
+    for (let i = 0; i < C._CARDS.length; i++) M.setLv(i, C._CARDS[i][0]);
+    const cap = M.anim().maxhp, regenWas = M.anim().regen, levels = M.anim().lv.join();
+    // Hurt, by the only thing that hurts: a ghost that reaches you.
+    let h = 0;
+    while (M.dbg().hearts > cap - 2 && h++ < 60 * 200) {
+      M.place([[C._GCONTACT - 0.01, C._GY, 0, 9, 9, 0, 0, 0, 0]]);
+      tick();
+    }
+    const hurt = M.dbg().hearts;
+    M.place([]);
+    M.setWave(40);
+    const offered = M.dealNow();
+    pickCard(0);
+    ok('and taking it fills the hearts back up',
+       offered.length === 1 && offered[0] === -1 && hurt < cap && M.dbg().hearts === cap,
+       'down to ' + hurt + ' of ' + cap + ' hearts, and back to ' + M.dbg().hearts +
+       ' - a full heal, which is the whole card');
+    ok('and it does not spend a level on the way, so HEAL keeps what it bought',
+       M.anim().lv.join() === levels && M.anim().regen === regenWas,
+       'every card still at ' + levels + ' and regen still +' + M.anim().regen +
+       ' a wave - Recovery is answered before the branch that takes a level, so it ' +
+       'cannot quietly buy one');
+    M.restart(); M.place([]); M.setFire(1);
+  }
   const nearly = { ...maxAll, 0: C._CARDS[0][0] - 1 };
   ok('and a short pool offers what is left rather than padding',
      dealAt(40, nearly).length === 1 && dealAt(40, nearly)[0] === 0,
@@ -3370,6 +3402,30 @@ console.log('--- the upgrade cards ---------------------------------------------
      'three, with "Pick a Power Up" ' + (bx[0][1] - pick.y).toFixed(0) + 'px clear ' +
      'above the top edge and ' + (500 - bx[0][1] - bx[0][3]).toFixed(0) +
      'px under the bottom one');
+
+  // THE CARD SCREEN REPLACES THE HUD, it does not cover it. Hearts, the rainbow bar,
+  // READY, the wave, the threat level, the minimap and the crosshair are all answers
+  // to a question the run is not asking while it is held - and a dimmed readout
+  // behind a card is a readout you try to read anyway.
+  const onCard = texts.map((o) => o.s);
+  ok('and it replaces the HUD rather than dimming it',
+     !onCard.some((t) => /^RAINBOW READY$|^THREAT LEVEL|^WAVE \d+$/.test(t)) &&
+       !rec.ops.some((o) => o.c === C._MAPBG),
+     'no READY, no threat level, no bare wave counter, and no minimap dish - which ' +
+     'is looked for by its own colour rather than by "is there an arc", because the ' +
+     'three rainbow cards draw rings and those are arcs too');
+
+  // ...except the two buttons, which go OVER the cards. Dimming the one thing on
+  // the screen you can still press is exactly backwards, and a button you can see
+  // but not reach is worse than one that is not drawn at all.
+  const dim = rec.ops.findIndex((o) => o.op === 'rect' && o.c === 'rgba(4,5,12,0.82)');
+  const sq = rec.ops.map((o, n) => [o, n]).filter(([o]) => o.op === 'srect' &&
+    Math.abs(o.w - o.h) < 0.5 && o.c === '#fff');
+  ok('and mute and quit are drawn over it, so they can still be pressed',
+     dim >= 0 && sq.length === 2 && sq.every(([, n]) => n > dim),
+     sq.length + ' square buttons, both after the screen dim at op ' + dim +
+     ' - and onDown no longer gates the hit test on !picking, so a press on one ' +
+     'actually lands');
   const titles = rec.ops.filter((o) => o.op === 'text' && C._CARDS.some((c) => c[5] === o.s));
   // Ask for CARDT, measure, come down by however much it overran 90% of the card.
   // Exactly what cardScreen() does - dividing by the title's LENGTH stopped being
@@ -4838,7 +4894,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
     // failed anything because it over-stated the width and so only ever made this
     // check stricter, which is the quiet kind of stale - it cannot be caught by
     // being wrong, only by being re-measured.
-    const LINE = 15.348;                            // 'burdened...' in Trebuchet MS
+    const LINE = 16.108;                            // the longest lore line, in Trebuchet
     // The longest line moved when the lore was cut to two paragraphs - it is in
     // the FIRST one now, and finding it by a word from the old text would have
     // measured whichever line happened to answer instead.
@@ -4848,7 +4904,10 @@ console.log('--- the title, the how-to, and the best ---------------------------
     // one, and one frame after a resize only has the first.
     tick(60 * 10);
     draw();
-    const lo = rec.ops.find((o) => o.op === 'text' && /^burdened/.test(o.s));
+    // Any lore line answers for the SIZE, which is all this needs - so it asks for
+    // one drawn in a single piece, rather than one a colour marker has cut into
+    // three, where the op that comes back is a fragment and not the line.
+    const lo = rec.ops.find((o) => o.op === 'text' && /^to turn back/.test(o.s));
     ok('and neither runs off the edge of a portrait window',
        lo.f * LINE < 400 * 0.92,
        'the longest line is ' + (100 * lo.f * LINE / 400).toFixed(0) + '% of a 400px ' +
@@ -4863,7 +4922,9 @@ console.log('--- the title, the how-to, and the best ---------------------------
     ok('and the writing stays inside what that cap was measured for',
        longest <= 36,
        'longest line ' + longest + ' characters, cap measured at 36 - if this fails, ' +
-       're-measure the line in Palatino and bring 0.055 down to match');
+       're-measure the longest line in Trebuchet and bring the 0.051 down to match. ' +
+       'It has been 15.022, 15.348 and 16.108 across two faces and three rewrites, ' +
+       'so it is a number to check rather than one to trust');
     globalThis.innerWidth = 900; globalThis.innerHeight = 500;
     (L.resize || []).forEach((f) => f());
     M.setScr(0);
@@ -5139,7 +5200,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
     const intoRun = () => { M.restart(); M.place([]); M.setFire(0);
       for (let i = 0; i < 20; i++) tick(); };
     const btnAt = (i) => { const [x, y, s2] = M.hudBtn2(i);
-      press(x + s2 / 2, y + s2 / 2); release(); };
+      press(x + s2 / 2, y + s2 / 2); release(x + s2 / 2, y + s2 / 2); };
     intoRun();
     const escKey = clicked(() => { kdown('Escape'); kup('Escape'); });
     intoRun();
@@ -5294,7 +5355,11 @@ console.log('--- the title, the how-to, and the best ---------------------------
      boxes.every(([x, y]) => x > C._MAPR * 500 * 2 + C._MAPPAD && y > C._MAPR * 500),
      'the minimap is top left at ' + (C._MAPR * 500).toFixed(0) + 'px radius');
 
-  const hit = (i) => { const [x, y, w2, h2] = M.hudBtn2(i); press(x + w2 / 2, y + h2 / 2); release(); };
+  // Down AND up on the button: a press alone used to be enough, which is precisely
+  // the bug - aiming is click-and-drag, so a turn that began over the arrow quit the
+  // run before the drag had moved.
+  const hit = (i) => { const [x, y, w2, h2] = M.hudBtn2(i);
+    press(x + w2 / 2, y + h2 / 2); release(x + w2 / 2, y + h2 / 2); };
   const wasMuted = M.anim().muted;
   hit(0);
   ok('and the M button mutes', M.anim().muted !== wasMuted, 'without a keyboard');
@@ -5306,6 +5371,25 @@ console.log('--- the title, the how-to, and the best ---------------------------
   ok('and pressing one does not also turn the view', M.dbg().yaw === before,
      'the press is consumed by the button rather than starting a drag');
   hit(0);
+
+  // AND LETTING GO SOMEWHERE ELSE DOES NOT FIRE IT. This is the whole fix stated as
+  // a check: the buttons used to act on the way DOWN, and the main verb of this game
+  // is click-and-drag - so a turn that began with the cursor over the arrow ended
+  // the run before the drag had moved a pixel. Dragging off is how you change your
+  // mind, which is why none of this needs a confirmation dialog: the way to not quit
+  // costs the run nothing, and a dialog would have been a pause.
+  const stillMuted = M.anim().muted, stillScr = M.anim().scr;
+  const [qx, qy, qs] = M.hudBtn2(1);
+  press(qx + qs / 2, qy + qs / 2);
+  release(450, 250);
+  const [mx2, my2, ms2] = M.hudBtn2(0);
+  press(mx2 + ms2 / 2, my2 + ms2 / 2);
+  release(450, 250);
+  ok('and dragging off one before letting go does not fire it',
+     M.anim().scr === stillScr && M.anim().muted === stillMuted,
+     'pressed the quit square and the mute square, let go in the middle of the ' +
+     'screen, and neither answered - a button fires on release, on the button the ' +
+     'press went down on');
 
   M.setWave(4);
   const bestWas = +STORE[C._LSK];
