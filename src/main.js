@@ -439,7 +439,7 @@ export const C = {
 
   // --- Waves (DESIGN.md 8) ----------------------------------------------------
   // Both curves are geometric, and they have to be. The cards multiply - fire
-  // rate and damage together reach x25.6 - so a budget that only ADDS is outrun
+  // rate and damage together reach x24 - so a budget that only ADDS is outrun
   // by wave 17 and never threatens again. Measured: with a linear budget a run
   // played well never ends.
   //
@@ -629,8 +629,23 @@ export const C = {
   // thirds of a three-card offer is all the horn can ever be.
   _ADAPT: 6,           // the lagging half of horn-vs-bind draws at this weight
   _REGEN: 1,           // hearts healed between waves before any card
-  _FIREG: 1.2,         // each fire rate level, compounding
+  // Each fire rate level, compounding - and it is the FOURTH ROOT OF 2, so the rate
+  // doubles every four cards and lands on exactly 4.00 a second at LV 9. It was 1.2,
+  // which ran to 4.30 and put the ceiling on a number nothing chose.
+  //
+  // Four places rather than 2 ** 0.25: terser folds the power at build time and it
+  // is 1.189207115002721 that would ship. At 1.1892 the top reads 4.00 and every
+  // step below it is identical to two decimals, which is all a card ever shows.
+  _FIREG: 1.1892,
   _DMGG: 1.25,         // each horn damage level
+  // ...except the LAST one, which lands on a round 6 instead of the 5.9605 that
+  // eight compounding quarters come to. Stated rather than computed: a growth rate
+  // that reached exactly 6 would be 1.25102, which moves every step on the way up
+  // by enough to show on a card face - 3.83 where it reads 3.81 - to tidy a number
+  // only the final card ever shows. So the ladder is untouched and the top of it is
+  // simply named, which also makes the last card a bigger step than the one before
+  // it, which is what a card that finishes a line should be.
+  _DMGX: 6,
   // Metres ADDED per level, not a factor: 9 to 15 in four steps of 1.5. A
   // radius has a hard ceiling the other stats do not - the arena is 16m and
   // ghosts walk in from its edge - and compounding overshot it. At 1.2 the
@@ -1666,7 +1681,7 @@ const budgetFor = (w) => round(C._BUD0 * C._BUDR ** (w - 1));
 // Every number a card moves, read from the levels rather than from C. Nothing
 // downstream knows a card exists.
 const sFire = () => C._FIRE / C._FIREG ** lv[0];
-const sDmg = () => C._DMGG ** lv[1];
+const sDmg = () => lv[1] < C._CARDS[1][0] ? C._DMGG ** lv[1] : C._DMGX;
 // Two numbers a card, three cards: MASTERY reach and frequency, BANISH hold and
 // shove, FORCE damage and crit. The face draws both rather than improving one of
 // them quietly.
@@ -1733,7 +1748,8 @@ const deal = () => {
 // What a stat reads at a given level, so a card can show the step it buys rather
 // than a percentage the player has to trust.
 const statAt = (i, l) => [
-  1 / (C._FIRE / C._FIREG ** l), C._DMGG ** l, C._BINDR + C._RADG * l,
+  1 / (C._FIRE / C._FIREG ** l), l < C._CARDS[1][0] ? C._DMGG ** l : C._DMGX,
+  C._BINDR + C._RADG * l,
   C._BINDDUR + C._DURG * l, 1 + C._RBDG * l, C._HEARTS + l, C._REGEN + l,
 ][i];
 // And the second number a merged card moves. 0 for every card that only moves one,
@@ -3589,6 +3605,18 @@ const render = () => {
   // A horn in flight is a cone, apex forward, built in the world and put through
   // the same pipeline as everything else. It was a swept box tapered to a point,
   // which is a pyramid; a horn is round.
+  // A SHOT THAT HURTS MORE LOOKS LIKE IT. Gold to begin with, orange once a horn
+  // carries more than 3 damage, and the horn's own red at more than 5 - which is
+  // LV 6 and LV 9, so the red means the card is finished rather than merely high.
+  // A quarter bigger, then a half - ADDITIVE rather than compounding, so the top
+  // step is a half again and not the 1.5625 a second quarter-step would have made
+  // it. The cone and its glow take the same multiplier, so the bullet and its light
+  // grow as one thing.
+  //
+  // Neither colour is a new constant: SHOTR is already the red at the point of the
+  // shot damage card's own horn, and the orange between them is the two mixed.
+  const ht = sDmg() > 5 ? 2 : sDmg() > 3 ? 1 : 0;
+  const hc = mix(C._GOLD, C._SHOTR, ht / 2), hs = 1 + ht / 4;
   for (const h of horns) {
     const L = hypot(h[3], h[4], h[5]) || 1;
     const px = h[3] / L, py = h[4] / L, pz = h[5] / L;
@@ -3598,11 +3626,11 @@ const render = () => {
     const uL = hypot(ux, uy, uz) || 1;
     ux /= uL; uy /= uL; uz /= uL;
     const vx = py * uz - pz * uy, vy = pz * ux - px * uz, vz = px * uy - py * ux;
-    const r = C._HW, k = C._HL / 2;
+    const r = C._HW * hs, k = C._HL / 2 * hs;
     cone(frame([h[0] - px * k, h[1] - py * k, h[2] - pz * k],
                [ux * r, uy * r, uz * r],
                [px * k, py * k, pz * k],
-               [vx * r, vy * r, vz * r]), C._HN, css(C._GOLD, 1));
+               [vx * r, vy * r, vz * r]), C._HN, css(hc, 1));
   }
   flush();
 
@@ -3617,10 +3645,10 @@ const render = () => {
     const c = cam([h[0], h[1], h[2]]);
     if (c[2] < C._NEAR) continue;
     const s = C._F / (C._F + c[2]);
-    const x = c[0] * s * PX + W / 2, y = c[1] * s * PX + H / 2, r = C._HGR * s * PX;
+    const x = c[0] * s * PX + W / 2, y = c[1] * s * PX + H / 2, r = C._HGR * hs * s * PX;
     const grd = g.createRadialGradient(x, y, 0, x, y, r);
-    grd.addColorStop(0, css(C._GOLD, C._HGA));
-    grd.addColorStop(1, css(C._GOLD, 0));
+    grd.addColorStop(0, css(hc, C._HGA));
+    grd.addColorStop(1, css(hc, 0));
     g.fillStyle = grd;
     g.beginPath();
     g.arc(x, y, r, 0, 7);

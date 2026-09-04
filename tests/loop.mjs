@@ -728,6 +728,57 @@ console.log('--- and a horn in flight glows -----------------------------------'
 }
 
 console.log('');
+console.log('--- and a heavier horn looks like one ------------------------------');
+{
+  // Gold to begin with, orange past 3 damage, the horn's own red past 5 - which
+  // lands on LV 6 and LV 9, so the red means the card is FINISHED rather than
+  // merely high. The thresholds are read off the DAMAGE here rather than off the
+  // level, because that is what they are written against: retune DMGG and the
+  // colour should move with the number, not stay pinned to a card level.
+  const rgba = (c) => 'rgba(' + c.map((v) => v | 0).join(',') + ',1)';
+  const GOLD = rgba(C._GOLD), RED = rgba(C._SHOTR);
+  const ORANGE = rgba(C._GOLD.map((v, i) => (v + C._SHOTR[i]) / 2));
+  const at = (l) => {
+    M.restart(); M.place([]); M.look(0, 0);
+    M.setLv(1, l);
+    rec.ops = [];
+    shoot();
+    tick();
+    const ops = rec.ops.slice();
+    const gl = ops.filter((o) => o.op === 'fill' && o.c.startsWith('rgrad('));
+    return { lv: l + 1, dmg: M.anim().dmg,
+             faces: (col) => ops.filter((o) => o.op === 'fill' && o.n >= 3 && o.c === col).length,
+             rad: gl.length ? +gl[0].c.split(';')[0].split(',')[2] : 0,
+             glow: gl.length ? gl[0].c : '' };
+  };
+  const lo = at(0), mid = at(5), hi = at(C._CARDS[1][0]);
+
+  ok('the three steps land where the damage says, not where a level does',
+     lo.dmg <= 3 && mid.dmg > 3 && mid.dmg <= 5 && hi.dmg > 5,
+     'LV ' + lo.lv + ' at ' + lo.dmg.toFixed(2) + ' damage, LV ' + mid.lv + ' at ' +
+     mid.dmg.toFixed(2) + ', LV ' + hi.lv + ' at ' + hi.dmg.toFixed(2) +
+     ' - so the last card is the one that turns it red');
+  ok('a light horn is gold, a heavy one orange, a maxed one red',
+     lo.faces(GOLD) > 0 && mid.faces(ORANGE) > 0 && hi.faces(RED) > 0 &&
+       !lo.faces(RED) && !hi.faces(GOLD),
+     GOLD + ' then ' + ORANGE + ' then ' + RED + ' - and neither colour is a new ' +
+     'constant: SHOTR is already the red at the point of the shot damage card own ' +
+     'horn, and the orange is the two of them mixed');
+  ok('and its glow takes the colour with it, so the light matches the shot',
+     mid.glow.includes(ORANGE.replace(',1)', ',' + C._HGA + ')')) &&
+       hi.glow.includes(RED.replace(',1)', ',' + C._HGA + ')')),
+     'the gradient runs from the shot own colour, not from a gold that stopped ' +
+     'matching the thing it is lighting');
+  ok('and both grow a quarter then a half, bullet and glow as one thing',
+     Math.abs(mid.rad / lo.rad - 1.25) < 0.02 &&
+       Math.abs(hi.rad / lo.rad - 1.5) < 0.02,
+     'glow radius ' + lo.rad.toFixed(1) + ' then ' + mid.rad.toFixed(1) + ' then ' +
+     hi.rad.toFixed(1) + 'px - 1.25x and 1.5x, added rather than compounded, and ' +
+     'the cone takes the same multiplier so the light never comes loose from the ' +
+     'bullet');
+}
+
+console.log('');
 console.log('--- the cooldown reads on the mane -------------------------------');
 {
   // DESIGN.md 6 puts this on a casting arm. There is no arm - the unicorn casts -
@@ -1228,9 +1279,26 @@ console.log('--- the minimap --------------------------------------------------'
   rec.ops = []; tick();
   const RBM = [[255, 59, 107], [255, 149, 0], [255, 214, 10], [58, 211, 95],
                 [34, 201, 255], [88, 96, 235], [180, 92, 255]];
+  // SAMPLED ACROSS FRAMES, because running the rainbow is a thing that happens over
+  // time and one frame cannot show it. This used to ask a single frame for exactly
+  // one arc of SOME rainbow colour - and gold is both a rainbow colour and the
+  // colour of the player dot at the middle of the dish, so the moment the cycle
+  // landed on gold there were two of them and the check failed. Whether it passed
+  // depended on where the clock happened to be, which is the worst kind of check:
+  // it had been passing by luck.
+  const seenRB = new Set();
+  for (let f = 0; f < 30; f++) {
+    rec.ops = []; tick();
+    for (const v of RBM) {
+      const col = 'rgba(' + v.join(',') + ',1)';
+      if (arcs(rec.ops, col).length) seenRB.add(col);
+    }
+  }
   ok('a held ghost turns rainbow on the map',
-     RBM.some((v) => arcs(rec.ops, 'rgba(' + v.join(',') + ',1)').length === 1),
-     'caught, and its blip runs the rainbow for as long as it is held');
+     seenRB.size > 2,
+     'its blip took ' + seenRB.size + ' of the seven over half a second of being ' +
+     'held, against the one the player dot contributes on its own - a still blip ' +
+     'would have shown exactly that one');
 
   // --- the one blip you could not see ------------------------------------------
   // The Warden is rgb(22,20,32) on a dish that is nearly the same, so its blip was
