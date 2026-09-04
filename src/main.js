@@ -392,9 +392,9 @@ export const C = {
   // 1.0-3.0 with the CHEAPEST ghost the best value on both hp and damage, which
   // meant the budget was measuring roughly the opposite of threat.
   //
-  // EVERYTHING WALKS FASTER than it did - Drifter 1.15 to 1.3, Darter 2.4 to 2.5,
-  // Hulk 0.7 to 0.8, Splitter 1.2 to 1.25, Warden 1.08 to 1.2 - and the Splitter
-  // hits for 2 rather than 1.
+  // EVERYTHING WALKS FASTER than it did - Drifter 1.15 to 1.2, Darter 2.4 to 2.5,
+  // Hulk 0.7 to 0.8, Warden 1.08 to 1.2 - and the Splitter hits for 2 rather than
+  // 1, which is the only change it carries: its speed went to 1.25 and came back.
   //
   // HEALTH IS UNTOUCHED, and that was learned rather than assumed. The Hulk went to
   // 20 and the Warden to 18 alongside a Hulk at 1.0, and the three together took a
@@ -430,10 +430,10 @@ export const C = {
   // WORSE - the mean falls from 23.7 to 21.7, because arriving faster than the
   // budget grows spends the dilution before it is worth anything.
   _TYPES: [
-    [3,  1.30, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
+    [3,  1.20, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
     [4,  2.50, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0, 0, 0],   // Darter, sharp cyan
     [18, 0.80, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5, 0, 0], // Hulk, angry red
-    [10, 1.25, 2, 5, 15, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
+    [10, 1.20, 2, 5, 15, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
     [16, 1.20, 2, 7, 20, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 0.9, 0.55, 1],  // Warden, near black
   ],
   _SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost

@@ -1770,7 +1770,7 @@ console.log('--- ghost types --------------------------------------------------'
   // The tuned roster, retyped rather than read out of the code. The hp, speed and
   // cost columns SUPERSEDE DESIGN.md 7's table, which made the cheapest ghost the
   // best value on both hp and damage. The unlock waves are 7's again.
-  const SPEC = [[3, 1.30, 1], [4, 2.50, 1], [18, 0.80, 3], [10, 1.25, 2], [16, 1.20, 2]];
+  const SPEC = [[3, 1.20, 1], [4, 2.50, 1], [18, 0.80, 3], [10, 1.20, 2], [16, 1.20, 2]];
   const UNLOCK = [1, 5, 10, 15, 20];
   ok('and the unlocks are the difficulty spikes', C._TYPES.every((t, i) => t[4] === UNLOCK[i]),
      'waves ' + UNLOCK.join(', ') + ' - one new type on each');
