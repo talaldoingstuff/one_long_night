@@ -4721,7 +4721,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
   // would otherwise pass or fail for two different reasons at once.
   ok('the game opens on the lore, a paragraph at a time',
      txt().some((t) => /For centuries/.test(t)) &&
-     !txt().includes('ONE LONG NIGHT') &&
+     !txt().some((t) => /TO START/.test(t)) &&
      txt().some((t) => /SKIP/.test(t)),
      txt().map((t) => '"' + t + '"').join(', '));
 
@@ -4742,7 +4742,16 @@ console.log('--- the title, the how-to, and the best ---------------------------
   // so this checks the arithmetic against the real face rather than against the
   // stub's fixed advance, which would answer for a font the game is not drawn in.
   {
-    const TITLE = 9.095, LINE = 16.136;             // 'ONE LONG NIGHT', longest lore line
+    // Width per 1px of font size for the longest lore line, measured in real headless
+    // Chrome rather than taken off the test stub's fixed advance - the stub would
+    // answer for a font the game is not drawn in.
+    //
+    // It was 16.136, and it had been WRONG since the lore was rewritten: that is the
+    // ratio of the OLD longest line, in a face the game no longer uses. It never
+    // failed anything because it over-stated the width and so only ever made this
+    // check stricter, which is the quiet kind of stale - it cannot be caught by
+    // being wrong, only by being re-measured.
+    const LINE = 15.348;                            // 'burdened...' in Trebuchet MS
     // The longest line moved when the lore was cut to two paragraphs - it is in
     // the FIRST one now, and finding it by a word from the old text would have
     // measured whichever line happened to answer instead.
@@ -4780,7 +4789,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
   tick(60 * 60);
   draw();
   ok('and it holds there until it is dismissed, however long that takes',
-     txt().some((t) => /your problem/.test(t)) && !txt().includes('ONE LONG NIGHT'),
+     txt().some((t) => /your problem/.test(t)) && !txt().some((t) => /TO START/.test(t)),
      'a minute in, still the lore - and every paragraph of it is up, because the ' +
      'last one arrives ' + (C._LORE.split('|').length * C._LOREG).toFixed(0) +
      's in and nothing takes it away afterwards');
@@ -4790,9 +4799,28 @@ console.log('--- the title, the how-to, and the best ---------------------------
   // and the skip holds for all of it because nothing resets the flag.
   press();
   draw();
+  // THE TITLE IS CUT, NOT SET. Every letter is strokes on a ten-unit grid, wobbled
+  // and offset into polygons, so there is no string to look for - and no font that
+  // could answer differently on somebody else's machine either.
+  const titleArt = (ops) => ops.filter((o) => o.op === 'fill' && o.p &&
+    o.c === 'rgba(' + C._GOLD.join(',') + ',1)');
+  const bbox = (paths) => {
+    const xs = paths.flatMap((o) => o.p.map((q) => q[0]));
+    const ys = paths.flatMap((o) => o.p.map((q) => q[1]));
+    return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  };
   ok('and a press skips it to the title rather than into a run',
-     txt().includes('ONE LONG NIGHT') && txt().some((t) => /START/.test(t)),
-     txt().map((t) => '"' + t + '"').join(', '));
+     titleArt(rec.ops).length > 15 && txt().some((t) => /START/.test(t)),
+     titleArt(rec.ops).length + ' filled letter strokes and "' +
+     txt().find((t) => /START/.test(t)) + '" under them - the words of the title are ' +
+     'shapes now, so there is no string on this screen to find');
+  ok('and it is one lettering, not a row of separate marks',
+     (() => {
+       const [x0, x1] = bbox(titleArt(rec.ops));
+       return Math.abs((x0 + x1) / 2 - 900 / 2) < 6;
+     })(),
+     'centred on x=' + (900 / 2) + ' as a whole, which is what it means for a drawn ' +
+     'title to be centred - each stroke is placed off a running edge, not on the middle');
 
   // --- the sky's own ghosts ---------------------------------------------------
   // Switched on only here. Everything else runs with an empty sky, because these
@@ -4901,12 +4929,15 @@ console.log('--- the title, the how-to, and the best ---------------------------
     globalThis.innerWidth = 400; globalThis.innerHeight = 800;
     (L.resize || []).forEach((f) => f());
     draw();
-    const ti = rec.ops.find((o) => o.op === 'text' && o.s === 'ONE LONG NIGHT');
+    // Measured off what was DRAWN rather than off a font size times a ratio: the
+    // lettering is polygons, so its width is a fact on the canvas instead of an
+    // estimate from a face somebody else might not have.
+    const [x0, x1] = bbox(titleArt(rec.ops));
     ok('and the title fits across a portrait window as well',
-       ti.f * 9.095 < 400 * 0.92,
-       'ONE LONG NIGHT is ' + (100 * ti.f * 9.095 / 400).toFixed(0) + '% of the width ' +
-       'at ' + ti.f + 'px - it was 79% of it before it was made bigger, so the room ' +
-       'was never there to simply scale it up');
+       x1 - x0 < 400 * 0.92,
+       'the lettering spans ' + (100 * (x1 - x0) / 400).toFixed(0) + '% of a 400px ' +
+       'width - it was 79% as type before it was made bigger, so the room was never ' +
+       'there to simply scale it up');
     globalThis.innerWidth = 900; globalThis.innerHeight = 500;
     (L.resize || []).forEach((f) => f());
     draw();
@@ -5049,26 +5080,48 @@ console.log('--- the title, the how-to, and the best ---------------------------
   ok('the two things you do are gold, and every way to do them is white',
      doing.length === 2 && doing.every((o) => o.c === 'rgba(' + C._GOLD.join(',') + ',1)') &&
      ways.length === 3 && ways.every((o) => o.c === '#fff'),
-     'including the mute-and-quit line, which is a control rather than a heading - ' +
-     'colouring by odd-and-even alone would have made it one');
+     'including the mute-and-quit line down in the corner, which is white for the ' +
+     'same reason: gold is reserved for the two things you actually do');
   const label = lines.find((o) => o.s === 'PERSONAL BEST');
   // Two fills now, laid side by side and centred as one: canvas has no rich text,
   // so 'the number in gold and the words in white' is two calls.
   const num = lines.find((o) => /^\d+$/.test(o.s));
-  const tail = lines.find((o) => o.s === ' WAVES CLEARED');
-  const gaps = ways.map((o) => o.y).sort((a2, b2) => a2 - b2);
-  ok('and the two instructions are read as two, not as five lines',
-     gaps[1] - gaps[0] > (gaps[2] - gaps[1]) * 1.2,
-     (gaps[1] - gaps[0]).toFixed(0) + 'px between the aiming line and the charging ' +
-     'one, against ' + (gaps[2] - gaps[1]).toFixed(0) + 'px between the charging ' +
-     'line and the controls under it');
+  const tail = lines.find((o) => o.s === 'WAVES CLEARED');
+  // The controls line has LEFT the list, so the grouping is now between the two
+  // instructions rather than between the instructions and it: a heading sits close
+  // to its own way in, and the next instruction sits further off than that.
+  const aimWay = lines.find((o) => /^WASD/.test(o.s));
+  const inPair = aimWay.y - doing[0].y, between = doing[1].y - aimWay.y;
+  ok('and the two instructions are read as two, not as four lines',
+     between > inPair * 1.2,
+     between.toFixed(0) + 'px from the aiming block to the charging one, against ' +
+     inPair.toFixed(0) + 'px between a heading and its own way in');
+  ok('and the list sits close under its own heading',
+     doing[0].y - lines.find((o) => o.s === 'HOW TO PLAY').y < between * 2,
+     (doing[0].y - lines.find((o) => o.s === 'HOW TO PLAY').y).toFixed(0) + 'px under ' +
+     'HOW TO PLAY - it began at 0.24H when there were five lines to fit, which left ' +
+     'the list hanging further from its title than anything inside it was from ' +
+     'anything else');
+  // Mute and quit are chrome, not a lesson, so they are down in the corner with the
+  // version rather than in the list.
+  const ctl = lines.find((o) => /^M MUTE/.test(o.s));
+  ok('and mute and quit sit in the bottom corner, out of the lesson',
+     ctl.align === 'right' && ctl.x > 900 * 0.9 && ctl.y > 500 * 0.9,
+     '"' + ctl.s + '" right-aligned at ' + ctl.x.toFixed(0) + ',' + ctl.y.toFixed(0) +
+     ' - the foot of the screen, where the version already lives');
 
-  ok('and PERSONAL BEST is gold, with only the NUMBER gold under it',
+  // THREE LINES, and the figure has one to itself. It was "31 WAVES CLEARED" laid
+  // out as two fills side by side, which is a lot of measuring to still end up with
+  // the number inside a sentence.
+  ok('and the best is a caption, the figure, and its unit - three lines',
      label.c === 'rgba(' + C._GOLD.join(',') + ',1)' &&
      num.c === 'rgba(' + C._GOLD.join(',') + ',1)' && tail.c === '#fff' &&
-     num.y > label.y && tail.y === num.y && tail.x > num.x,
-     '"' + num.s + '" in gold then "' + tail.s + '" in white, on one line - the ' +
-     'number is the thing, the words are the label for it');
+     num.y > label.y && tail.y > num.y &&
+     [label, num, tail].every((o) => o.x === 900 / 2 && o.align === 'center') &&
+     num.f > label.f && num.f > tail.f,
+     '"' + label.s + '" / "' + num.s + '" / "' + tail.s + '", each on its own line ' +
+     'down the middle - the figure alone in the middle of them is simply the biggest ' +
+     'thing there, which is what it is for');
   ok('and it sits above the button, which sits above the version',
      label.y < verOp.y && doing[1].y < label.y,
      'how-to, then the best, then PLAY, then the version at the foot');
@@ -5117,7 +5170,7 @@ console.log('--- the title, the how-to, and the best ---------------------------
   draw();
   const bi = txt().indexOf('PERSONAL BEST');
   ok('and it remembers the run once there is one',
-     bi >= 0 && txt()[bi + 1] === STORE[C._LSK] && txt()[bi + 2] === ' WAVES CLEARED',
+     bi >= 0 && txt()[bi + 1] === STORE[C._LSK] && txt()[bi + 2] === 'WAVES CLEARED',
      'PERSONAL BEST over "' + txt()[bi + 1] + txt()[bi + 2] + '", which is what was written');
   ok('and it is written under a namespaced key',
      /^[a-z]+\./.test(C._LSK) && +STORE[C._LSK] > 0,

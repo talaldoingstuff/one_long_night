@@ -566,6 +566,45 @@ export const C = {
   // Paragraphs split on | like the lore, and read by the same splitter.
   _GATE: 'DESKTOP ONLY|One Long Night|can only be played on a computer.',
   _VER: 'v 0.1',
+  // THE FACE, in one place. It was written out at all seventeen call sites, so a
+  // change of mind was a seventeen-line edit and a chance to miss one.
+  //
+  // A jam entry cannot ship a font file - a subset woff2 is thousands of bytes - so
+  // this is a system stack, and the only faces worth naming are the ones that are
+  // the SAME FILE on Windows and macOS. Trebuchet is one: Microsoft drew it, Apple
+  // bundles it, and on Linux it falls to the system sans, which is a near neighbour.
+  // Palatino Linotype was Windows only, so the game was already showing a generic
+  // serif to every Mac it ran on - and a book face was the wrong voice anyway now
+  // the title is cut rather than set.
+  _FF: 'px Trebuchet MS,sans-serif',
+  // THE TITLE IS DRAWN, NOT SET. Every letter is a few strokes on a ten-unit grid
+  // which are then subdivided with a wobble, offset to both sides by a jittered
+  // width and closed into a polygon - so it comes out cut rather than typed, and
+  // matches a floor made of facets and a ghost with a hem of spikes. It is also the
+  // one piece of type in the game that cannot look like a different font on
+  // somebody else's machine, because there is no font in it.
+  //
+  // Advance, then one stroke a semicolon: leading 1 closes the ring, and the points
+  // are x,y pairs. A STRING rather than nested arrays because this is the biggest
+  // single piece of data in the file and brackets are most of what an array costs.
+  _TG: {
+    O: '7;1 3,0 .8,2 0,5 .8,8 3,10 5.2,8 6,5 5.2,2',
+    n: '5.6;0 0,3.4 0,10;0 0,5.4 1.4,3.4 3.4,3.4 4.6,5.2 4.6,10',
+    e: '5.4;0 .5,6.2 4.3,6.2;0 4.3,6.2 4,4.2 2.4,3.3 .8,4.2 .1,6.4 .8,9 2.6,10 4.4,9.1',
+    L: '5.4;0 0,0 0,10 4.6,10',
+    o: '5.6;1 2.5,3.3 .6,4.5 0,6.6 .6,8.8 2.5,10 4.3,8.8 4.9,6.6 4.3,4.5',
+    g: '5.6;1 2.3,3.3 .6,4.3 0,6.1 .6,7.9 2.3,8.9 3.9,7.9 4.5,6.1 3.9,4.3;' +
+       '0 4.5,3.4 4.5,11 3.6,12.7 1.5,13 .4,12.1',
+    N: '6.4;0 0,10 0,0;0 0,0 5.4,10;0 5.4,10 5.4,0',
+    i: '2;0 .5,3.4 .5,10;1 .5,.9 -.2,1.6 .5,2.3 1.2,1.6',
+    h: '5.6;0 0,0 0,10;0 0,5.4 1.4,3.4 3.4,3.4 4.6,5.2 4.6,10',
+    t: '4.6;0 1.8,.8 1.8,8.8 2.6,10 4,9.5;0 .2,3.4 3.8,3.4',
+    ' ': '4',
+  },
+  // Seed, stroke weight in grid units, how far a letter may lean in degrees, how far
+  // it may sit off the line, and the size: a multiple of the HUD unit, capped as a
+  // fraction of the width the same way the lore and the old title were.
+  _TIT: [5, 1.7, 7, 0.8, 0.34, 0.0099],
   // The mute and quit squares: size and margin, in HUD units. They are the only
   // two things in the game meant to be CLICKED rather than aimed at, so they are
   // sized as targets - but twice the old size read as furniture, so a quarter off
@@ -2407,7 +2446,7 @@ const hud = () => {
   // this half of the HUD draws, so carrying the face down past the minimap only
   // gave something else a chance to change it on the way.
   if (!charging && bindT <= 0) {
-    g.font = 'bold ' + (lbl | 0) + 'px Palatino Linotype,serif';
+    g.font = 'bold ' + (lbl | 0) + C._FF;
     g.fillStyle = css(C._RIMC, 1 - C._RDYP[1] * (1 + sin(clock * C._RDYP[0])) / 2);
     g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
   }
@@ -2417,7 +2456,7 @@ const hud = () => {
   // run is counted in.
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
-  g.font = (u * C._WAVEF | 0) + 'px Palatino Linotype,serif';
+  g.font = (u * C._WAVEF | 0) + C._FF;
   g.fillText('WAVE ' + wave, W / 2, 18 + u * C._WAVEF);
   // What the wave is worth in the game's own currency, rather than a kill count.
   // The budget is what buys the ghosts, so it is the honest measure of a wave, and
@@ -2436,7 +2475,7 @@ const hud = () => {
   //   5 6 7 8 9 10 11 12 13 15 17 19 22 24 28 31 35 40 45 51
   //       ^-------^ the only five that are not the real budget
   g.fillStyle = '#8b93b8';
-  g.font = (u * C._KILLF | 0) + 'px Palatino Linotype,serif';
+  g.font = (u * C._KILLF | 0) + C._FF;
   g.fillText('THREAT LEVEL ' + max(budgetFor(wave), wave + 4), W / 2,
              18 + u * (C._WAVEF + C._KILLF * 1.15));
   g.textAlign = 'left';
@@ -2451,7 +2490,7 @@ const hud = () => {
     // proportion whatever HBTN is set to. Set before the black pass, because that
     // pass strokes the glyph too and needs to know how big it is.
     const fp = bs * 0.53;                         // the glyph's size, wanted thrice
-    g.font = (fp | 0) + 'px Palatino Linotype,serif';
+    g.font = (fp | 0) + C._FF;
     g.textAlign = 'center';
     // A right arrow rather than an X: leaving a run is going somewhere, not
     // closing something. The glyph is already in the file, on the how-to line.
@@ -2634,7 +2673,7 @@ const cardIcon = (i, x, y, r) => {
 // DESIGN.md 8: three cards between waves, pick one. The run is held while you do.
 const cardScreen = () => {
   const cw = W * C._CARDW, ch = H * C._CARDH;
-  const type = (f) => { g.font = (cw * f | 0) + 'px Palatino Linotype,serif'; };
+  const type = (f) => { g.font = (cw * f | 0) + C._FF; };
   g.fillStyle = 'rgba(4,5,12,0.82)';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
@@ -2662,7 +2701,7 @@ const cardScreen = () => {
 // alike.
 const cardFace = (i, x, y, w, h) => {
   const mx = x + w / 2;
-  const type = (f) => { g.font = (w * f | 0) + 'px Palatino Linotype,serif'; };
+  const type = (f) => { g.font = (w * f | 0) + C._FF; };
   {
     g.textAlign = 'center';
     g.fillStyle = C._CARDBG;
@@ -2754,7 +2793,7 @@ const overScreen = (u) => {
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
   g.fillStyle = css(C._HPC, 1);                   // the hearts' own red
-  g.font = 'bold ' + (u * 2.2 | 0) + 'px Palatino Linotype,serif';
+  g.font = 'bold ' + (u * 2.2 | 0) + C._FF;
   g.fillText('GAME OVER', W / 2, H / 2 - u * 4.4);
   // Each result is a CAPTION over its NUMBER rather than a sentence with a figure
   // buried in it - the same shape the title screen already uses for PERSONAL BEST,
@@ -2765,9 +2804,9 @@ const overScreen = (u) => {
   // spaced lines read as four unrelated lines; this reads as two results.
   const res = (lab, num, col, y) => {
     g.fillStyle = col;
-    g.font = (u * 0.95 | 0) + 'px Palatino Linotype,serif';
+    g.font = (u * 0.95 | 0) + C._FF;
     g.fillText(lab, W / 2, y);
-    g.font = (u * 2 | 0) + 'px Palatino Linotype,serif';
+    g.font = (u * 2 | 0) + C._FF;
     g.fillText('' + num, W / 2, y + u * 1.6);
   };
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
@@ -2869,7 +2908,6 @@ const HOWTO = [
   'WASD   ← ↑ → ↓   CLICK+DRAG',
   'HOLD TO CHARGE & RELEASE THE RAINBOW WAVE',
   '(SPACE   CLICK) + HOLD',
-  'M MUTE      ESC QUIT',
 ];
 
 // The same breathing square the selected card wears, so the two read as one
@@ -2887,7 +2925,7 @@ const anywhere = (label, y, u) => {
   const p = C._CARDSP;
   g.globalAlpha = p[0] + (1 - p[0]) * (0.5 + 0.5 * sin(clock * p[1]));
   g.fillStyle = '#fff';
-  g.font = (u * 1.2 | 0) + 'px Palatino Linotype,serif';
+  g.font = (u * 1.2 | 0) + C._FF;
   g.fillText(label, W / 2, y);
   g.globalAlpha = 1;
 };
@@ -2910,12 +2948,15 @@ const loreScreen = (u) => {
   // read as the small print of its own skip button. 1.7u is half again as big as
   // that prompt - but u comes off the NARROW side, and on a portrait window the
   // narrow side is the width the line has to fit across. The longest line here is
-  // 16.1x its own font size in Palatino, so 1.7u would be 99% of a portrait window.
-  // Hence the cap: 0.055W is that line at 89% of the width, whichever is smaller.
-  // The 0.055 is tied to THIS text - a longer line needs a smaller number - and a
-  // check holds it to that rather than leaving it to be discovered on a phone.
-  const ls = min(u * 1.7, W * 0.055);
-  g.font = (ls | 0) + 'px Palatino Linotype,serif';
+  // 15.3x its own font size in Trebuchet, so 1.7u would run off a portrait window.
+  // Hence the cap: 0.054W is that line at 83% of the width, whichever is smaller.
+  //
+  // MEASURED IN A REAL BROWSER, not reasoned about: 15.348 for Trebuchet against
+  // 15.022 for the Palatino this used to be set in. The number here is tied to BOTH
+  // the face and the text - a longer line or a wider face needs a smaller cap - and
+  // a check holds it to that rather than leaving it to be found on somebody's phone.
+  const ls = min(u * 1.7, W * 0.054);
+  g.font = (ls | 0) + C._FF;
   // CENTRED ON THE BLOCK, not started at a fixed fraction of the screen. It began
   // at 0.22H, which was measured when this was three paragraphs; two is a shorter
   // block and the same top left it sitting high with the screen empty underneath.
@@ -2975,52 +3016,72 @@ const menuScreen = () => {
   g.textAlign = 'center';
   g.fillStyle = css(C._GOLD, 1);
   if (scr) {
-    g.font = (u * 1.3 | 0) + 'px Palatino Linotype,serif';
+    g.font = (u * 1.3 | 0) + C._FF;
     g.fillText('HOW TO PLAY', W / 2, H * 0.12);
     for (let i = 0; i < HOWTO.length; i++) {
-      // The two things you DO are gold; every way to do them is white. Parity alone
-      // would have made the mute-and-quit line a heading, and it is a control.
-      const head = !(i % 2) && i < 4;
+      // The two things you DO are gold; every way to do them is white.
+      const head = !(i % 2);
       g.fillStyle = head ? css(C._GOLD, 1) : '#fff';
-      g.font = (u * (head ? 1 : 0.85) | 0) + 'px Palatino Linotype,serif';
-      // An extra gap before the second heading, so the two instructions read as
-      // two things rather than as one block of five lines - and the same gap
-      // again before the last line, which is neither of the two instructions but
-      // the controls that sit outside them.
-      g.fillText(HOWTO[i], W / 2,
-                 H * 0.24 + i * u * 1.3 + u * 0.7 * ((i > 1) + (i > 3)));
+      g.font = (u * (head ? 1 : 0.85) | 0) + C._FF;
+      // An extra gap before the second heading, so the two instructions read as two
+      // things rather than as one block of four lines.
+      //
+      // And the block starts at 0.19H rather than 0.24. It began where it did when
+      // there were five lines to fit; four leaves the list hanging a long way under
+      // its own heading, with the gap to the title wider than any gap inside it.
+      g.fillText(HOWTO[i], W / 2, H * 0.19 + i * u * 1.3 + u * 0.7 * (i > 1));
     }
+    // THREE LINES, the figure alone in the middle of them. It used to be a caption
+    // over a line reading "31 WAVES CLEARED" - two fills measured and laid side by
+    // side, because canvas has no rich text - and the number was still buried in a
+    // sentence for all that work. On its own line it is simply the biggest thing
+    // there, which is what it is for, and the measuring goes with it.
+    //
+    // The block moved up as it grew: it gains a line downward, and the room it has
+    // is between the end of the lesson and the button under it.
+    const by = H * 0.52;
     g.fillStyle = css(C._GOLD, 1);
-    g.font = (u * 0.95 | 0) + 'px Palatino Linotype,serif';
-    g.fillText('PERSONAL BEST', W / 2, H * 0.6);
-    // Two fills, centred as one: canvas has no rich text, so the number and the
-    // words are measured and laid side by side rather than coloured in one call.
-    g.font = (u * 1.8 | 0) + 'px Palatino Linotype,serif';
-    const nb = '' + best, tail = ' WAVES CLEARED';
-    const wn = g.measureText(nb).width;
-    g.textAlign = 'left';
-    const x0 = W / 2 - (wn + g.measureText(tail).width) / 2;
-    g.fillText(nb, x0, H * 0.69);
+    g.font = (u * 0.95 | 0) + C._FF;
+    g.fillText('PERSONAL BEST', W / 2, by);
+    g.font = (u * 1.8 | 0) + C._FF;
+    g.fillText('' + best, W / 2, by + u * 1.6);
     g.fillStyle = '#fff';
-    g.fillText(tail, x0 + wn, H * 0.69);
-    g.textAlign = 'center';
+    g.font = (u * 0.95 | 0) + C._FF;
+    g.fillText('WAVES CLEARED', W / 2, by + u * 3.1);
     anywhere('CLICK ANYWHERE TO PLAY', H * 0.84, u);
+    // THE TWO KEYS THAT ARE NOT ABOUT PLAYING, in the corner with the version
+    // rather than in the list. The list is a lesson - what you do and every way to
+    // do it - and mute and quit are neither; they are the chrome you reach for
+    // afterwards, so they sit at the foot of the screen where chrome lives.
+    g.textAlign = 'right';
+    g.fillStyle = '#fff';
+    g.font = (u * 0.85 | 0) + C._FF;
+    g.fillText('M MUTE   ESC QUIT', W - u, H - u * 0.7);
+    g.textAlign = 'center';
   } else if (loreScreen(u)) {
     return;
   } else {
-    // Capped against the width for the same reason the lore is: ONE LONG NIGHT is
-    // 9.1x its font size, and 2.4u was ALREADY 79% of a portrait window - there was
-    // never much room above it there. 0.099W is the title at 90% of the width, so
-    // it grows to 3.4u on a landscape window and stops short of the edge on a
-    // narrow one instead of running off it.
-    g.font = (min(u * 3.4, W * 0.099) | 0) + 'px Palatino Linotype,serif';
-    g.fillText('ONE LONG NIGHT', W / 2, H * 0.42);
+    // Capped against the width for the same reason the lore is: there was never
+    // much room above it on a portrait window, so it grows with the HUD unit and
+    // stops short of the edge instead of running off it.
+    if (!TITLE.length) titleArt();
+    const ts = min(u * C._TIT[4], W * C._TIT[5]);
+    const tx = W / 2 - titleW * ts / 2, ty = H * 0.42 - 10 * ts;
+    for (const path of TITLE) {
+      g.beginPath();
+      for (const sub of path) {
+        for (let i = 0; i < sub.length; i++)
+          g[i ? 'lineTo' : 'moveTo'](tx + sub[i][0] * ts, ty + sub[i][1] * ts);
+        g.closePath();
+      }
+      g.fill();
+    }
     anywhere('CLICK ANYWHERE TO START', H * 0.58, u);
   }
   // The version belongs at the foot of whichever screen you are on, not in the
   // middle of the title.
   g.fillStyle = '#8b93b8';
-  g.font = (u * 0.7 | 0) + 'px Palatino Linotype,serif';
+  g.font = (u * 0.7 | 0) + C._FF;
   g.fillText(C._VER, W / 2, H - u * 0.7);
   g.textAlign = 'left';
 };
@@ -3152,6 +3213,74 @@ const env = () => {
   sand();
   g.fillStyle = css(envC(4), 1);
   g.fillRect(-m, hy - 1, W + 2 * m, 2);
+};
+
+// The title, cut once and then only ever scaled. Seeded, so it is the same lettering
+// every run - a title that re-jittered on each frame would be a title shivering.
+//
+// Everything is worked out in GRID UNITS and the letter's own lean is baked in, so
+// drawing it later is a scale and an offset and nothing else.
+const TITLE = [];
+let titleW = 0;
+const titleArt = () => {
+  const T = C._TIT;
+  let z = T[0];
+  const rnd = () => (z = z * 16807 % 2147483647) / 2147483647;
+  let x = 1;
+  for (const ch of 'One Long Night') {
+    const gl = C._TG[ch];
+    if (!gl) continue;
+    const part = gl.split(';'), adv = +part[0];
+    // A lean and a drop a letter, about its own middle: the line stays level while
+    // no two letters sit quite the same way on it.
+    const rot = (rnd() - 0.5) * T[2] * PI / 180, dy = (rnd() - 0.5) * T[3];
+    const co = cos(rot), si = sin(rot), cx = adv / 2;
+    const set = (q) => {
+      const a = q[0] - cx, b = q[1] - 5;
+      return [x + cx + a * co - b * si, dy + 5 + a * si + b * co];
+    };
+    for (let k = 1; k < part.length; k++) {
+      const bit = part[k].split(' '), shut = bit[0] === '1', p = [];
+      for (let i = 1; i < bit.length; i++) p.push(bit[i].split(',').map(Number));
+      // SUBDIVIDE WITH A WOBBLE. A midpoint pushed off the line is what turns a
+      // straight edge into a cut one, and doing it here rather than at the corners
+      // keeps the letter readable - the shape is still where it was.
+      const q = [], np = p.length, m = shut ? np : np - 1;
+      for (let i = 0; i < m; i++) {
+        const a = p[i], b = p[(i + 1) % np];
+        q.push(a, [(a[0] + b[0]) / 2 + (rnd() - 0.5) * 0.5,
+                   (a[1] + b[1]) / 2 + (rnd() - 0.5) * 0.5]);
+      }
+      if (!shut) q.push(p[np - 1]);
+      // Both sides of the stroke, offset along the normal by a width that changes
+      // point to point - which is what makes it look cut by hand rather than swept.
+      const nq = q.length, L = [], R = [];
+      for (let i = 0; i < nq; i++) {
+        const a = q[shut ? (i - 1 + nq) % nq : max(0, i - 1)];
+        const b = q[shut ? (i + 1) % nq : min(nq - 1, i + 1)];
+        let ux = b[0] - a[0], uy = b[1] - a[1];
+        const d = hypot(ux, uy) || 1, w = T[1] * (0.6 + rnd() * 0.55) / 2;
+        ux /= d; uy /= d;
+        L.push([q[i][0] - uy * w, q[i][1] + ux * w]);
+        R.push([q[i][0] + uy * w, q[i][1] - ux * w]);
+      }
+      // A ring is two loops wound against each other, so the counter is a hole the
+      // fill leaves alone. An open stroke is one loop: up one side, back down the
+      // other, with a point pushed past each end for a cap.
+      if (shut) TITLE.push([L.map(set), R.reverse().map(set)]);
+      else {
+        const tip = (a, b) => {
+          let ux = a[0] - b[0], uy = a[1] - b[1];
+          const d = hypot(ux, uy) || 1;
+          return [a[0] + ux / d * T[1] * 0.7, a[1] + uy / d * T[1] * 0.7];
+        };
+        TITLE.push([[tip(q[0], q[1]), ...L, tip(q[nq - 1], q[nq - 2]), ...R.reverse()]
+                    .map(set)]);
+      }
+    }
+    x += adv + 1.2;
+  }
+  titleW = x;
 };
 
 // The sand, over the ground ramp and under everything that stands on it. Built
@@ -3381,16 +3510,17 @@ const gate = () => {
   const u = min(W, H) * C._HUDU;
   // The body size, wanted twice: once to set the font and once to space the lines
   // by it. Capped against the WIDTH, because a phone held upright is the one shape
-  // this is guaranteed to be read in - measured in Palatino, the longest line runs
-  // 15.2x its own font size, so 0.057W lands it at 62% of a 420px screen. It was
-  // one line of 22.7x and overflowed on a real phone.
-  const f = min(u * 1.15, W * 0.057) | 0;
+  // this is guaranteed to be read in - measured in a real browser, the longest line
+  // runs 15.459x its own font size in Trebuchet, so 0.056W lands it exactly where
+  // 0.057 landed it in the Palatino this used to be set in. It was one line of
+  // 22.7x and overflowed on a real phone.
+  const f = min(u * 1.15, W * 0.056) | 0;
   g.fillStyle = '#000';
   g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
   C._GATE.split('|').forEach((t, i) => {
     g.fillStyle = i ? '#fff' : css(C._GOLD, 1);
-    g.font = (i ? f : min(u * 2.3, W * 0.1) | 0) + 'px Palatino Linotype,serif';
+    g.font = (i ? f : min(u * 2.3, W * 0.1) | 0) + C._FF;
     // The two lines under the heading are ONE sentence and sit a line-height apart.
     // Stepped by the FONT rather than by a fraction of H, which is what the first
     // version did and only looked right in portrait: the size is capped by W and
