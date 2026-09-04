@@ -3,8 +3,8 @@
 ![One Long Night](Poster.png)
 
 A **js13kGames 2026** entry, on the theme *Unicorns and Rainbows*. The whole game
-is a single HTML file of **12,991 bytes** - no images, no audio files, no fonts,
-no network. Everything on screen is drawn from code at runtime.
+is a single HTML file of **under 13KB** - no images, no audio files, no fonts, no
+network. Everything on screen is drawn from code at runtime.
 
 ---
 
@@ -69,7 +69,12 @@ its own speed, health and damage.
 
 ## 📦 The Size and Byte Budget
 
-The whole game is **12,991 bytes** - one `index.html`, zipped.
+The whole game is one `index.html`, zipped, at a little under **13,000 bytes**
+against a limit of 13,312.
+
+The packer's optimiser searches rather than calculates, so the exact figure moves
+by a dozen bytes between builds of identical source. `npm run size` prints what
+the build you just made actually came to.
 
 The build inlines the JS and CSS, minifies with terser, packs with Roadroller and
 recompresses the zip with advzip. The packed file is pure 7-bit ASCII.
