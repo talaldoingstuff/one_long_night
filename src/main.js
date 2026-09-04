@@ -713,7 +713,11 @@ export const C = {
   // and 0.36 left three pixels between the LV and the icon and four between the
   // icon and the first value. Type is sized off the WIDTH and the lines are placed
   // as fractions of the HEIGHT, so height alone buys spacing and grows nothing.
-  _CARDH: 0.44,        // and its height, as a fraction of the height
+  // A FIFTH TALLER AGAIN. Type is sized off the card's WIDTH, so height alone buys
+  // room and grows nothing - and the fractions below were re-laid rather than left
+  // to stretch, because stretching a layout by a fifth opens the gaps INSIDE a pair
+  // by a fifth too, and those are the ones that were holding it together.
+  _CARDH: 0.528,       // and its height, as a fraction of the height
   // Type is sized off the CARD, not off the HUD unit. It was HUD-sized inside a
   // card half the screen tall, which is how it managed to be both too big and
   // unreadable at once.
@@ -2383,7 +2387,6 @@ const hud = () => {
   // word telling you they are health - it was a label on the one thing on screen
   // that could not be anything else.
   const lbl = u * C._KILLF;
-  g.textAlign = 'right';
 
   // The rainbow bar under them: how much of the bind is back. DESIGN.md 11 says
   // no cooldown bar, because the arm's saturation was to carry it - but that arm
@@ -2434,8 +2437,10 @@ const hud = () => {
 
   // READY under the bar, in the bind's own cyan - the colour the rim and the
   // held blips already use, so it says which thing is ready without a word more.
-  // Right-aligned to the same edge the bar and the hearts end on, so the whole
-  // corner reads as one column.
+  // CENTRED ON THE BAR rather than pushed to the right edge: it is a caption for
+  // the bar and nothing else, and hanging it off the screen edge made it a caption
+  // for the corner. The bar starts well left of the hearts, so the two were never
+  // the same column to line up with anyway.
   //
   // CLICK/SPACE & HOLD used to sit under it. An instruction that never leaves the
   // screen stops being read after the first wave and goes on costing the corner
@@ -2447,8 +2452,9 @@ const hud = () => {
   // gave something else a chance to change it on the way.
   if (!charging && bindT <= 0) {
     g.font = 'bold ' + (lbl | 0) + C._FF;
+    g.textAlign = 'center';
     g.fillStyle = css(C._RIMC, 1 - C._RDYP[1] * (1 + sin(clock * C._RDYP[0])) / 2);
-    g.fillText('RAINBOW READY', W - 16, by + bh + lbl * 1.3);
+    g.fillText('RAINBOW READY', bx + bw / 2, by + bh + lbl * 1.3);
   }
 
   // Wave above, threat below it, both on the centre line. The wave takes the
@@ -2724,10 +2730,10 @@ const cardFace = (i, x, y, w, h) => {
     type(C._CARDT);
     const tw = g.measureText(title).width;
     if (tw > w * 0.9) type((C._CARDT * w | 0) * 0.9 / tw);
-    g.fillText(title, mx, y + h * 0.16);
+    g.fillText(title, mx, y + h * 0.145);
     g.fillStyle = '#8b93b8';
     type(C._CARDL);
-    if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.28);
+    if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.243);
 
     // Between the LV line above it and the first value below, with room on both
     // sides now the card is 0.44 of the screen rather than 0.36.
@@ -2742,15 +2748,18 @@ const cardFace = (i, x, y, w, h) => {
     // The top of the value line is its baseline less its own size, which is set off
     // the card's WIDTH - so the gap has to be worked out in the same breath.
     const two = i > 1 && i < 5;                   // a merged card: two of everything
-    const vy = (two ? 0.68 : 0.77) - C._CARDV * w / h;
-    cardIcon(i, mx, y + h * (0.28 + vy) / 2,
-             min(w * C._CARDI, h * 0.16) * C._CARDIS[i < 0 ? 7 : i]);
+    const vy = (two ? 0.675 : 0.758) - C._CARDV * w / h;
+    // The height cap comes DOWN as the card goes up, so the glyph is the same size
+    // it was and simply has more room around it - the point of the taller card was
+    // air, not a bigger picture.
+    cardIcon(i, mx, y + h * (0.243 + vy) / 2,
+             min(w * C._CARDI, h * 0.133) * C._CARDIS[i < 0 ? 7 : i]);
 
     if (i < 0) {                                  // Recovery says what it does instead
       g.fillStyle = '#cfd6f5';
       type(C._CARDU);
-      g.fillText('Fully Recover', mx, y + h * 0.83);
-      g.fillText('Health', mx, y + h * 0.94);
+      g.fillText('Fully Recover', mx, y + h * 0.81);
+      g.fillText('Health', mx, y + h * 0.915);
     } else {
       // Hearts and heals are whole; everything else, damage included, is not.
       const dp = i > 4 ? 0 : 2;
@@ -2767,18 +2776,21 @@ const cardFace = (i, x, y, w, h) => {
         g.fillText(v0.toFixed(d) + ' > ' + v1.toFixed(d), mx, y + h * at);
         g.fillStyle = '#8b93b8';
         type(C._CARDU);
-        g.fillText(unit, mx, y + h * (at + 0.065));
+        g.fillText(unit, mx, y + h * (at + 0.06));
       };
       // A unit belongs to the number above it, and on a merged card that has to be
       // SEEN. Four evenly spaced lines read as four unrelated lines - you take in a
-      // number and only then find out what it was. 0.065 inside a pair against
-      // 0.115 between them is what makes them two groups of two rather than four.
+      // number and only then find out what it was. 0.06 inside a pair against 0.107
+      // between them is what makes them two groups of two rather than four, and the
+      // RATIO is what matters: the card grew a fifth and these did not grow with it,
+      // so the extra room went to the glyph and the margins instead of loosening
+      // the one gap that was doing the binding.
       //
       // A single card's pair sits centred in the span a merged one covers, so the
       // two kinds of card carry the same weight instead of one looking half empty.
-      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.68 : 0.77);
+      pair(statAt(i, lv[i]), statAt(i, lv[i] + 1), C._CARDS[i][6], dp, two ? 0.675 : 0.758);
       if (two)
-        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], i > 3 ? 0 : 2, 0.86);
+        pair(stat2At(i, lv[i]), stat2At(i, lv[i] + 1), C._CARD2[i - 2], i > 3 ? 0 : 2, 0.842);
     }
   }
   g.textAlign = 'left';
@@ -2807,15 +2819,15 @@ const overScreen = (u) => {
     g.font = (u * 0.95 | 0) + C._FF;
     g.fillText(lab, W / 2, y);
     g.font = (u * 2 | 0) + C._FF;
-    g.fillText('' + num, W / 2, y + u * 1.6);
+    g.fillText('' + num, W / 2, y + u * 1.75);
   };
   // The wave you died ON is not one you survived: reaching wave 2 and dying there
   // is one wave cleared, and dying in wave 1 is none.
   res('WAVES SURVIVED', wave - 1, css(C._GOLD, 1), H / 2 - u * 2.1);
-  res('PERSONAL BEST', best, '#fff', H / 2 + u * 1.7);
+  res('PERSONAL BEST', best, '#fff', H / 2 + u * 1.95);
   // The same line the title and the how-to end on, drawn by the same hand: it is
   // the one thing on any of those three screens the player has to act on.
-  anywhere('CLICK ANYWHERE TO PLAY AGAIN', H / 2 + u * 5.9, u);
+  anywhere('CLICK ANYWHERE TO PLAY AGAIN', H / 2 + u * 6.3, u);
   g.textAlign = 'left';
 };
 

@@ -1413,9 +1413,14 @@ console.log('--- the HUD ------------------------------------------------------'
      'slow that any single glance was just a caption at some alpha, and a pulse ' +
      'nobody can see moving is a pulse that is not there');
 
-  ok('and is pushed right, to the edge the bar and the hearts end on',
-     readyOf(rec.ops).align === 'right' && readyOf(rec.ops).x === 900 - 16,
-     'right-aligned at x=' + readyOf(rec.ops).x + ', so the corner reads as one column');
+  // It captions the BAR, so it is centred on the bar. Hanging it off the screen
+  // edge made it a caption for the corner instead - and the bar starts well left of
+  // the hearts, so there was never one column there for the two of them to share.
+  ok('and it is centred on the bar it captions',
+     readyOf(rec.ops).align === 'center' &&
+       Math.abs(readyOf(rec.ops).x - (track.x + track.w / 2)) < 0.5,
+     'centred at x=' + readyOf(rec.ops).x.toFixed(0) + ' against a bar running ' +
+     track.x.toFixed(0) + ' to ' + (track.x + track.w).toFixed(0));
   const shades = new Set(bars(rec.ops).map((o) => o.c.replace(/,[\d.]+\)$/, ')')));
   ok('the bar is a whole rainbow, all seven of it',
      shades.size === BOWN,
@@ -3275,14 +3280,21 @@ console.log('--- the upgrade cards ---------------------------------------------
   rec.ops = []; tick();
   const texts = rec.ops.filter((o) => o.op === 'text');
   const bx = M.boxes();
-  // Half the HEIGHT, not 0.4 of it: a merged card carries four lines under its
-  // glyph and the card grew to 0.44 to give them room. Width and the total across
-  // are what stop it swallowing the screen, and neither moved.
-  ok('a card is a card, not half the screen',
-     bx[0][2] < 900 * 0.2 && bx[0][3] < 500 * 0.5 &&
+  // A merged card carries four lines under its glyph, and the card has grown twice
+  // to give them room - 0.36, then 0.44, now 0.528. So "under half the height" has
+  // stopped being the thing to hold: it is over half now, deliberately. What has to
+  // stay true is that it does not crowd out the two lines ABOVE it, does not reach
+  // the bottom of the screen, and that three of them still do not swallow the width.
+  const pick = texts.find((o) => o.s === 'Pick a Power Up');
+  ok('a card is a card, not the whole screen',
+     bx[0][2] < 900 * 0.2 && pick.y < bx[0][1] &&
+     bx[0][1] + bx[0][3] < 500 * 0.8 &&
      bx[bx.length - 1][0] + bx[0][2] - bx[0][0] < 900 * 0.75,
      bx[0][2].toFixed(0) + 'x' + bx[0][3].toFixed(0) + 'px each, ' +
-     (bx[bx.length - 1][0] + bx[0][2] - bx[0][0]).toFixed(0) + 'px across for all three');
+     (bx[bx.length - 1][0] + bx[0][2] - bx[0][0]).toFixed(0) + 'px across for all ' +
+     'three, with "Pick a Power Up" ' + (bx[0][1] - pick.y).toFixed(0) + 'px clear ' +
+     'above the top edge and ' + (500 - bx[0][1] - bx[0][3]).toFixed(0) +
+     'px under the bottom one');
   const titles = rec.ops.filter((o) => o.op === 'text' && C._CARDS.some((c) => c[5] === o.s));
   // Ask for CARDT, measure, come down by however much it overran 90% of the card.
   // Exactly what cardScreen() does - dividing by the title's LENGTH stopped being
