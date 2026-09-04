@@ -1770,7 +1770,7 @@ console.log('--- ghost types --------------------------------------------------'
   // The tuned roster, retyped rather than read out of the code. The hp, speed and
   // cost columns SUPERSEDE DESIGN.md 7's table, which made the cheapest ghost the
   // best value on both hp and damage. The unlock waves are 7's again.
-  const SPEC = [[3, 1.15, 1], [4, 2.40, 1], [18, 0.70, 3], [10, 1.20, 1], [16, 1.08, 2]];
+  const SPEC = [[3, 1.30, 1], [4, 2.50, 1], [20, 0.80, 3], [10, 1.25, 2], [18, 1.20, 2]];
   const UNLOCK = [1, 5, 10, 15, 20];
   ok('and the unlocks are the difficulty spikes', C._TYPES.every((t, i) => t[4] === UNLOCK[i]),
      'waves ' + UNLOCK.join(', ') + ' - one new type on each');
@@ -1791,10 +1791,17 @@ console.log('--- ghost types --------------------------------------------------'
      ' - it was 30, which no run reaches, so the bind failing on a Warden was a ' +
      'rule the game taught by showing and then never showed');
   const hpc = C._TYPES.map((t, k) => (t[0] + (k === C._SPLIT ? 2 * C._TYPES[0][0] : 0)) / t[3]);
+  // THE RULE IS THAT THE CHEAPEST IS NOT THE BEST VALUE. That is the whole point of
+  // the pricing: it used to run 1.0 to 3.0 with the Drifter best on both hp and
+  // damage per point, which had the budget measuring roughly the opposite of threat.
+  // The band widened to exactly 2.0 when the Hulk went to 20hp on an unchanged cost,
+  // which makes IT the best hp a point buys - and it is the second dearest thing in
+  // the game, so the rule holds and the spread is simply wider than it was.
   ok('and cost tracks the work each one makes you do',
-     Math.max(...hpc) / Math.min(...hpc) < 2,
+     hpc[0] < Math.max(...hpc) && Math.max(...hpc) / Math.min(...hpc) <= 2.05,
      'hp per cost runs ' + Math.min(...hpc).toFixed(1) + ' to ' + Math.max(...hpc).toFixed(1) +
-     ', against 1.0 to 3.0 before - and the cheapest is no longer the best value');
+     ' - the Drifter is the cheapest at ' + hpc[0].toFixed(1) + ' and the Hulk the best ' +
+     'value at ' + Math.max(...hpc).toFixed(1) + ', which is the way round it has to be');
 
   ok('all five types exist', C._TYPES.length === 5, NAMES.join(', '));
   ok('and their hp, speed and damage are the tuned roster',

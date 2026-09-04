@@ -388,9 +388,23 @@ export const C = {
   // Cost and the unlock wave belong to step 8's threat budget and are carried
   // here because they are properties of the type, not of the spawner.
   _GSPEED: 1,          // metres a second at speed 1.0x
-  // Costs are priced so hp-per-cost sits in a 2.0-3.6 band. They used to run
+  // Costs are priced so hp-per-cost sits in a 2.0-4.0 band. They used to run
   // 1.0-3.0 with the CHEAPEST ghost the best value on both hp and damage, which
   // meant the budget was measuring roughly the opposite of threat.
+  //
+  // EVERYTHING WALKS FASTER than it did, and the two heavy types carry more: the
+  // Hulk 20hp at 0.8 where it was 18 at 0.7 - it went to 1.0 first and that ALONE
+  // took a driven run from wave 32 to wave 10, because 20hp arriving in 14.9s
+  // instead of 21.3 is 30% less time to answer a thing that hits for the damage cap, the Warden 18 at 1.2 where it was 16
+  // at 1.08, and the Splitter hits for 2 rather than 1. The costs did NOT move with
+  // them, so the Hulk is now the best hp a point buys at 4.0 and the band is wider
+  // than it was - that is deliberate, and it is what makes a late wave heavier
+  // rather than merely longer.
+  //
+  // Speed is the half of this that is not on any card. Nothing the player can buy
+  // answers it: the horn already reaches past the spawn ring, so what a faster
+  // ghost takes is the time to AIM, and what it takes from a rainbow build is the
+  // seconds between one cast and the next.
   //
   // Unlocks are the difficulty spikes, one every five waves: 5, 10, 15, 20.
   //
@@ -413,11 +427,11 @@ export const C = {
   // WORSE - the mean falls from 23.7 to 21.7, because arriving faster than the
   // budget grows spends the dilution before it is worth anything.
   _TYPES: [
-    [3,  1.15, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
-    [4,  2.40, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0, 0, 0],   // Darter, sharp cyan
-    [18, 0.70, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5, 0, 0], // Hulk, angry red
-    [10, 1.20, 1, 5, 15, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
-    [16, 1.08, 2, 7, 20, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 0.9, 0.55, 1],  // Warden, near black
+    [3,  1.30, 1, 1,  1, 0.44, 0.05, 3, 5, [214, 222, 240], 0, 0, 0, 0, 1, 1.2, 0.12, 0, 0, 0],        // Drifter, pale white
+    [4,  2.50, 1, 2,  5, 0.34, 0.04, 4, 4, [34, 201, 255], 1, 0.55, 0.22, 0, 1, 1.2, 0.12, 0, 0, 0],   // Darter, sharp cyan
+    [20, 0.80, 3, 5, 10, 0.80, 0.05, 1, 7, [255, 72, 76], 1, 0.5, 0.3, 0.55, 1.6, -1.2, 0.45, 0.5, 0, 0], // Hulk, angry red
+    [10, 1.25, 2, 5, 15, 0.56, 0.08, 5, 6, [96, 214, 118], 0, 0.45, 0, 0, 1, 1.2, 0.12, 1.35, 0, 0],   // Splitter, sickly green
+    [18, 1.20, 2, 7, 20, 0.64, 0.04, 3, 6, [22, 20, 32], 1, 0.42, 0.3, 0.55, 1.6, -1.2, 0.45, 0.9, 0.55, 1],  // Warden, near black
   ],
   _SOLIDF: [236, 240, 255],     // the face painted onto a solid ghost
   _SOLIDE: 0.34,       // and a faint white edge on it, so a near-black body still
