@@ -509,17 +509,13 @@ export const C = {
   // needed per level of this one, draw weight, name, unit, and the level the card
   // counts from.
   //
-  // TWO A SIDE, ALL TO LV 9. It was two horn cards against THREE rainbow ones,
-  // each capped at 4, and the shape was the problem as much as the numbers: the
-  // rainbow held ghosts and never killed one, so its three cards competed with
-  // each other for a slot to buy an effect that could not win a wave. Measured, a
-  // rainbow build died on wave 5 against 33 for a horn build, and 65% of every
-  // card slot offered was a rainbow card.
-  //
-  // So they are merged and given damage. MASTERY is reach and frequency, FORCE is
-  // hold and the damage a cast lands. Two a side, sixteen levels a side, and every
-  // rainbow card now buys two things at once - which is what makes one worth
-  // taking against a horn card.
+  // THE SHAPE HAS BEEN WRONG TWICE, and both times for the same reason. It was
+  // three rainbow cards capped at 4 that each bought one thing, and the rainbow
+  // held ghosts without ever killing one - so three cards competed for a slot to
+  // buy an effect that could not win a wave, and 65% of every slot offered was a
+  // rainbow card while a rainbow build died on wave 5 against 33 for a horn build.
+  // They were merged to two and given damage, which fixed the effect and left a
+  // side that could not fill a screen. What is below is the third shape.
   // THREE A SIDE ON THE RAINBOW, ALL TO LV 5. Two cards could never fill a
   // three-card screen from one side, so ADAPT could not actually withhold a half -
   // 2 horn and 2 rainbow into 3 slots always leaves one behind. Three rainbow cards
@@ -1751,7 +1747,7 @@ const open = (i) => {
 
 // The lagging half of horn-versus-bind is drawn at ADAPT times the weight. Each
 // side is measured against its OWN cap, since they do not have the same number of
-// levels - two cards of eight is not the same progress as two of four.
+// levels - two cards of eight is not the same progress as three of four.
 const weightOf = (i) => {
   const horn = (lv[0] + lv[1]) / (C._CARDS[0][0] + C._CARDS[1][0]);
   const bind = (lv[2] + lv[3] + lv[4]) /
@@ -2806,7 +2802,7 @@ const cardFace = (i, x, y, w, h) => {
     if (i >= 0) g.fillText('LV ' + (lv[i] + C._CARDS[i][7] + 1), mx, y + h * 0.243);
 
     // Between the LV line above it and the first value below, with room on both
-    // sides now the card is 0.44 of the screen rather than 0.36.
+    // sides now the card is 0.528 of the screen rather than the 0.36 it began at.
     //
     // Capped against the card's HEIGHT as well as its width. The radius came off
     // the width alone, and the space it has to sit in is vertical - so on a wide,

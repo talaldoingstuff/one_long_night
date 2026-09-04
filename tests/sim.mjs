@@ -138,4 +138,4 @@ ok('audio: pitch jump lands at the right time and interval',
 
 const quiet = zzfxG(1, 0, 220, 0, .2, .1, 0);
 ok('audio: a plain tone is not noise',
-   hz(quiet) < 1000, `${hz(quiet).toFixed(0)} Hz — broadband would read in the thousands`);
+   hz(quiet) < 1000, `${hz(quiet).toFixed(0)} Hz - broadband would read in the thousands`);

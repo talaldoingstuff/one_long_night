@@ -1,4 +1,4 @@
-# js13kGames 2026 Entry — Design Spec
+# js13kGames 2026 Entry - Design Spec
 
 > **This document supersedes all previous design documents for this project.**
 > Any earlier spec, and any gameplay code written against it, is void.
@@ -27,13 +27,13 @@ Competition rules. Violating any of these disqualifies the entry or drops it fro
 | External resources | **None.** No CDN, no font files, no image or audio assets, no analytics, no `fetch` |
 | Browsers | Latest Chrome **and** Firefox, **zero console errors** |
 | Repo | Must contain full buildable source, not just unzipped output |
-| localStorage | All keys namespaced. Never call `localStorage.clear()` — games share an origin |
+| localStorage | All keys namespaced. Never call `localStorage.clear()` - games share an origin |
 | Category | One only. **Desktop**, landscape orientation |
 
 ### Deadlines
 
-- **September 13** — game final, zip + GitHub repo submitted
-- **September 20** — deployed and published on Wavedash. Deployment only; no new features, no bugfixes
+- **September 13** - game final, zip + GitHub repo submitted
+- **September 20** - deployed and published on Wavedash. Deployment only; no new features, no bugfixes
 
 ---
 
@@ -96,20 +96,20 @@ esbuild        bundle + minify to one ESM file
   ↓
 Terser         mangle.properties with a regex scope (e.g. names matching /^_/)
   ↓
-inline         everything into a single index.html — no separate JS/CSS
+inline         everything into a single index.html - no separate JS/CSS
   ↓
 Roadroller     only if JS exceeds ~8KB; test both ways
   ↓
-ECT -9 -zip    or advzip — recompresses harder than any system archiver
+ECT -9 -zip    or advzip - recompresses harder than any system archiver
 ```
 
-`js13k-vite-plugins` covers most of steps 2–5.
+`js13k-vite-plugins` covers most of steps 2-5.
 
 ### Code style for minification
 
 - One module, no build-time abstraction layers
 - Plain functions and object literals over classes (class method names don't mangle by default)
-- Arrays over objects for hot data — `[x,y,z,hp]` beats `{x,y,z,hp}` after compression
+- Arrays over objects for hot data - `[x,y,z,hp]` beats `{x,y,z,hp}` after compression
 - Destructure `Math` once; alias `document`, `canvas.getContext`
 - Everything procedural. A seeded PRNG is ~50 bytes and replaces every asset file
 
@@ -119,7 +119,7 @@ ECT -9 -zip    or advzip — recompresses harder than any system archiver
 
 **Write-only. Nothing is read back, nothing is rendered from the SDK.**
 
-The SDK is injected by the platform as a host global — it is **not** bundled. Do not ship `@wvdsh/sdk-js`.
+The SDK is injected by the platform as a host global - it is **not** bundled. Do not ship `@wvdsh/sdk-js`.
 
 ```js
 // at startup
@@ -128,12 +128,12 @@ typeof Wavedash<'u' && Wavedash.init()
 // once at startup, cache the id
 board = await Wavedash.getOrCreateLeaderboard(...)
 
-// at game over — fire and forget, do NOT await before showing results
+// at game over - fire and forget, do NOT await before showing results
 try { Wavedash.uploadLeaderboardScore(board.id, score, true) } catch(e){}
 ```
 
 - The `typeof` guard is mandatory. The zip must be fully playable standalone with no Wavedash global present
-- `try/catch` is mandatory — an unhandled promise rejection is a console error, which breaks a hard competition rule
+- `try/catch` is mandatory - an unhandled promise rejection is a console error, which breaks a hard competition rule
 - Never `await` the upload before rendering the game-over screen
 - Personal best lives in namespaced `localStorage`
 
@@ -151,11 +151,11 @@ You stand in an open field wearing a unicorn hand puppet on your right arm and a
 
 ### Orientation
 
-**Landscape.** Full 360° turning. This is a change from earlier portrait planning — do not carry portrait assumptions forward.
+**Landscape.** Full 360° turning. This is a change from earlier portrait planning - do not carry portrait assumptions forward.
 
 ### Camera
 
-First person, eye level, looking forward. Fixed position — the camera rotates but never translates.
+First person, eye level, looking forward. Fixed position - the camera rotates but never translates.
 
 This is the core technical reason for the design: **every hard-to-render object is gone.** No small distant creatures, no quadruped rigs, no facet shading at 20px. The only detailed geometry sits an arm's length from the camera at a fixed distance and angle, where detail is affordable.
 
@@ -171,13 +171,13 @@ Canvas2D with painter's-algorithm fake-3D. **No WebGL.**
 - The dots a dying ghost throws off carry the same glow, one gradient each. Theirs runs from an **inner circle** rather than from the centre, so each dot keeps its own radius as a solid core and only the halo is added outside it - a gradient run from the centre leaves the dot soft, and a burst of soft dots is a smudge rather than a spray. Brightness is the **hold**, not the reach: full alpha carries to 0.35 of the way out before it starts to fall, which burns nearly 3x the area of the core without the dot getting any bigger. At the 260 cap the whole pass measured about 0.8ms a frame against 0.14 for flat discs - the worst case the cap allows, and still under 6% of a 16.7ms budget
 - **Hard polygon edges only.** No rounded primitives, no capsules, no anti-aliased blobs for solid geometry
 - Viewmodel (both arms) draws last, on top, with no depth sorting at all
-- Ghosts use additive blending, which is order-independent — they skip depth sorting entirely
+- Ghosts use additive blending, which is order-independent - they skip depth sorting entirely
 
 ---
 
 ## 6. The two arms
 
-### Right arm — unicorn puppet
+### Right arm - unicorn puppet
 
 A unicorn head and neck worn over the forearm. **Drawn, not modelled** (changed 2026-08-31): a flat 3/4 low-poly sprite painted straight in screen space, 344 vertices over 38 paths, viewed from behind-right so it faces away to the front-left. It was a mesh of swept boxes until the rebrand; going flat cost nothing in the read and gave back 259 bytes, because a viewmodel that never moves against the camera was paying for a transform, a projection and a depth sort it never used.
 
@@ -187,14 +187,14 @@ Because the horn is art now rather than geometry, the line it aims along is **st
 
 - **Fires horns.** Infinite ammo, gated by fire rate only
 - Horns are projectiles with travel time, not hitscan
-- Occupies the bottom-right of the frame. It is the largest and best-lit object in the game — spend detail here
+- Occupies the bottom-right of the frame. It is the largest and best-lit object in the game - spend detail here
 - The horn is the brightest single element on screen (amber)
 
 **Animations:**
-- **Recoil** — offset the whole sprite back along the horn's own axis on fire, ease out over `_RECT`
-- **Blink** — collapse the eye path's Y about its own centre on a randomised timer
+- **Recoil** - offset the whole sprite back along the horn's own axis on fire, ease out over `_RECT`
+- **Blink** - collapse the eye path's Y about its own centre on a randomised timer
 
-### Left arm — ~~casting arm~~ **cut**
+### Left arm - ~~casting arm~~ **cut**
 
 There is no second arm. It was to be a forearm wrapped in rainbow bands, palm
 open, bottom-left, carrying the cooldown in its saturation. The unicorn casts
@@ -207,28 +207,51 @@ the sprite's paths are mane, and `wash()` drains them toward grey against
 off-screen, by name - CAST, CASTL, CASTR, SLEEVE, PALM, WRAPT, BANDN - so this
 section cannot quietly come back.
 
-### Bind — the AOE
+### Bind - the AOE
 
 **Centred on the player, not in front of them.** This is critical to get right.
+
+The four bullets below are the ORIGINAL design. Two of them did not survive
+contact, and the differences are load-bearing rather than incidental, so they
+are written out here rather than left to be found in `cast()`.
 
 - Hold to charge. The radius expands the longer you hold
 - Releasing casts at the current radius
 - Bound ghosts are held in place for a duration
 - All ghost types are held equally, **except the Warden, which is immune**
 
-**Rendering in first person:** a circle centred on the camera projects with its near half behind the viewer, off-screen. What the player sees is an **arc sweeping outward toward the horizon** as the radius grows. Draw as concentric ellipses whose centre lies below the bottom of the viewport, clipped to the screen.
+**What shipped.** The charge is a fixed 3 seconds (`_BINDCHG`) and **it fires
+itself** at the end of them. Letting go early abandons the charge rather than
+casting a smaller ring, so there is one radius and one price - which is also why
+the r² cooldown rule below is cut. Nothing chooses a radius any more, so there is
+nothing left for it to price; it belongs back the moment a card makes the radius
+variable again.
 
-- Solid inner ring = current radius
-- Dashed outer ring = the maximum currently affordable (scales with bind-radius upgrades, giving free feedback on that card)
-- **The minimap is where the actual circle reads.** Draw it there as a real circle around the player dot
+**The wave kills as well as holds.** Damage lands with the wave, on the frame it
+goes out; the throw BANISH buys is paid when the hold lets go, so a caught ghost
+is hurt, thrown clear and then pinned out there. Radius, cooldown, hold, throw,
+damage and crit chance are all card values - see 9.
 
-**Balance rule: cooldown must scale with r², not r.** Area grows quadratically, so a linear cost makes max-charge always optimal and kills the short tactical bind.
+**The Warden is immune to the hold and to the throw, and not to the damage.**
+Everything else in the ring stops dead while it keeps walking at you and burns as
+it comes, which is a rule one wave of watching teaches. It was immune to all
+three at first, and that made the ring a dead zone the rainbow paid for and never
+got to show.
+
+**Rendering in first person:** a circle centred on the camera projects with its
+near half behind the viewer, off-screen. What the player sees is an **arc sweeping
+outward toward the horizon** as the radius grows. The floor carries the charge as
+a rainbow lying on it, and the cast is that rainbow standing up as a wall sweeping
+out to the radius it caught.
+
+- **The minimap is where the actual circle reads.** Drawn there as a real circle
+  around the player dot, with held ghosts running the rainbow as blips
 
 ---
 
 ## 7. Ghosts
 
-No anatomy. A ghost is a blob outline with a sine-deformed wavy hem and two dark eye voids. Amorphousness is the point — every imperfection that would break a creature model reads as correct here.
+No anatomy. A ghost is a blob outline with a sine-deformed wavy hem and two dark eye voids. Amorphousness is the point - every imperfection that would break a creature model reads as correct here.
 
 All five types are the **same generator with different parameters**: size, hue, wobble amplitude, wobble frequency, wisp count.
 
@@ -241,17 +264,17 @@ All five types are the **same generator with different parameters**: size, hue, 
 | Warden | 8 | 0.7× | 2 | 6 | wave 20 | near black |
 
 The HP, speed, damage and cost columns above are the ORIGINAL design and were
-superseded by the balance pass — they made the cheapest ghost the best value on
+superseded by the balance pass - they made the cheapest ghost the best value on
 both hp and damage, so the budget measured roughly the opposite of threat. The
 shipped numbers live in `_TYPES` and the checks retype them.
 
 The **Unlocks** column IS current, and a check holds it there: one new type
 every five waves, all five met by wave 20. The Warden's hue is corrected above
-too — it is near black, which is why its minimap blip needs a white ring.
+too - it is near black, which is why its minimap blip needs a white ring.
 
-**Splitter** — on death, breaks into two Drifters. Reuses the Drifter entirely. Makes a large bind valuable, since you can hold the children before they scatter.
+**Splitter** - on death, breaks into two Drifters. Reuses the Drifter entirely. Makes a large bind valuable, since you can hold the children before they scatter.
 
-**Warden** — immune to bind. One boolean. It must visibly shrug off the ring so the player learns the rule without being told. This is a mechanical shift at wave 20 rather than just larger numbers.
+**Warden** - immune to bind. One boolean. It must visibly shrug off the ring so the player learns the rule without being told. This is a mechanical shift at wave 20 rather than just larger numbers.
 
 ### Behaviour
 
@@ -260,7 +283,7 @@ Ghosts spawn at the edge of the arena at a random bearing and drift straight tow
 ### Feedback
 
 - **Flash white on hit**
-- **Opacity drops a step per HP lost** — a nearly-dead Hulk is visibly faint
+- **Opacity drops a step per HP lost** - a nearly-dead Hulk is visibly faint
 - **No health bars.** Bars over 360° of enemies would be unreadable clutter
 - **Ghost under the crosshair is outlined in white** to confirm the target
 
@@ -273,7 +296,7 @@ Ghosts spawn at the edge of the arena at a random bearing and drift straight tow
 Each wave has a budget. The spawner buys ghost types randomly from those currently unlocked until the budget is spent.
 
 - Costs are in the table above
-- Budget grows per wave by a single formula — tune the whole difficulty curve from that one place
+- Budget grows per wave by a single formula - tune the whole difficulty curve from that one place
 - **Unlock gating applies to the buy list, not the budget.** Wave number decides what is *available*; budget decides how much
 
 No wave is hand-authored. Composition varies every run.
@@ -286,60 +309,118 @@ Three upgrade cards are offered. Pick one.
 
 ## 9. Upgrade cards
 
-| Card | Effect | Cap |
-|---|---|---|
-| Fire rate | Horns per second | — |
-| Horn damage | Damage per horn | — |
-| Bind radius | Max affordable radius | — |
-| Bind cooldown | Recharge speed | — |
-| Bind duration | How long ghosts stay held | — |
-| Extra heart | +1 max heart | 2 |
-| Regen | Health restored between waves | 2 |
+Three cards offered between waves, pick one. The run is held while you choose,
+and the HUD is not drawn at all on that screen - see 11.
 
-**Regen** starts at +1 by default. Two cards raise it to +2 then +3. Always capped by max hearts.
+**Seven cards. Every rainbow card moves two numbers**, because two cards that
+each bought one thing could never be worth a slot against a horn card.
 
-- Regen is the strongest card in the pool — sustain compounds across a long run in a way fire rate does not. **Weight it rarer in the draw**, or every player takes it twice immediately and the rest of the pool goes unread
-- **Once a card hits its cap it drops out of the pool.** One line, and it prevents dead draws late in a run
-- Fire rate and horn damage are distinct because ghost HP varies: fire rate answers swarms, damage answers tanks
+| Card | What it moves | Cards | Runs |
+|---|---|---|---|
+| SHOT RATE | Shots a second | 8 | 1.00 to 4.00 |
+| SHOT DAMAGE | Damage a horn | 8 | 1.00 to 6.00 |
+| RAINBOW MASTERY | Wave range, and seconds cooldown | 4 | 9 to 15m, 9 to 6s |
+| RAINBOW BANISH | Seconds held, and distance pushed | 4 | 3 to 5s, 0 to 2.4m |
+| RAINBOW FORCE | Wave damage, and % crit chance | 4 | 1.00 to 3.00, 5 to 25% |
+| EXTRA HEART | Hearts | 2 | 3 to 5 |
+| HEAL | Health back a wave | 2 | +1 to +3 |
+
+32 cards to max everything. The horn's two multiply to x24 at the top, which is
+why the wave budget has to be geometric: a budget that only ADDS is outrun by
+wave 17 and never threatens again.
+
+- **Once a card hits its cap it drops out of the pool.** When the pool empties
+  entirely the offer is a single **RECOVERY** - a full heal, no level, and it
+  never runs out. It takes all 32 cards to see one
+- **HEAL sits behind EXTRA HEART**, so hearts are the entry fee for sustain.
+  That is this section's old "weight regen rarer" done with a rule instead of a
+  number
+- **The draw adapts.** Whichever of horn-versus-rainbow is behind is drawn at
+  `_ADAPT` times the weight, each side measured against its own cap - two cards
+  of eight is not the same progress as three of four
+- **A heart is guaranteed by wave 9** if the draw has never once offered one.
+  Offered, not given: declining one still spends the guarantee
+- Nothing else is ever forced. Fire rate used to be pushed into the first screen,
+  which made the opening the one choice in the game that was not a choice
 
 ---
 
 ## 10. Player state
 
-- **3 hearts** to start, max 5 with both Extra Heart cards
+- **3 hearts** to start, max 5 with both EXTRA HEART cards
 - Damage is per-ghost-contact, values in the ghost table
-- **Cap all damage at 3.** A larger hit takes most of a run's health from a single mistake
-- Score = waves survived, plus ghosts killed as a tiebreaker
+- **Cap all damage at 3.** A larger hit takes most of a run's health from a
+  single mistake. The Hulk is the only thing that reaches the cap
+- **Score is waves survived, and nothing else.** Kills were scored as a
+  tiebreaker and are not any more: a wave sends a different number of ghosts
+  every time it is played, so anything counted per ghost measures the spawner
+  rather than the player
 
 ---
 
 ## 11. HUD
 
-- **Minimap, top-left.** Circular. Shows: view cone, player dot, ghost blips at true bearing including behind, and the current bind circle. This is a **primary display**, not decoration — a threat may only be perceivable here. Do not shrink it for tidiness, but it should not exceed roughly a quarter of the screen height
+- **Minimap, top-left.** Circular. Shows: view cone, player dot, ghost blips at
+  true bearing including behind, and the current bind circle. This is a **primary
+  display**, not decoration - a threat may only be perceivable here. Do not shrink
+  it for tidiness, but it should not exceed roughly a quarter of the screen height
 - **Hearts, top-right.** Filled and empty states
-- **Wave counter**, small
-- No cooldown bar — the unicorn's mane carries that, washing toward grey as the bind recharges (6 above)
+- **A rainbow bar under the hearts**, five hearts wide, showing how much of the
+  bind is back. This section said "no cooldown bar - the unicorn's mane carries
+  that", and the mane still does carry it: but the mane is a small thing on a
+  puppet you are not looking at while something is closing, so the bar says the
+  same thing where the hearts already have your eye
+- **RAINBOW READY** under the bar and centred on it, in the bind's own cyan,
+  breathing on a two-second pulse. It captions the bar, so it is centred on the
+  bar rather than hung off the screen edge
+- **Wave counter and THREAT LEVEL**, both on the centre line at the top
+- **Mute and quit**, two squares in a corner. They fire on RELEASE, on the button
+  the press went down on, because aiming is click-and-drag and a turn that began
+  over one used to act on the way down
+- **Nothing is captioned.** HEALTH under the hearts and CLICK/SPACE & HOLD under
+  READY were both cut: one labelled the only thing on screen it could have been,
+  and the other was an instruction that never left and so stopped being read
+
+**The card screen draws none of it.** Not dimmed - not drawn. Hearts, bar, READY,
+wave, threat level, minimap and crosshair are answers to a question the run is not
+asking while it is held. The two buttons are drawn over the cards, because dimming
+the one thing you can still press is exactly backwards.
 
 ---
 
 ## 12. Controls
 
+**Desktop only.** A coarse pointer gets a DESKTOP ONLY sign and the game never
+starts behind it: arming a charge needs the press to stay within `_ARMPX` of where
+it landed, and a resting fingertip drifts further than that.
+
 | Action | Input |
 |---|---|
-| Aim / turn | Drag (pointer X → yaw, pointer Y → pitch) |
-| Fire horn | Tap / click |
-| Bind | Hold, release to cast at current radius |
+| Aim / turn | Drag, or WASD, or the arrow keys |
+| Fire horn | Automatic, at the current fire rate |
+| Charge the bind | Hold click, or hold space |
+| Pick a card | Click it, or 1-3, or arrows and space |
+| Mute | M, or the M square |
+| Quit to the menu | ESC, or the arrow square |
 
 One code path for mouse and touch via Pointer Events. No gestures to learn.
 
-**Turn speed is the primary difficulty knob** — slow turning plus 360° threats is the tension; fast turning trivialises it. Make it a tunable constant from day one.
+Two things this section used to say that the game does not do. **The horn is not
+tapped** - it fires on its own, because one pointer has to carry turning and
+binding and a third job on the same button was one too many. And **releasing does
+not cast**: a charge fires itself when it completes, and letting go early
+abandons it.
+
+**Turn speed is the primary difficulty knob** - slow turning plus 360° threats is
+the tension; fast turning trivialises it. It is `_KTURN` for the keyboard, and for
+the mouse it is whatever the hand does.
 
 ---
 
 ## 13. Audio
 
 - **SFX:** ZzFX, ~1KB. Parameter arrays, no sample data
-- **Music:** generative. Pick notes from a scale, schedule with ZzFX on a timer, shift key as waves escalate. ~300 bytes vs 1,500–2,500 for a tracker
+- **Music:** generative. Pick notes from a scale, schedule with ZzFX on a timer, shift key as waves escalate. ~300 bytes vs 1,500-2,500 for a tracker
 - **Directional cue for off-screen ghosts is required.** With 360° threats and no movement, being hit by something you never had a chance to perceive is the main way this design feels unfair. Pan a spawn sound to the ghost's bearing
 
 ---
@@ -349,9 +430,9 @@ One code path for mouse and touch via Pointer Events. No gestures to learn.
 Saturated emissive spectrum on near-black.
 
 - Dark field, dark sky, faint horizon
-- Ghosts are desaturated and translucent — the rainbow and the horn are the only strongly chromatic things in the world, except the Hulk's red
+- Ghosts are desaturated and translucent - the rainbow and the horn are the only strongly chromatic things in the world, except the Hulk's red
 - Flat shading, hard edges, three value steps
-- Colour via `hsl(h,100%,50%)` — the whole spectrum from one variable, near-free for a rainbow theme
+- Colour via `hsl(h,100%,50%)` - the whole spectrum from one variable, near-free for a rainbow theme
 
 ---
 
@@ -378,7 +459,7 @@ Wavedash listing art, screenshots and description are **platform metadata, not i
 
 ## 16. Checks
 
-`tests/` — plain Node, no framework, no dependencies. Every one of them drives the
+`tests/` - plain Node, no framework, no dependencies. Every one of them drives the
 real module rather than a copy of it, which is why they cannot drift from what
 ships.
 
@@ -399,12 +480,12 @@ exited 0, so a hundred failing assertions and a clean run were the same thing to
 anything that was not a person reading the output.
 
 `api.mjs` and `browsers.mjs` read `dist/index.html`, so both need `npm run build`
-first — `dist/` is not tracked.
+first - `dist/` is not tracked.
 
 `browsers.mjs` is the competition's zero-console-errors rule, checked rather than
 assumed. It needs no automation library: a tiny server puts a reporter in front
-of the shipped file, the page plays itself for eleven seconds — title, how-to,
-clicks, drags, a keyboard turn, a held charge, mute — and posts back everything
+of the shipped file, the page plays itself for eleven seconds - title, how-to,
+clicks, drags, a keyboard turn, a held charge, mute - and posts back everything
 `console.error`, `console.warn`, `window.onerror` and `unhandledrejection` saw.
 It also samples the canvas twice a second apart, because a game that throws
 nothing and paints a frozen frame passes a console check and is still broken.
